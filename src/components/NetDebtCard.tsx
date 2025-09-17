@@ -34,37 +34,15 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
       maximumFractionDigits: 2
     }).format(value);
 
-  const formatInput = (value: string) => {
-    // Remove all non-numeric characters except digits, dots and commas
-    let numericValue = value.replace(/[^\d.,]/g, '');
-    
-    // Handle Brazilian decimal format (comma as decimal separator)
-    // If there's a comma, treat everything after it as decimals
-    if (numericValue.includes(',')) {
-      const parts = numericValue.split(',');
-      if (parts.length > 2) {
-        // Multiple commas, keep only the last one as decimal separator
-        numericValue = parts.slice(0, -1).join('').replace(/\./g, '') + ',' + parts[parts.length - 1];
-      }
-      // Remove dots from the integer part (they are thousand separators)
-      const integerPart = parts[0].replace(/\./g, '');
-      const decimalPart = parts[1] ? parts[1].substring(0, 2) : ''; // Max 2 decimal places
-      numericValue = integerPart + (decimalPart ? ',' + decimalPart : '');
-    } else {
-      // No comma, remove all dots (thousand separators)
-      numericValue = numericValue.replace(/\./g, '');
-    }
-    
-    // Convert to number for validation
-    const numberValue = parseFloat(numericValue.replace(/\./g, '').replace(',', '.'));
-    
-    if (isNaN(numberValue) || numberValue < 0) return '';
-    
-    // Format with proper thousand separators and decimal comma
+  // Format a raw string as BRL currency (used on blur only to avoid caret jumps)
+  const formatBRL = (value: string) => {
+    const numericValue = value ? value.replace(/\./g, '').replace(',', '.') : '';
+    const parsed = parseFloat(numericValue);
+    if (isNaN(parsed) || parsed < 0) return '';
     return new Intl.NumberFormat('pt-BR', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(numberValue);
+      maximumFractionDigits: 2,
+    }).format(parsed);
   };
 
   const parseCurrencyInput = (value: string): number => {
@@ -129,8 +107,14 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
   const isPositive = netDebt > 0;
 
   const handleCashBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formattedValue = formatInput(e.target.value);
-    setCashBalance(formattedValue);
+    // Do not format on change to preserve caret position
+    setCashBalance(e.target.value);
+  };
+
+  const handleCashBalanceBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Format on blur to BRL pattern
+    const formatted = formatBRL(e.target.value);
+    setCashBalance(formatted);
   };
 
   return (
@@ -160,8 +144,12 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
               <Input
                 id="cash-balance"
                 type="text"
+                inputMode="decimal"
+                pattern="[0-9.,]*"
+                autoComplete="off"
                 value={cashBalance}
                 onChange={handleCashBalanceChange}
+                onBlur={handleCashBalanceBlur}
                 placeholder="0,00"
                 className="pl-12 pr-4 py-6 text-xl font-semibold text-foreground border-2 border-border 
                           focus:border-primary focus:ring-4 focus:ring-primary/20 
