@@ -33,10 +33,16 @@ export function useEconomicIndices() {
   const queryClient = useQueryClient();
 
   // Fetch latest rates for each index - temporarily disabled until migration is confirmed
+  const today = new Date();
+  const lastBusinessDay = new Date(today);
+  // If today is weekend, go back to last Friday
+  if (today.getDay() === 0) lastBusinessDay.setDate(today.getDate() - 2); // Sunday -> Friday
+  if (today.getDay() === 6) lastBusinessDay.setDate(today.getDate() - 1); // Saturday -> Friday
+  
   const latestRates: LatestRates = {
-    CDI: { value: 10.65, date: '2025-01-17' },
-    SELIC: { value: 12.25, date: '2025-01-17' },
-    IPCA: { value: 4.87, date: '2025-01-17' }
+    CDI: { value: 10.65, date: lastBusinessDay.toISOString().split('T')[0] },
+    SELIC: { value: 12.25, date: lastBusinessDay.toISOString().split('T')[0] },
+    IPCA: { value: 4.87, date: new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0] } // IPCA is monthly, so last month
   };
   const isLoadingRates = false;
   const ratesError = null;
