@@ -39,6 +39,7 @@ const COLORS = [
 
 export const DebtChart = ({ debts }: DebtChartProps) => {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
+  const [selectedIndexerType, setSelectedIndexerType] = useState<string>("all");
   const [chartType, setChartType] = useState<string>("bank");
 
   // Get unique banks
@@ -49,9 +50,15 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
   // Filter debts based on selections
   const filteredDebts = useMemo(() => {
     return debts.filter(debt => {
-      return selectedBanks.length === 0 || selectedBanks.includes(debt.bank);
+      const bankMatch = selectedBanks.length === 0 || selectedBanks.includes(debt.bank);
+      
+      const indexerTypeMatch = selectedIndexerType === "all" || 
+        (selectedIndexerType === "pre" && !debt.indexer) ||
+        (selectedIndexerType === "pos" && debt.indexer);
+      
+      return bankMatch && indexerTypeMatch;
     });
-  }, [debts, selectedBanks]);
+  }, [debts, selectedBanks, selectedIndexerType]);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -186,6 +193,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
 
   const clearFilters = () => {
     setSelectedBanks([]);
+    setSelectedIndexerType("all");
   };
 
   if (debts.length === 0) {
@@ -243,7 +251,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
         </div>
 
         {/* Filters Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Filtrar por Bancos</label>
             <Popover>
@@ -266,7 +274,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      onClick={clearFilters}
+                      onClick={() => setSelectedBanks([])}
                       className="h-6 px-2 text-xs"
                     >
                       Limpar
@@ -298,12 +306,36 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Pré/Pós Fixado</label>
+            <Select value={selectedIndexerType} onValueChange={setSelectedIndexerType}>
+              <SelectTrigger className="bg-popover">
+                <SelectValue placeholder="Todos os tipos" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border border-border shadow-lg z-50">
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                <SelectItem value="pre">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    Pré-fixado
+                  </div>
+                </SelectItem>
+                <SelectItem value="pos">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    Pós-fixado
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Tipo de Visualização</label>
             <Select value={chartType} onValueChange={setChartType}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-popover">
                 <SelectValue placeholder="Selecione o tipo" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover border border-border shadow-lg z-50">
                 <SelectItem value="bank">Distribuição por Banco</SelectItem>
                 <SelectItem value="system">Sistema de Amortização</SelectItem>
                 <SelectItem value="comparison">Comparativo de Bancos</SelectItem>
@@ -325,9 +357,9 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
         </div>
 
         {/* Active Filters */}
-        {selectedBanks.length > 0 && (
+        {(selectedBanks.length > 0 || selectedIndexerType !== "all") && (
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-sm text-muted-foreground">Bancos selecionados:</span>
+            <span className="text-sm text-muted-foreground">Filtros ativos:</span>
             {selectedBanks.map((bank) => (
               <Badge key={bank} variant="secondary" className="flex items-center gap-1">
                 {bank}
@@ -339,6 +371,18 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                 </button>
               </Badge>
             ))}
+            {selectedIndexerType !== "all" && (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${selectedIndexerType === 'pre' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+                {selectedIndexerType === 'pre' ? 'Pré-fixado' : 'Pós-fixado'}
+                <button 
+                  onClick={() => setSelectedIndexerType("all")}
+                  className="ml-1 text-muted-foreground hover:text-foreground"
+                >
+                  ×
+                </button>
+              </Badge>
+            )}
           </div>
         )}
       </div>
