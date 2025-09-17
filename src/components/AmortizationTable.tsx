@@ -18,6 +18,7 @@ interface Debt {
   indexer?: string;
   iofAmount?: number;
   tacAmount?: number;
+  contractNumber?: string;
 }
 
 interface Installment {
@@ -135,7 +136,7 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `amortizacao_${debt.bank}_${debt.id.slice(0, 8)}.csv`;
+    a.download = `amortizacao_${debt.bank}_${debt.contractNumber || debt.id.slice(0, 8)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -191,6 +192,11 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
             <CardTitle className="flex items-center gap-2">
               <Calculator className="h-5 w-5" />
               Tabela de Amortização - {debt.calculationTable}
+              {debt.contractNumber && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  (Contrato #{debt.contractNumber})
+                </span>
+              )}
             </CardTitle>
             <div className="flex gap-2">
               <Button

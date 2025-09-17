@@ -24,6 +24,7 @@ interface Debt {
   iofAmount?: number;
   tacAmount?: number;
   bank: string;
+  contractNumber?: string;
 }
 
 interface DebtFormProps {
@@ -62,7 +63,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     interestType: debt?.interestType || 'monthly' as 'monthly' | 'annual',
     iofAmount: debt?.iofAmount || 0,
     tacAmount: debt?.tacAmount || 0,
-    bank: debt?.bank || 'Banco do Brasil'
+    bank: debt?.bank || 'Banco do Brasil',
+    contractNumber: debt?.contractNumber || ""
   });
 
   const [financedAmountDisplay, setFinancedAmountDisplay] = useState(
@@ -93,7 +95,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       interestType: formData.interestType,
       iofAmount: formData.iofAmount || undefined,
       tacAmount: formData.tacAmount || undefined,
-      bank: formData.bank
+      bank: formData.bank,
+      contractNumber: formData.contractNumber || undefined
     });
     onClose();
   };
@@ -109,7 +112,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       interestType: 'monthly',
       iofAmount: 0,
       tacAmount: 0,
-      bank: 'Banco do Brasil'
+      bank: 'Banco do Brasil',
+      contractNumber: ""
     });
     setFinancedAmountDisplay("R$ 0,00");
     setIofAmountDisplay("R$ 0,00");
@@ -329,6 +333,16 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
           {/* Campos Opcionais */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-muted-foreground">Campos Opcionais</h3>
+            
+            <div className="space-y-2">
+              <Label htmlFor="contractNumber" className="text-sm font-medium">N. do Contrato</Label>
+              <Input
+                id="contractNumber"
+                value={formData.contractNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, contractNumber: e.target.value }))}
+                placeholder="Ex: 12345678-90"
+              />
+            </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

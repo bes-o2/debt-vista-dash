@@ -15,6 +15,7 @@ interface Debt {
   iofAmount?: number;
   tacAmount?: number;
   bank: string;
+  contractNumber?: string;
 }
 
 interface DebtCardProps {
@@ -66,7 +67,7 @@ export const DebtCard = ({ debt, onEdit, onViewTable }: DebtCardProps) => {
                 {debt.bank}
               </h3>
               <p className="text-sm text-muted-foreground">
-                Financiamento #{debt.id.slice(-4)}
+                {debt.contractNumber ? `Contrato #${debt.contractNumber}` : `Financiamento #${debt.id.slice(-4)}`}
               </p>
             </div>
           </div>

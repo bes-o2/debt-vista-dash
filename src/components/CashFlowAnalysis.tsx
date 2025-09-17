@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,7 @@ interface Debt {
   interestType: 'monthly' | 'annual';
   iofAmount?: number;
   tacAmount?: number;
+  contractNumber?: string;
 }
 
 interface Installment {
@@ -247,25 +248,21 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header with Material 3 Expressive styling */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 rounded-2xl bg-primary/20 backdrop-blur-sm">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                Análise de Fluxo de Caixa
-              </h2>
-              <p className="text-muted-foreground">
-                Projeção financeira e análise de amortização das dívidas selecionadas
-              </p>
-            </div>
+      {/* Header without gradients */}
+      <div className="rounded-3xl bg-card p-8 border border-border">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-3 rounded-2xl bg-primary/10">
+            <BarChart3 className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">
+              Análise de Fluxo de Caixa
+            </h2>
+            <p className="text-muted-foreground">
+              Projeção financeira e análise de amortização das dívidas selecionadas
+            </p>
           </div>
         </div>
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
       </div>
 
       {/* Filters Section */}
@@ -362,6 +359,11 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
                   <div className="flex-1 min-w-0">
                     <label htmlFor={debt.id} className="text-sm font-medium cursor-pointer block truncate">
                       {formatCurrency(debt.financedAmount)}
+                      {debt.contractNumber && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          #{debt.contractNumber}
+                        </span>
+                      )}
                     </label>
                     <p className="text-xs text-muted-foreground">
                       {debt.calculationTable} • {debt.interestRate}% {debt.interestType === 'monthly' ? 'a.m.' : 'a.a.'}
@@ -415,7 +417,7 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
 
             <Button 
               onClick={calculateCashFlow}
-              className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg"
+              className="w-full"
               disabled={loading || finalDebts.length === 0}
             >
               {loading ? (
@@ -432,7 +434,7 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
       {/* Summary Stats */}
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <Card className="border border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingDown className="h-4 w-4 text-primary" />
@@ -442,33 +444,33 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
             </CardContent>
           </Card>
 
-          <Card className="border border-green-200 bg-gradient-to-br from-green-50 to-transparent">
+          <Card className="border border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="h-4 w-4 text-green-600" />
+                <DollarSign className="h-4 w-4 text-emerald-600" />
                 <span className="text-sm font-medium text-muted-foreground">Total Pago</span>
               </div>
-              <p className="text-xl font-bold text-green-700">{formatCurrency(stats.totalPayments)}</p>
+              <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.totalPayments)}</p>
             </CardContent>
           </Card>
 
-          <Card className="border border-orange-200 bg-gradient-to-br from-orange-50 to-transparent">
+          <Card className="border border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp className="h-4 w-4 text-orange-600" />
                 <span className="text-sm font-medium text-muted-foreground">Total Juros</span>
               </div>
-              <p className="text-xl font-bold text-orange-700">{formatCurrency(stats.totalInterests)}</p>
+              <p className="text-xl font-bold text-orange-600">{formatCurrency(stats.totalInterests)}</p>
             </CardContent>
           </Card>
 
-          <Card className="border border-blue-200 bg-gradient-to-br from-blue-50 to-transparent">
+          <Card className="border border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Calendar className="h-4 w-4 text-blue-600" />
                 <span className="text-sm font-medium text-muted-foreground">Períodos</span>
               </div>
-              <p className="text-xl font-bold text-blue-700">{stats.periodsAnalyzed} meses</p>
+              <p className="text-xl font-bold text-blue-600">{stats.periodsAnalyzed} meses</p>
             </CardContent>
           </Card>
         </div>
@@ -489,21 +491,7 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
           <CardContent>
             <div className="h-96 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                    </linearGradient>
-                    <linearGradient id="amortizationGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
-                    </linearGradient>
-                    <linearGradient id="interestGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
+                <ComposedChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis 
                     dataKey="month" 
@@ -511,47 +499,54 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
                     tickLine={false}
                   />
                   <YAxis 
+                    yAxisId="balance"
+                    orientation="left"
+                    tickFormatter={formatCurrency}
+                    tick={{ fontSize: 12 }}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    yAxisId="payments"
+                    orientation="right"
                     tickFormatter={formatCurrency}
                     tick={{ fontSize: 12 }}
                     tickLine={false}
                   />
                   <Tooltip 
                     formatter={(value: number) => formatCurrency(value)}
-                    labelStyle={{ color: '#000' }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
                     contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)', 
-                      border: 'none',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
                     }}
                   />
                   <Legend />
                   
-                  <Area
+                  <Line
+                    yAxisId="balance"
                     type="monotone"
                     dataKey="totalBalance"
-                    stroke="#3b82f6"
+                    stroke="hsl(var(--primary))"
                     strokeWidth={3}
-                    fill="url(#balanceGradient)"
+                    dot={false}
                     name="Saldo Devedor"
                   />
-                  <Area
-                    type="monotone"
+                  <Bar
+                    yAxisId="payments"
                     dataKey="totalAmortization"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fill="url(#amortizationGradient)"
+                    fill="hsl(var(--chart-2))"
                     name="Amortização"
+                    opacity={0.8}
                   />
-                  <Area
-                    type="monotone"
+                  <Bar
+                    yAxisId="payments"
                     dataKey="totalInterest"
-                    stroke="#f59e0b"
-                    strokeWidth={2}
-                    fill="url(#interestGradient)"
+                    fill="hsl(var(--chart-3))"
                     name="Juros"
+                    opacity={0.8}
                   />
-                </AreaChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
