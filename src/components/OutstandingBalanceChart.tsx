@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useState, useMemo } from "react";
 import { Building, Calendar } from "lucide-react";
 
@@ -56,61 +56,63 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
     }));
   }, [debts]);
 
-  // Calculate outstanding balance by bank for multiple years
+  // Calculate outstanding balance by bank over time
   const chartData = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 8 }, (_, i) => currentYear - 7 + i);
+    if (debts.length === 0) return [];
+
+    // Find the earliest release date and latest due date
+    const earliestDate = new Date(Math.min(...debts.map(d => new Date(d.releaseDate).getTime())));
+    const latestDate = new Date(Math.max(...debts.map(d => new Date(d.dueDate).getTime())));
+    
+    // Determine end date based on selection
+    const endDate = dateType === 'today' ? new Date() : new Date(customDate);
+    const startDate = dateType === 'today' ? earliestDate : earliestDate;
+    
+    // Generate yearly data from start to end
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+    const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
     
     return years.map(year => {
       const yearData: any = { year: year.toString() };
-      let totalBalance = 0;
 
       banks.forEach(bank => {
         const bankDebts = debts.filter(d => d.bank === bank.name);
         const bankBalance = bankDebts.reduce((sum, debt) => {
-          // Simulate outstanding balance decrease over time
           const releaseYear = new Date(debt.releaseDate).getFullYear();
           const dueYear = new Date(debt.dueDate).getFullYear();
           
-          if (year < releaseYear) return sum;
-          if (year > dueYear) return sum;
+          // Skip if debt hasn't started or has ended
+          if (year < releaseYear || year > dueYear) return sum;
           
           const totalYears = dueYear - releaseYear;
           const yearsElapsed = year - releaseYear;
-          const remainingBalance = debt.financedAmount * (1 - yearsElapsed / totalYears);
+          
+          // Linear amortization
+          const remainingBalance = totalYears > 0 
+            ? debt.financedAmount * (1 - yearsElapsed / totalYears)
+            : debt.financedAmount;
           
           return sum + Math.max(0, remainingBalance);
         }, 0);
         
         yearData[bank.name] = bankBalance;
-        totalBalance += bankBalance;
       });
-
-      // Calculate debt/EBITDA ratio (simulated)
-      const ebitda = 50000000 + (year - currentYear + 7) * 5000000; // Simulated EBITDA growth
-      yearData.ratio = totalBalance / ebitda;
       
       return yearData;
     });
-  }, [debts, banks]);
+  }, [debts, banks, dateType, customDate]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="font-semibold text-foreground mb-2">{label}</p>
-          {payload
-            .filter((entry: any) => entry.dataKey !== 'ratio')
-            .map((entry: any, index: number) => (
-              <p key={index} className="text-sm" style={{ color: entry.color }}>
-                {entry.dataKey}: {formatCurrency(entry.value)}
-              </p>
-            ))}
-          {payload.find((entry: any) => entry.dataKey === 'ratio') && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Dívida/EBITDA: {payload.find((entry: any) => entry.dataKey === 'ratio')?.value?.toFixed(2)}x
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.dataKey}: {formatCurrency(entry.value)}
             </p>
-          )}
+          ))}
         </div>
       );
     }
@@ -171,7 +173,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={400}>
-          <ComposedChart data={chartData}>
+          <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis 
               dataKey="year" 
@@ -179,17 +181,9 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
               fontSize={12}
             />
             <YAxis 
-              yAxisId="left"
               stroke="hsl(var(--muted-foreground))"
               fontSize={12}
               tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-            />
-            <YAxis 
-              yAxisId="right" 
-              orientation="right"
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickFormatter={(value) => `${value.toFixed(1)}x`}
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend />
@@ -197,24 +191,13 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             {banks.map((bank, index) => (
               <Bar
                 key={bank.name}
-                yAxisId="left"
                 dataKey={bank.name}
                 stackId="debt"
                 fill={bank.color}
                 name={bank.name}
               />
             ))}
-            
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="ratio"
-              stroke="hsl(var(--destructive))"
-              strokeWidth={3}
-              name="Dívida Líquida/EBITDA"
-              dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2, r: 4 }}
-            />
-          </ComposedChart>
+          </BarChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
