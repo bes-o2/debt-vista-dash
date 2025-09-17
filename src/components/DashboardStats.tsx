@@ -22,25 +22,26 @@ interface Debt {
 
 interface DashboardStatsProps {
   debts: Debt[];
+  selectedBank?: string;
+  selectedCalculationType?: string;
+  selectedDebts?: string[];
 }
 
-export const DashboardStats = ({ debts }: DashboardStatsProps) => {
-  const [selectedBank, setSelectedBank] = useState<string>("all");
-  const [selectedCalculationType, setSelectedCalculationType] = useState<string>("all");
-
-  // Get unique banks
-  const availableBanks = useMemo(() => {
-    return [...new Set(debts.map(debt => debt.bank))];
-  }, [debts]);
-
+export const DashboardStats = ({ 
+  debts, 
+  selectedBank = "all", 
+  selectedCalculationType = "all", 
+  selectedDebts = [] 
+}: DashboardStatsProps) => {
   // Filter debts based on selections
   const filteredDebts = useMemo(() => {
     return debts.filter(debt => {
       const bankMatch = selectedBank === "all" || debt.bank === selectedBank;
       const typeMatch = selectedCalculationType === "all" || debt.calculationTable === selectedCalculationType;
-      return bankMatch && typeMatch;
+      const debtMatch = selectedDebts.length === 0 || selectedDebts.includes(debt.id);
+      return bankMatch && typeMatch && debtMatch;
     });
-  }, [debts, selectedBank, selectedCalculationType]);
+  }, [debts, selectedBank, selectedCalculationType, selectedDebts]);
 
   const totalFinanced = filteredDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
   const totalCosts = filteredDebts.reduce((sum, debt) => {
@@ -131,11 +132,6 @@ export const DashboardStats = ({ debts }: DashboardStatsProps) => {
     }
   ];
 
-  const clearFilters = () => {
-    setSelectedBank("all");
-    setSelectedCalculationType("all");
-  };
-
   return (
     <div className="space-y-6">
       {/* Header with Material 3 styling */}
@@ -153,66 +149,6 @@ export const DashboardStats = ({ debts }: DashboardStatsProps) => {
             </p>
           </div>
         </div>
-
-        {/* Filters Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Filtrar por Banco</label>
-            <Select value={selectedBank} onValueChange={setSelectedBank}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os bancos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os bancos</SelectItem>
-                {availableBanks.map((bank) => (
-                  <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Sistema de Amortização</label>
-            <Select value={selectedCalculationType} onValueChange={setSelectedCalculationType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os sistemas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os sistemas</SelectItem>
-                <SelectItem value="SAC">SAC</SelectItem>
-                <SelectItem value="PRICE">PRICE</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <Button 
-              variant="outline" 
-              onClick={clearFilters}
-              className="w-full"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Limpar Filtros
-            </Button>
-          </div>
-        </div>
-
-        {/* Active Filters */}
-        {(selectedBank !== "all" || selectedCalculationType !== "all") && (
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-muted-foreground">Filtros ativos:</span>
-            {selectedBank !== "all" && (
-              <Badge variant="secondary">
-                Banco: {selectedBank}
-              </Badge>
-            )}
-            {selectedCalculationType !== "all" && (
-              <Badge variant="secondary">
-                Sistema: {selectedCalculationType}
-              </Badge>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Stats Cards */}
@@ -335,7 +271,7 @@ export const DashboardStats = ({ debts }: DashboardStatsProps) => {
               <p className="text-muted-foreground mb-4">
                 Os filtros aplicados não retornaram resultados. Tente ajustar os critérios de busca.
               </p>
-              <Button variant="outline" onClick={clearFilters}>
+              <Button variant="outline" onClick={() => {}}>
                 Limpar Filtros
               </Button>
             </div>

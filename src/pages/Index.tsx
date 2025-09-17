@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
+import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
 interface Debt {
@@ -107,6 +108,11 @@ const Index = () => {
   const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<Debt | null>(null);
+  
+  // Global filters state
+  const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
+  const [globalSelectedCalculationType, setGlobalSelectedCalculationType] = useState<string>("all");
+  const [globalSelectedDebts, setGlobalSelectedDebts] = useState<string[]>([]);
 
   // Filter debts by selected bank
   const filteredDebts = selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank);
@@ -153,6 +159,12 @@ const Index = () => {
   const handleNewDebt = () => {
     setEditingDebt(undefined);
     setIsFormOpen(true);
+  };
+
+  const handleClearGlobalFilters = () => {
+    setGlobalSelectedBank("all");
+    setGlobalSelectedCalculationType("all");
+    setGlobalSelectedDebts([]);
   };
   return <div className="min-h-screen bg-background">
       {/* Header */}
@@ -207,7 +219,24 @@ const Index = () => {
           </TabsList>
 
             <TabsContent value="dashboard" className="space-y-6">
-              <DashboardStats debts={debts} />
+              {/* Global Filters */}
+              <GlobalFilters
+                debts={debts}
+                selectedBank={globalSelectedBank}
+                selectedCalculationType={globalSelectedCalculationType}
+                selectedDebts={globalSelectedDebts}
+                onBankChange={setGlobalSelectedBank}
+                onCalculationTypeChange={setGlobalSelectedCalculationType}
+                onDebtsChange={setGlobalSelectedDebts}
+                onClearFilters={handleClearGlobalFilters}
+              />
+              
+              <DashboardStats 
+                debts={debts} 
+                selectedBank={globalSelectedBank}
+                selectedCalculationType={globalSelectedCalculationType}
+                selectedDebts={globalSelectedDebts}
+              />
               
               {/* Outstanding Balance by Bank */}
               <OutstandingBalanceChart debts={debts} />
