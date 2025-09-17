@@ -9,7 +9,8 @@ interface Debt {
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
   interestRate: number;
-  interestRateType: 'monthly' | 'annual';
+  interestType: 'monthly' | 'annual';
+  bank: string;
   iofAmount?: number;
   tacAmount?: number;
 }

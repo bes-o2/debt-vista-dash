@@ -6,6 +6,8 @@ import { DebtCard } from "@/components/DebtCard";
 import { DebtForm } from "@/components/DebtForm";
 import { DashboardStats } from "@/components/DashboardStats";
 import { DebtChart } from "@/components/DebtChart";
+import { AmortizationTable } from "@/components/AmortizationTable";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
 interface Debt {
@@ -16,7 +18,7 @@ interface Debt {
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
   interestRate: number;
-  interestRateType: 'monthly' | 'annual';
+  interestType: 'monthly' | 'annual';
   iofAmount?: number;
   tacAmount?: number;
   bank: string;
@@ -27,6 +29,7 @@ const Index = () => {
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
+  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const { toast } = useToast();
 
   const handleSaveDebt = (debtData: Omit<Debt, 'id'>) => {
@@ -95,7 +98,7 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <PieChart className="h-4 w-4" />
               Dashboard
@@ -103,6 +106,10 @@ const Index = () => {
             <TabsTrigger value="debts" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Cadastros
+            </TabsTrigger>
+            <TabsTrigger value="table" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Tabela
             </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center gap-2">
               <Calculator className="h-4 w-4" />
@@ -156,9 +163,29 @@ const Index = () => {
                     key={debt.id} 
                     debt={debt} 
                     onEdit={handleEditDebt}
+                    onViewTable={(debt) => setSelectedDebt(debt)}
                   />
                 ))}
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="table" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-bold tracking-tight">Tabela de Amortização</h2>
+            </div>
+            {selectedDebt ? (
+              <AmortizationTable debt={selectedDebt} />
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">
+                      Selecione uma dívida na aba "Cadastros" para visualizar sua tabela de amortização.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 

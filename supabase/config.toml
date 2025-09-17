@@ -1,1 +1,4 @@
 project_id = "zujkmyfwfhjkixlymgiv"
+
+[functions.calculate-amortization]
+verify_jwt = false

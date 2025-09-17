@@ -20,7 +20,7 @@ interface Debt {
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
   interestRate: number;
-  interestRateType: 'monthly' | 'annual';
+  interestType: 'monthly' | 'annual';
   iofAmount?: number;
   tacAmount?: number;
   bank: string;
@@ -59,7 +59,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     calculationTable: debt?.calculationTable || 'SAC' as 'SAC' | 'PRICE',
     indexer: debt?.indexer || "",
     interestRate: debt?.interestRate || 0,
-    interestRateType: debt?.interestRateType || 'monthly' as 'monthly' | 'annual',
+    interestType: debt?.interestType || 'monthly' as 'monthly' | 'annual',
     iofAmount: debt?.iofAmount || 0,
     tacAmount: debt?.tacAmount || 0,
     bank: debt?.bank || 'Banco do Brasil'
@@ -90,7 +90,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       calculationTable: formData.calculationTable,
       indexer: formData.calculationTable === 'SAC' ? formData.indexer : undefined,
       interestRate: formData.interestRate,
-      interestRateType: formData.interestRateType,
+      interestType: formData.interestType,
       iofAmount: formData.iofAmount || undefined,
       tacAmount: formData.tacAmount || undefined,
       bank: formData.bank
@@ -106,7 +106,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       calculationTable: 'SAC',
       indexer: "",
       interestRate: 0,
-      interestRateType: 'monthly',
+      interestType: 'monthly',
       iofAmount: 0,
       tacAmount: 0,
       bank: 'Banco do Brasil'
@@ -292,9 +292,9 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
                 Tipo de Taxa <span className="text-red-500">*</span>
               </Label>
               <RadioGroup 
-                value={formData.interestRateType} 
+                value={formData.interestType} 
                 onValueChange={(value: 'monthly' | 'annual') => 
-                  setFormData(prev => ({ ...prev, interestRateType: value }))
+                  setFormData(prev => ({ ...prev, interestType: value }))
                 }
                 className="flex gap-6"
               >
@@ -311,7 +311,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
 
             <div className="space-y-2">
               <Label htmlFor="interestRate" className="text-sm font-medium">
-                {formData.interestRateType === 'monthly' ? 'Taxa a.m (%)' : 'Taxa a.a (%)'} <span className="text-red-500">*</span>
+                {formData.interestType === 'monthly' ? 'Taxa a.m (%)' : 'Taxa a.a (%)'} <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="interestRate"

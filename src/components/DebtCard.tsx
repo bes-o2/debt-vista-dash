@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit2, Calendar, DollarSign, TrendingUp, Building } from "lucide-react";
+import { Edit2, Calendar, DollarSign, TrendingUp, Building, Calculator } from "lucide-react";
 
 interface Debt {
   id: string;
@@ -11,7 +11,7 @@ interface Debt {
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
   interestRate: number;
-  interestRateType: 'monthly' | 'annual';
+  interestType: 'monthly' | 'annual';
   iofAmount?: number;
   tacAmount?: number;
   bank: string;
@@ -20,9 +20,10 @@ interface Debt {
 interface DebtCardProps {
   debt: Debt;
   onEdit: (debt: Debt) => void;
+  onViewTable?: (debt: Debt) => void;
 }
 
-export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
+export const DebtCard = ({ debt, onEdit, onViewTable }: DebtCardProps) => {
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
       style: 'currency', 
@@ -52,7 +53,7 @@ export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
   const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
 
   return (
-    <Card className="group hover:shadow-elegant transition-all duration-300 bg-gradient-card border-border/50">
+    <Card className="group hover:shadow-elegant transition-all duration-300 bg-gradient-card border-border/50 relative">
       <div className="flex">
         {/* Left Section - Bank and Header */}
         <div className="flex-shrink-0 w-64 p-6 border-r border-border/50 bg-muted/20">
@@ -83,16 +84,6 @@ export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
               </Badge>
             )}
           </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onEdit(debt)}
-            className="mt-4 w-full opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Edit2 className="h-4 w-4 mr-2" />
-            Editar
-          </Button>
         </div>
 
         {/* Right Section - Details */}
@@ -114,7 +105,7 @@ export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
                 <span className="text-sm text-muted-foreground">Taxa de juros</span>
                 <span className="font-medium text-foreground flex items-center gap-1">
                   <TrendingUp className="h-4 w-4" />
-                  {debt.interestRate.toFixed(3)}% {debt.interestRateType === 'monthly' ? 'a.m.' : 'a.a.'}
+                  {debt.interestRate.toFixed(3)}% {debt.interestType === 'monthly' ? 'a.m.' : 'a.a.'}
                 </span>
               </div>
 
@@ -185,6 +176,30 @@ export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Hover overlay with action buttons */}
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2 rounded-lg">
+        <Button 
+          onClick={() => onEdit(debt)}
+          variant="secondary"
+          size="sm"
+          className="bg-white text-black hover:bg-gray-100"
+        >
+          <Edit2 className="h-4 w-4 mr-2" />
+          Editar
+        </Button>
+        {onViewTable && (
+          <Button 
+            onClick={() => onViewTable(debt)}
+            variant="secondary"
+            size="sm"
+            className="bg-white text-black hover:bg-gray-100"
+          >
+            <Calculator className="h-4 w-4 mr-2" />
+            Tabela
+          </Button>
+        )}
       </div>
     </Card>
   );

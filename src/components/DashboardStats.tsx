@@ -9,9 +9,10 @@ interface Debt {
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
   interestRate: number;
-  interestRateType: 'monthly' | 'annual';
+  interestType: 'monthly' | 'annual';
   iofAmount?: number;
   tacAmount?: number;
+  bank: string;
 }
 
 interface DashboardStatsProps {
@@ -29,7 +30,7 @@ export const DashboardStats = ({ debts }: DashboardStatsProps) => {
 
   // Convert annual rates to monthly for comparison
   const normalizedRates = debts.map(debt => 
-    debt.interestRateType === 'annual' 
+    debt.interestType === 'annual' 
       ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
       : debt.interestRate / 100
   );
