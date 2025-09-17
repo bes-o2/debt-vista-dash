@@ -35,14 +35,32 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
     }).format(value);
 
   const formatInput = (value: string) => {
-    // Remove all non-numeric characters except dots and commas
-    const numericValue = value.replace(/[^\d.,]/g, '');
+    // Remove all non-numeric characters except digits, dots and commas
+    let numericValue = value.replace(/[^\d.,]/g, '');
     
-    // Convert to number (handle Brazilian format)
-    const numberValue = parseFloat(numericValue.replace(',', '.'));
+    // Handle Brazilian decimal format (comma as decimal separator)
+    // If there's a comma, treat everything after it as decimals
+    if (numericValue.includes(',')) {
+      const parts = numericValue.split(',');
+      if (parts.length > 2) {
+        // Multiple commas, keep only the last one as decimal separator
+        numericValue = parts.slice(0, -1).join('').replace(/\./g, '') + ',' + parts[parts.length - 1];
+      }
+      // Remove dots from the integer part (they are thousand separators)
+      const integerPart = parts[0].replace(/\./g, '');
+      const decimalPart = parts[1] ? parts[1].substring(0, 2) : ''; // Max 2 decimal places
+      numericValue = integerPart + (decimalPart ? ',' + decimalPart : '');
+    } else {
+      // No comma, remove all dots (thousand separators)
+      numericValue = numericValue.replace(/\./g, '');
+    }
     
-    if (isNaN(numberValue)) return '';
+    // Convert to number for validation
+    const numberValue = parseFloat(numericValue.replace(/\./g, '').replace(',', '.'));
     
+    if (isNaN(numberValue) || numberValue < 0) return '';
+    
+    // Format with proper thousand separators and decimal comma
     return new Intl.NumberFormat('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
@@ -51,26 +69,58 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
 
   const parseCurrencyInput = (value: string): number => {
     if (!value) return 0;
-    // Remove formatting and convert to number
+    // Remove thousand separators (dots) and convert decimal comma to dot
     const numericValue = value.replace(/\./g, '').replace(',', '.');
-    return parseFloat(numericValue) || 0;
+    const parsed = parseFloat(numericValue);
+    return isNaN(parsed) ? 0 : parsed;
   };
 
-  // Calculate total debt
+  // Calculate current outstanding balance for each debt
+  const calculateCurrentBalance = (debt: Debt): number => {
+    const releaseDate = new Date(debt.releaseDate);
+    const dueDate = new Date(debt.dueDate);
+    const currentDate = new Date();
+    
+    // If contract hasn't started or has ended, balance is 0
+    if (currentDate < releaseDate || currentDate > dueDate) return 0;
+    
+    // Calculate months elapsed and total months
+    const monthsElapsed = Math.floor(
+      (currentDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+    );
+    const totalMonths = Math.floor(
+      (dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+    );
+    
+    if (monthsElapsed <= 0) return debt.financedAmount;
+    if (monthsElapsed >= totalMonths) return 0;
+    
+    const monthlyRate = debt.interestType === 'annual' 
+      ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+      : debt.interestRate / 100;
+    
+    const principal = debt.financedAmount;
+    
+    if (debt.calculationTable === 'SAC') {
+      // SAC: Constant principal amortization
+      const monthlyPrincipal = principal / totalMonths;
+      return principal - (monthlyPrincipal * monthsElapsed);
+    } else {
+      // PRICE: Constant installment
+      const monthlyPayment = (principal * monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / 
+                            (Math.pow(1 + monthlyRate, totalMonths) - 1);
+      
+      // Calculate remaining balance using the PRICE formula
+      const remainingMonths = totalMonths - monthsElapsed;
+      return (monthlyPayment * (Math.pow(1 + monthlyRate, remainingMonths) - 1)) / 
+             (monthlyRate * Math.pow(1 + monthlyRate, remainingMonths));
+    }
+  };
+
+  // Calculate total debt using proper amortization
   const totalDebt = useMemo(() => {
     return debts.reduce((sum, debt) => {
-      // Simulate current outstanding balance (for demo purposes)
-      const currentYear = new Date().getFullYear();
-      const releaseYear = new Date(debt.releaseDate).getFullYear();
-      const dueYear = new Date(debt.dueDate).getFullYear();
-      
-      if (currentYear < releaseYear || currentYear > dueYear) return sum;
-      
-      const totalYears = dueYear - releaseYear;
-      const yearsElapsed = currentYear - releaseYear;
-      const remainingBalance = debt.financedAmount * (1 - yearsElapsed / totalYears);
-      
-      return sum + Math.max(0, remainingBalance);
+      return sum + calculateCurrentBalance(debt);
     }, 0);
   }, [debts]);
 
