@@ -8,6 +8,7 @@ import { DebtForm } from "@/components/DebtForm";
 import { DashboardStats } from "@/components/DashboardStats";
 import { DebtChart } from "@/components/DebtChart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
@@ -25,6 +26,7 @@ interface Debt {
   iofAmount?: number;
   tacAmount?: number;
   bank: string;
+  contractNumber?: string;
 }
 
 const Index = () => {
@@ -41,7 +43,8 @@ const Index = () => {
       interestRate: 9.5,
       interestType: "annual",
       iofAmount: 2500,
-      tacAmount: 800
+      tacAmount: 800,
+      contractNumber: "BB240115001"
     },
     {
       id: "2", 
@@ -54,7 +57,8 @@ const Index = () => {
       interestRate: 8.75,
       interestType: "annual",
       iofAmount: 3200,
-      tacAmount: 950
+      tacAmount: 950,
+      contractNumber: "CEF230610002"
     },
     {
       id: "3",
@@ -67,7 +71,8 @@ const Index = () => {
       interestRate: 1.2,
       interestType: "monthly",
       iofAmount: 1800,
-      tacAmount: 600
+      tacAmount: 600,
+      contractNumber: "ITAU240320003"
     },
     {
       id: "4",
@@ -79,7 +84,8 @@ const Index = () => {
       interestRate: 10.25,
       interestType: "annual",
       iofAmount: 4100,
-      tacAmount: 1200
+      tacAmount: 1200,
+      contractNumber: "SAN231105004"
     },
     {
       id: "5",
@@ -92,14 +98,21 @@ const Index = () => {
       interestRate: 11.5,
       interestType: "annual",
       iofAmount: 1200,
-      tacAmount: 450
+      tacAmount: 450,
+      contractNumber: "BRAD240712005"
     }
   ]);
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+  const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
+  
+  // Filter debts by selected bank
+  const filteredDebts = selectedBank === "all" 
+    ? debts 
+    : debts.filter(debt => debt.bank === selectedBank);
   const { toast } = useToast();
 
   const handleSaveDebt = (debtData: Omit<Debt, 'id'>) => {
@@ -249,30 +262,71 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="table" className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4">
               <h2 className="text-3xl font-bold tracking-tight">Tabela de Amortização</h2>
-              <div className="flex items-center gap-4">
-                <Select
-                  value={selectedDebt?.id || ""}
-                  onValueChange={(debtId) => {
-                    const debt = debts.find(d => d.id === debtId);
-                    if (debt) setSelectedDebt(debt);
-                  }}
-                >
-                  <SelectTrigger className="w-80">
-                    <SelectValue placeholder="Selecione uma dívida..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border border-border shadow-lg">
-                    {debts.map((debt) => (
-                      <SelectItem key={debt.id} value={debt.id} className="hover:bg-accent">
-                        {debt.bank} - {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL'
-                        }).format(debt.financedAmount)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              
+              {/* Filters Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Bank Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Filtrar por Banco</Label>
+                  <Select
+                    value={selectedBank}
+                    onValueChange={setSelectedBank}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Todos os bancos" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border shadow-lg z-50">
+                      <SelectItem value="all">Todos os bancos</SelectItem>
+                      {Array.from(new Set(debts.map(debt => debt.bank))).map((bank) => (
+                        <SelectItem key={bank} value={bank}>
+                          {bank}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Debt Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Selecionar Dívida</Label>
+                  <Select
+                    value={selectedDebt?.id || ""}
+                    onValueChange={(debtId) => {
+                      const debt = filteredDebts.find(d => d.id === debtId);
+                      if (debt) setSelectedDebt(debt);
+                    }}
+                    disabled={filteredDebts.length === 0}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={filteredDebts.length > 0 ? "Selecione uma dívida..." : "Nenhuma dívida disponível"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border shadow-lg z-50">
+                      {filteredDebts.map((debt) => {
+                        const contractDisplay = debt.contractNumber || `CT${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+                        const monthlyRate = debt.interestType === 'monthly' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 1/12) - 1) * 100;
+                        const annualRate = debt.interestType === 'annual' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 12) - 1) * 100;
+                        
+                        return (
+                          <SelectItem key={debt.id} value={debt.id} className="hover:bg-accent">
+                            <div className="text-left">
+                              <div className="font-medium">
+                                Contrato {contractDisplay} | {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL'
+                                }).format(debt.financedAmount)}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {monthlyRate.toFixed(3)}% a.m // {annualRate.toFixed(2)}% a.a
+                              </div>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             {selectedDebt ? (
