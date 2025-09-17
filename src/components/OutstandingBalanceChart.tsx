@@ -127,18 +127,33 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             </div>
             Saldo Devedor por Banco
           </CardTitle>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="date-type" className="text-sm font-medium">Data Base:</Label>
-              <Select value={dateType} onValueChange={(value: 'today' | 'custom') => setDateType(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">● Hoje</SelectItem>
-                  <SelectItem value="custom">Personalizado</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              <Label className="text-sm font-medium">Data Base:</Label>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="dateType"
+                    value="today"
+                    checked={dateType === 'today'}
+                    onChange={(e) => setDateType(e.target.value as 'today' | 'custom')}
+                    className="text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Hoje</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="dateType"
+                    value="custom"
+                    checked={dateType === 'custom'}
+                    onChange={(e) => setDateType(e.target.value as 'today' | 'custom')}
+                    className="text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm">Personalizado</span>
+                </label>
+              </div>
             </div>
             {dateType === 'custom' && (
               <div className="flex items-center gap-2">
