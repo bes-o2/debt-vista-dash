@@ -130,9 +130,9 @@ EXECUTE FUNCTION public.update_updated_at_column();
 
 ## 📝 MIGRAÇÕES FUTURAS IDENTIFICADAS
 
-### **MIGRAÇÃO #2: Persistência de Contratos (Planejada)**
-**Prioridade:** 🟡 Média  
-**Descrição:** Mover dados de contratos do localStorage para banco de dados
+### **MIGRAÇÃO #2: Persistência de Contratos (URGENTE)**
+**Prioridade:** 🔴 Alta - **BLOQUEANDO FUNCIONALIDADE PRINCIPAL**
+**Descrição:** Mover dados de contratos do localStorage para banco de dados - **NECESSÁRIO PARA PMTs FUNCIONAREM**
 
 **Tabelas Necessárias:**
 ```sql
@@ -156,8 +156,8 @@ CREATE TABLE public.debts (
 );
 ```
 
-### **MIGRAÇÃO #3: Cache de Amortização (Planejada)**
-**Prioridade:** 🟢 Baixa  
+### **MIGRAÇÃO #3: Cache de Amortização (CRÍTICA)**
+**Prioridade:** 🔴 Alta - **NECESSÁRIA PARA DASHBOARD PMTs**
 **Descrição:** Armazenar tabelas de amortização calculadas para performance
 
 **Tabela Necessária:**
@@ -192,8 +192,23 @@ Quando a MIGRAÇÃO #1 for executada, estes arquivos precisam ser atualizados:
 - Ativar mutations para salvar projeções
 - Remover avisos sobre migração pendente
 
-### **2. `src/integrations/supabase/types.ts`**
-**Status:** Será atualizado automaticamente pelo Supabase após migração
+### **2. `src/components/DashboardStats.tsx`**
+**PROBLEMA IDENTIFICADO:** Não calcula PMTs - apenas soma valores brutos
+**Linhas a modificar:** 45-51, 95-132
+
+**Mudanças:**
+- Integrar com edge function de amortização
+- Calcular soma real das PMTs de cada dívida
+- Mostrar fluxo de caixa mensal total
+- Conectar com dados do banco em vez do localStorage
+
+### **3. `src/pages/Index.tsx`**
+**Linhas a modificar:** 37-103 (dados hardcodados)
+
+**Mudanças:**
+- Conectar aba "Cadastros" com banco de dados
+- Migrar dados do localStorage para persistência
+- Integrar formulário com tabela `debts`
 
 ---
 
