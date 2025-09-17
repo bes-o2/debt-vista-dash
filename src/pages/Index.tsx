@@ -202,7 +202,7 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center gap-2">
               <Calculator className="h-4 w-4" />
-              Análise
+              Fluxo de Pagamento
             </TabsTrigger>
           </TabsList>
 

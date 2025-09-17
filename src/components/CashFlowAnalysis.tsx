@@ -297,10 +297,10 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
           </div>
           <div>
             <h2 className="text-3xl font-bold text-foreground">
-              Análise de Fluxo de Caixa
+              Fluxo de Pagamento
             </h2>
             <p className="text-muted-foreground">
-              Projeção financeira e análise de amortização das dívidas selecionadas
+              Cronograma de pagamentos e projeção financeira das dívidas selecionadas
             </p>
           </div>
         </div>
