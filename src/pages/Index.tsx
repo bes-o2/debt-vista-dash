@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, PieChart, BarChart3, Calculator } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { DebtCard } from "@/components/DebtCard";
 import { DebtForm } from "@/components/DebtForm";
 import { DashboardStats } from "@/components/DashboardStats";
@@ -144,12 +145,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border/50 bg-gradient-card">
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-primary text-white">
+                <div className="p-2 rounded-lg bg-gradient-primary text-primary-foreground">
                   <Calculator className="h-6 w-6" />
                 </div>
                 Análise de Endividamento
@@ -158,13 +159,16 @@ const Index = () => {
                 Gerencie e monitore suas dívidas de forma inteligente
               </p>
             </div>
-            <Button 
-              onClick={handleNewDebt}
-              className="bg-gradient-primary hover:opacity-90 shadow-elegant"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Dívida
-            </Button>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button 
+                onClick={handleNewDebt}
+                className="bg-gradient-primary hover:opacity-90 shadow-elegant"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Dívida
+              </Button>
+            </div>
           </div>
         </div>
       </header>

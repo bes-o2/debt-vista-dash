@@ -6,96 +6,119 @@
 
 @layer base {
   :root {
-    --background: 220 15% 8%;
-    --foreground: 210 40% 98%;
+    /* Light mode colors */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
 
-    --card: 220 15% 10%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
 
-    --popover: 220 15% 10%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
 
     /* Corporate primary - Brand green */
-    --primary: 103 89% 71%;
-    --primary-foreground: 220 15% 8%;
+    --primary: 103 89% 35%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Corporate secondary - Dark gray */
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 210 40% 98%;
+    /* Corporate secondary - Light gray */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
 
-    --muted: 220 15% 15%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 103 89% 71%;
-    --accent-foreground: 220 15% 8%;
+    --accent: 103 89% 35%;
+    --accent-foreground: 0 0% 100%;
 
     /* Corporate colors */
-    --success: 103 89% 71%;
-    --success-foreground: 220 15% 8%;
+    --success: 103 89% 35%;
+    --success-foreground: 0 0% 100%;
     
     --warning: 45 93% 47%;
-    --warning-foreground: 220 15% 8%;
+    --warning-foreground: 0 0% 100%;
     
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 15%;
-    --ring: 103 89% 71%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 103 89% 35%;
 
-    /* Corporate gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(103 89% 71%), hsl(103 89% 55%));
-    --gradient-success: linear-gradient(135deg, hsl(103 89% 71%), hsl(103 89% 60%));
+    /* Light mode gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(103 89% 35%), hsl(103 89% 45%));
+    --gradient-success: linear-gradient(135deg, hsl(103 89% 35%), hsl(103 89% 40%));
     --gradient-warning: linear-gradient(135deg, hsl(45 93% 47%), hsl(35 91% 62%));
-    --gradient-card: linear-gradient(135deg, hsl(220 15% 10%), hsl(220 15% 12%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(210 40% 98%));
 
-    /* Corporate shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(103 89% 71% / 0.3);
-    --shadow-card: 0 4px 20px -2px hsl(220 15% 5% / 0.4);
+    /* Light mode shadows */
+    --shadow-elegant: 0 10px 30px -10px hsl(103 89% 35% / 0.3);
+    --shadow-card: 0 4px 20px -2px hsl(214.3 31.8% 91.4% / 0.4);
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 15% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 103 89% 71%;
-    --sidebar-primary-foreground: 220 15% 8%;
-    --sidebar-accent: 220 15% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 103 89% 71%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 103 89% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222.2 84% 4.9%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 103 89% 35%;
+
+    /* Chart colors for light mode */
+    --chart-1: 103 89% 35%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 45 93% 47%;
+    --chart-4: 259 92% 51%;
+    --chart-5: 340 75% 55%;
   }
 
   .dark {
-    /* Keep same as root since we want dark by default */
+    /* Dark mode colors */
     --background: 220 15% 8%;
     --foreground: 210 40% 98%;
+
     --card: 220 15% 10%;
     --card-foreground: 210 40% 98%;
+
     --popover: 220 15% 10%;
     --popover-foreground: 210 40% 98%;
+
     --primary: 103 89% 71%;
     --primary-foreground: 220 15% 8%;
+
     --secondary: 220 15% 15%;
     --secondary-foreground: 210 40% 98%;
+
     --muted: 220 15% 15%;
     --muted-foreground: 215 20.2% 65.1%;
+
     --accent: 103 89% 71%;
     --accent-foreground: 220 15% 8%;
+
     --success: 103 89% 71%;
     --success-foreground: 220 15% 8%;
+    
     --warning: 45 93% 47%;
     --warning-foreground: 220 15% 8%;
+    
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
+
     --border: 220 15% 20%;
     --input: 220 15% 15%;
     --ring: 103 89% 71%;
+
+    /* Dark mode gradients */
     --gradient-primary: linear-gradient(135deg, hsl(103 89% 71%), hsl(103 89% 55%));
     --gradient-success: linear-gradient(135deg, hsl(103 89% 71%), hsl(103 89% 60%));
     --gradient-warning: linear-gradient(135deg, hsl(45 93% 47%), hsl(35 91% 62%));
     --gradient-card: linear-gradient(135deg, hsl(220 15% 10%), hsl(220 15% 12%));
+
+    /* Dark mode shadows */
     --shadow-elegant: 0 10px 30px -10px hsl(103 89% 71% / 0.3);
     --shadow-card: 0 4px 20px -2px hsl(220 15% 5% / 0.4);
+
     --sidebar-background: 220 15% 8%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 103 89% 71%;
@@ -104,6 +127,13 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 220 15% 20%;
     --sidebar-ring: 103 89% 71%;
+
+    /* Chart colors for dark mode */
+    --chart-1: 103 89% 71%;
+    --chart-2: 173 58% 60%;
+    --chart-3: 45 93% 60%;
+    --chart-4: 259 92% 65%;
+    --chart-5: 340 75% 65%;
   }
 }
 
