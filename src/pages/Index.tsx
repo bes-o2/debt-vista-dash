@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 import { DebtCard } from "@/components/DebtCard";
 import { DebtForm } from "@/components/DebtForm";
 import { DashboardStats } from "@/components/DashboardStats";
@@ -31,6 +32,7 @@ interface Debt {
   contractNumber?: string;
 }
 const Index = () => {
+  const { signOut } = useAuth();
   const [debts, setDebts] = useState<Debt[]>([
   // Dados de teste
   {
@@ -159,10 +161,14 @@ const Index = () => {
               
             </div>
             <div className="flex items-center gap-3">
+              <Button onClick={() => setActiveTab("dashboard")} variant="outline" className="hover:bg-accent">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar ao Dashboard
+              </Button>
               <ThemeToggle />
-              <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90 shadow-elegant">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Dívida
+              <Button onClick={signOut} variant="outline" className="hover:bg-accent">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair
               </Button>
             </div>
           </div>
@@ -214,9 +220,9 @@ const Index = () => {
                   {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <Button onClick={handleNewDebt} variant="outline" className="hover:bg-accent">
+              <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90 shadow-elegant">
                 <Plus className="mr-2 h-4 w-4" />
-                Adicionar Dívida
+                Nova Dívida
               </Button>
             </div>
 
