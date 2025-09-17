@@ -236,12 +236,12 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
               <Table>
                 <TableHeader className="bg-background z-10">
                   <TableRow>
-                    <TableHead className="w-20 sticky top-0 z-10 bg-background">#</TableHead>
-                    <TableHead className="sticky top-0 z-10 bg-background">Data Vcto</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10 bg-background">Saldo Devedor</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10 bg-background">Amortização</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10 bg-background">Juros</TableHead>
-                    <TableHead className="text-right sticky top-0 z-10 bg-background">Valor Parcela</TableHead>
+                    <TableHead className="w-20 font-bold">#</TableHead>
+                    <TableHead className="font-bold">Data Vcto</TableHead>
+                    <TableHead className="text-right font-bold">Saldo Devedor</TableHead>
+                    <TableHead className="text-right font-bold">Amortização</TableHead>
+                    <TableHead className="text-right font-bold">Juros</TableHead>
+                    <TableHead className="text-right font-bold">Valor Parcela</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
