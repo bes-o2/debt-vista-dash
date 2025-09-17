@@ -1,5 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ComposedChart } from "recharts";
+import { useState, useMemo } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building } from "lucide-react";
 
 interface Debt {
   id: string;
@@ -13,6 +18,7 @@ interface Debt {
   bank: string;
   iofAmount?: number;
   tacAmount?: number;
+  contractNumber?: string;
 }
 
 interface DebtChartProps {
@@ -20,24 +26,55 @@ interface DebtChartProps {
 }
 
 const COLORS = [
-  'hsl(214 84% 56%)', // Primary
-  'hsl(142 76% 36%)', // Success  
-  'hsl(45 93% 47%)',  // Warning
-  'hsl(0 84% 60%)',   // Destructive
-  'hsl(251 91% 66%)', // Primary variant
-  'hsl(158 64% 52%)', // Success variant
-  'hsl(35 91% 62%)',  // Warning variant
+  'hsl(var(--chart-1))', 
+  'hsl(var(--chart-2))', 
+  'hsl(var(--chart-3))',  
+  'hsl(var(--chart-4))',   
+  'hsl(var(--chart-5))', 
+  'hsl(214 84% 56%)', 
+  'hsl(35 91% 62%)',  
 ];
 
 export const DebtChart = ({ debts }: DebtChartProps) => {
+  const [selectedBank, setSelectedBank] = useState<string>("all");
+  const [chartType, setChartType] = useState<string>("bank");
+
+  // Get unique banks
+  const availableBanks = useMemo(() => {
+    return [...new Set(debts.map(debt => debt.bank))];
+  }, [debts]);
+
+  // Filter debts based on selections
+  const filteredDebts = useMemo(() => {
+    return debts.filter(debt => {
+      return selectedBank === "all" || debt.bank === selectedBank;
+    });
+  }, [debts, selectedBank]);
+
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
       style: 'currency', 
       currency: 'BRL' 
     }).format(value);
 
-  // Dados por sistema de amortização para o gráfico de pizza
-  const systemData = debts.reduce((acc, debt) => {
+  // Dados por banco para o gráfico de pizza
+  const bankData = filteredDebts.reduce((acc, debt) => {
+    const existing = acc.find(item => item.name === debt.bank);
+    if (existing) {
+      existing.value += debt.financedAmount;
+      existing.count += 1;
+    } else {
+      acc.push({ 
+        name: debt.bank, 
+        value: debt.financedAmount,
+        count: 1
+      });
+    }
+    return acc;
+  }, [] as { name: string; value: number; count: number }[]);
+
+  // Dados por sistema de amortização
+  const systemData = filteredDebts.reduce((acc, debt) => {
     const existing = acc.find(item => item.name === debt.calculationTable);
     if (existing) {
       existing.value += debt.financedAmount;
@@ -52,23 +89,33 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     return acc;
   }, [] as { name: string; value: number; count: number }[]);
 
-  // Dados individuais para o gráfico de barras (top 6 maiores financiamentos)
-  const individualData = debts
-    .sort((a, b) => b.financedAmount - a.financedAmount)
-    .slice(0, 6)
-    .map((debt, index) => {
-      const totalCost = debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
-      return {
-        name: `Contrato ${debt.id.slice(-4)}`,
-        financedAmount: debt.financedAmount,
-        totalCost: totalCost,
-        fees: totalCost - debt.financedAmount,
-        system: debt.calculationTable
-      };
-    });
+  // Dados comparativos de bancos (valor financiado vs custo total)
+  const bankComparisonData = availableBanks.map(bank => {
+    const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
+    const totalFinanced = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
+    const totalCost = bankDebts.reduce((sum, debt) => {
+      return sum + debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
+    }, 0);
+    const avgRate = bankDebts.length > 0 
+      ? bankDebts.reduce((sum, debt) => {
+          return sum + (debt.interestType === 'annual' 
+            ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+            : debt.interestRate / 100);
+        }, 0) / bankDebts.length * 100
+      : 0;
+
+    return {
+      name: bank,
+      financedAmount: totalFinanced,
+      totalCost: totalCost,
+      fees: totalCost - totalFinanced,
+      avgRate: avgRate,
+      count: bankDebts.length
+    };
+  }).filter(item => item.count > 0);
 
   // Dados de indexadores
-  const indexerData = debts
+  const indexerData = filteredDebts
     .filter(debt => debt.indexer)
     .reduce((acc, debt) => {
       const existing = acc.find(item => item.name === debt.indexer);
@@ -95,7 +142,12 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
               {entry.dataKey === 'financedAmount' && 'Valor Financiado: '}
               {entry.dataKey === 'totalCost' && 'Custo Total: '}
               {entry.dataKey === 'fees' && 'Taxas: '}
-              {formatCurrency(entry.value)}
+              {entry.dataKey === 'avgRate' && 'Taxa Média: '}
+              {entry.dataKey === 'value' && 'Valor: '}
+              {entry.dataKey === 'avgRate' 
+                ? `${entry.value.toFixed(3)}%`
+                : formatCurrency(entry.value)
+              }
             </p>
           ))}
         </div>
@@ -122,23 +174,40 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     return null;
   };
 
+  const clearFilters = () => {
+    setSelectedBank("all");
+  };
+
   if (debts.length === 0) {
     return (
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="bg-gradient-card border-border/50">
-          <CardHeader>
-            <CardTitle className="text-lg text-foreground">Sistema de Amortização</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-48">
-            <p className="text-muted-foreground">Nenhum contrato cadastrado</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-card border-border/50">
-          <CardHeader>
-            <CardTitle className="text-lg text-foreground">Maiores Financiamentos</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-48">
-            <p className="text-muted-foreground">Nenhum contrato cadastrado</p>
+      <div className="space-y-6">
+        <div className="rounded-3xl bg-card p-8 border border-border">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 rounded-2xl bg-primary/10">
+              <PieChartIcon className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">
+                Gráficos e Análises
+              </h2>
+              <p className="text-muted-foreground">
+                Visualize a distribuição e comparação de suas dívidas
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Card className="border-2 border-dashed border-muted-foreground/25">
+          <CardContent className="pt-6">
+            <div className="text-center py-12">
+              <PieChartIcon className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+                Nenhum contrato cadastrado
+              </h3>
+              <p className="text-muted-foreground">
+                Cadastre suas dívidas para visualizar gráficos e análises
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -146,126 +215,338 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {/* Gráfico de Pizza - Distribuição por Sistema */}
-      <Card className="bg-gradient-card border-border/50 hover:shadow-card transition-all duration-300">
-        <CardHeader>
-          <CardTitle className="text-lg text-foreground">Sistema de Amortização</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={systemData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {systemData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+    <div className="space-y-6">
+      {/* Header com Material 3 styling e filtros */}
+      <div className="rounded-3xl bg-card p-8 border border-border">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 rounded-2xl bg-primary/10">
+            <PieChartIcon className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">
+              Gráficos e Análises
+            </h2>
+            <p className="text-muted-foreground">
+              Visualize a distribuição e comparação de suas dívidas
+            </p>
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Filtrar por Banco</label>
+            <Select value={selectedBank} onValueChange={setSelectedBank}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os bancos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os bancos</SelectItem>
+                {availableBanks.map((bank) => (
+                  <SelectItem key={bank} value={bank}>{bank}</SelectItem>
                 ))}
-              </Pie>
-              <Tooltip content={<CustomPieTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Gráfico de Barras - Maiores Financiamentos */}
-      <Card className="bg-gradient-card border-border/50 hover:shadow-card transition-all duration-300">
-        <CardHeader>
-          <CardTitle className="text-lg text-foreground">Maiores Financiamentos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={individualData}
-              margin={{
-                top: 5,
-                right: 30,
-                left: 20,
-                bottom: 60,
-              }}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Tipo de Visualização</label>
+            <Select value={chartType} onValueChange={setChartType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bank">Distribuição por Banco</SelectItem>
+                <SelectItem value="system">Sistema de Amortização</SelectItem>
+                <SelectItem value="comparison">Comparativo de Bancos</SelectItem>
+                <SelectItem value="indexer">Por Indexador</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={clearFilters}
+              className="w-full"
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="name" 
-                angle={-45}
-                textAnchor="end"
-                height={80}
-                fontSize={12}
-                stroke="hsl(var(--muted-foreground))"
-              />
-              <YAxis 
-                tickFormatter={(value) => formatCurrency(value)}
-                fontSize={12}
-                stroke="hsl(var(--muted-foreground))"
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar 
-                dataKey="financedAmount" 
-                fill="hsl(214 84% 56%)" 
-                name="Valor Financiado"
-                radius={[4, 4, 0, 0]}
-              />
-              <Bar 
-                dataKey="fees" 
-                fill="hsl(45 93% 47%)" 
-                name="Taxas (IOF + TAC)"
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+              <Filter className="h-4 w-4 mr-2" />
+              Limpar Filtros
+            </Button>
+          </div>
+        </div>
 
-      {/* Gráfico de Indexadores (se houver) */}
-      {indexerData.length > 0 && (
-        <Card className="md:col-span-2 bg-gradient-card border-border/50 hover:shadow-card transition-all duration-300">
-          <CardHeader>
-            <CardTitle className="text-lg text-foreground">Distribuição por Indexador</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart
-                data={indexerData}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-                layout="horizontal"
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  type="number"
-                  tickFormatter={(value) => formatCurrency(value)}
-                  fontSize={12}
-                  stroke="hsl(var(--muted-foreground))"
-                />
-                <YAxis 
-                  type="category"
-                  dataKey="name"
-                  fontSize={12}
-                  stroke="hsl(var(--muted-foreground))"
-                />
-                <Tooltip content={<CustomPieTooltip />} />
-                <Bar 
-                  dataKey="value" 
-                  fill="hsl(142 76% 36%)" 
-                  radius={[0, 4, 4, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+        {/* Active Filters */}
+        {selectedBank !== "all" && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm text-muted-foreground">Filtro ativo:</span>
+            <Badge variant="secondary">
+              Banco: {selectedBank}
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {chartType === "bank" && (
+          <>
+            {/* Gráfico de Pizza - Distribuição por Banco */}
+            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Building className="h-5 w-5 text-primary" />
+                  </div>
+                  Distribuição por Banco
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                  <PieChart>
+                    <Pie
+                      data={bankData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                      outerRadius={110}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {bankData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomPieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Resumo por Banco */}
+            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                  </div>
+                  Resumo por Banco
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {bankData.map((bank, index) => (
+                  <div key={bank.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="font-medium text-foreground">{bank.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-foreground">{formatCurrency(bank.value)}</p>
+                      <p className="text-xs text-muted-foreground">{bank.count} contrato{bank.count !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {chartType === "system" && (
+          <>
+            {/* Gráfico de Pizza - Sistema de Amortização */}
+            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/20">
+                    <PieChartIcon className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  Sistema de Amortização
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                  <PieChart>
+                    <Pie
+                      data={systemData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                      outerRadius={110}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {systemData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomPieTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Resumo por Sistema */}
+            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/20">
+                    <BarChart3 className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  Detalhes do Sistema
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {systemData.map((system, index) => (
+                  <div key={system.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="font-medium text-foreground">{system.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-foreground">{formatCurrency(system.value)}</p>
+                      <p className="text-xs text-muted-foreground">{system.count} contrato{system.count !== 1 ? 's' : ''}</p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {chartType === "comparison" && (
+          <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+            <CardHeader>
+              <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/20">
+                  <TrendingUp className="h-5 w-5 text-purple-600" />
+                </div>
+                Comparativo de Bancos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={400}>
+                <ComposedChart data={bankComparisonData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    dataKey="name" 
+                    fontSize={12}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis 
+                    yAxisId="left"
+                    tickFormatter={(value) => formatCurrency(value)}
+                    fontSize={12}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={(value) => `${value.toFixed(1)}%`}
+                    fontSize={12}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Bar 
+                    yAxisId="left"
+                    dataKey="financedAmount" 
+                    fill="hsl(var(--chart-1))" 
+                    name="Valor Financiado"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    yAxisId="left"
+                    dataKey="fees" 
+                    fill="hsl(var(--chart-3))" 
+                    name="Taxas"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="avgRate" 
+                    stroke="hsl(var(--chart-5))" 
+                    strokeWidth={3}
+                    name="Taxa Média (%)"
+                    dot={{ fill: "hsl(var(--chart-5))", strokeWidth: 2, r: 4 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {chartType === "indexer" && indexerData.length > 0 && (
+          <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+            <CardHeader>
+              <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/20">
+                  <BarChart3 className="h-5 w-5 text-amber-600" />
+                </div>
+                Distribuição por Indexador
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart
+                  data={indexerData}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                  layout="horizontal"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis 
+                    type="number"
+                    tickFormatter={(value) => formatCurrency(value)}
+                    fontSize={12}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis 
+                    type="category"
+                    dataKey="name"
+                    fontSize={12}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <Tooltip content={<CustomPieTooltip />} />
+                  <Bar 
+                    dataKey="value" 
+                    fill="hsl(var(--chart-2))" 
+                    radius={[0, 8, 8, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {chartType === "indexer" && indexerData.length === 0 && (
+          <Card className="md:col-span-2 bg-card border-2 border-dashed border-muted-foreground/25">
+            <CardContent className="pt-6">
+              <div className="text-center py-8">
+                <BarChart3 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+                  Nenhum indexador encontrado
+                </h3>
+                <p className="text-muted-foreground">
+                  Os contratos filtrados não possuem indexadores cadastrados
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
