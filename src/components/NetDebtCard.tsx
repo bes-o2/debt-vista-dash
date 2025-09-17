@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useMemo } from "react";
 import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
+import { useBRLInput, BRL_INPUT_PROPS } from "@/hooks/useBRLInput";
 
 interface Debt {
   id: string;
@@ -24,34 +25,8 @@ interface NetDebtCardProps {
 }
 
 export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
-  const [cashBalance, setCashBalance] = useState<string>('');
-
-  const formatCurrency = (value: number) => 
-    new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
-
-  // Format a raw string as BRL currency (used on blur only to avoid caret jumps)
-  const formatBRL = (value: string) => {
-    const numericValue = value ? value.replace(/\./g, '').replace(',', '.') : '';
-    const parsed = parseFloat(numericValue);
-    if (isNaN(parsed) || parsed < 0) return '';
-    return new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(parsed);
-  };
-
-  const parseCurrencyInput = (value: string): number => {
-    if (!value) return 0;
-    // Remove thousand separators (dots) and convert decimal comma to dot
-    const numericValue = value.replace(/\./g, '').replace(',', '.');
-    const parsed = parseFloat(numericValue);
-    return isNaN(parsed) ? 0 : parsed;
-  };
+  // Usando o hook padrão do projeto para inputs de moeda brasileira
+  const { value: cashBalance, numericValue: cashValue, handleChange, handleBlur, formatCurrency } = useBRLInput();
 
   // Calculate current outstanding balance for each debt
   const calculateCurrentBalance = (debt: Debt): number => {
@@ -102,20 +77,8 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
     }, 0);
   }, [debts]);
 
-  const cashValue = parseCurrencyInput(cashBalance);
   const netDebt = totalDebt - cashValue;
   const isPositive = netDebt > 0;
-
-  const handleCashBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Do not format on change to preserve caret position
-    setCashBalance(e.target.value);
-  };
-
-  const handleCashBalanceBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Format on blur to BRL pattern
-    const formatted = formatBRL(e.target.value);
-    setCashBalance(formatted);
-  };
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -143,14 +106,10 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
               </div>
               <Input
                 id="cash-balance"
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9.,]*"
-                autoComplete="off"
+                {...BRL_INPUT_PROPS}
                 value={cashBalance}
-                onChange={handleCashBalanceChange}
-                onBlur={handleCashBalanceBlur}
-                placeholder="0,00"
+                onChange={handleChange}
+                onBlur={handleBlur}
                 className="pl-12 pr-4 py-6 text-xl font-semibold text-foreground border-2 border-border 
                           focus:border-primary focus:ring-4 focus:ring-primary/20 
                           hover:border-primary/50 transition-all duration-200
