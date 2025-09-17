@@ -51,7 +51,7 @@ interface ChartDataPoint {
 export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedDebts, setSelectedDebts] = useState<string[]>([]);
-  const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated'>('absolute');
+  const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated' | 'bank_comparison'>('bank_comparison');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
@@ -433,6 +433,7 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="bank_comparison">Comparativo entre Bancos</SelectItem>
                   <SelectItem value="absolute">Valores Mensais</SelectItem>
                   <SelectItem value="accumulated">Valores Acumulados</SelectItem>
                 </SelectContent>
@@ -510,7 +511,7 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
               <BarChart3 className="h-5 w-5 text-primary" />
               Evolução do Fluxo de Caixa
               <Badge variant="outline" className="ml-auto">
-                {analysisType === 'accumulated' ? 'Acumulado' : 'Mensal'}
+                {analysisType === 'accumulated' ? 'Acumulado' : analysisType === 'bank_comparison' ? 'Comparativo' : 'Mensal'}
               </Badge>
             </CardTitle>
           </CardHeader>
