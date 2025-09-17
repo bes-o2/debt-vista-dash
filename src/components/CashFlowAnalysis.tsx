@@ -5,10 +5,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar as CalendarIcon, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface Debt {
   id: string;
@@ -51,7 +55,8 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedDebts, setSelectedDebts] = useState<string[]>([]);
   const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated'>('absolute');
-  const [periodFilter, setPeriodFilter] = useState<'12' | '24' | '60' | '120' | 'all'>('24');
+  const [periodFilter, setPeriodFilter] = useState<'12' | '24' | '60' | '120' | 'all' | 'custom'>('24');
+  const [customEndDate, setCustomEndDate] = useState<Date>();
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -150,9 +155,16 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
 
       // Apply period filter
       let filteredData = sortedData;
-      if (periodFilter !== 'all') {
+      if (periodFilter !== 'all' && periodFilter !== 'custom') {
         const months = parseInt(periodFilter);
         filteredData = sortedData.slice(0, months);
+      } else if (periodFilter === 'custom' && customEndDate) {
+        // Filter data up to the custom end date
+        const endDateStr = customEndDate.toISOString().slice(0, 7); // YYYY-MM format
+        filteredData = sortedData.filter(data => {
+          const dataMonth = Object.keys(monthlyData).find(key => monthlyData[key] === data);
+          return dataMonth ? dataMonth <= endDateStr : true;
+        });
       }
 
       // Apply analysis type (accumulated vs absolute)
@@ -396,8 +408,38 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
                   <SelectItem value="60">5 anos</SelectItem>
                   <SelectItem value="120">10 anos</SelectItem>
                   <SelectItem value="all">Período completo</SelectItem>
+                  <SelectItem value="custom">Personalizado</SelectItem>
                 </SelectContent>
               </Select>
+              
+              {periodFilter === 'custom' && (
+                <div className="mt-2">
+                  <label className="text-sm font-medium mb-2 block">Data Final</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !customEndDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {customEndDate ? format(customEndDate, "dd/MM/yyyy") : "Selecionar data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={customEndDate}
+                        onSelect={setCustomEndDate}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
