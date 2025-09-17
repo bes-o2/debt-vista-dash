@@ -40,6 +40,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName?: string) => {
+    // Validação de domínio corporativo
+    if (!email.endsWith('@o2inc.com.br')) {
+      const error = { message: 'Apenas emails corporativos @o2inc.com.br são permitidos para cadastro.' };
+      toast({
+        title: "Erro no cadastro",
+        description: error.message,
+        variant: "destructive"
+      });
+      return { error };
+    }
+
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
