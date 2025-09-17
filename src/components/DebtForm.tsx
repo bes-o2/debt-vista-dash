@@ -23,6 +23,7 @@ interface Debt {
   interestRateType: 'monthly' | 'annual';
   iofAmount?: number;
   tacAmount?: number;
+  bank: string;
 }
 
 interface DebtFormProps {
@@ -60,7 +61,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     interestRate: debt?.interestRate || 0,
     interestRateType: debt?.interestRateType || 'monthly' as 'monthly' | 'annual',
     iofAmount: debt?.iofAmount || 0,
-    tacAmount: debt?.tacAmount || 0
+    tacAmount: debt?.tacAmount || 0,
+    bank: debt?.bank || 'Banco do Brasil'
   });
 
   const [financedAmountDisplay, setFinancedAmountDisplay] = useState(
@@ -90,7 +92,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       interestRate: formData.interestRate,
       interestRateType: formData.interestRateType,
       iofAmount: formData.iofAmount || undefined,
-      tacAmount: formData.tacAmount || undefined
+      tacAmount: formData.tacAmount || undefined,
+      bank: formData.bank
     });
     onClose();
   };
@@ -105,7 +108,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       interestRate: 0,
       interestRateType: 'monthly',
       iofAmount: 0,
-      tacAmount: 0
+      tacAmount: 0,
+      bank: 'Banco do Brasil'
     });
     setFinancedAmountDisplay("R$ 0,00");
     setIofAmountDisplay("R$ 0,00");
@@ -127,6 +131,28 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Banco */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Banco <span className="text-red-500">*</span>
+            </Label>
+            <Select 
+              value={formData.bank} 
+              onValueChange={(value) => setFormData(prev => ({ ...prev, bank: value }))}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o banco" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Banco do Brasil">Banco do Brasil</SelectItem>
+                <SelectItem value="Caixa Econômica Federal">Caixa Econômica Federal</SelectItem>
+                <SelectItem value="Itaú">Itaú</SelectItem>
+                <SelectItem value="Bradesco">Bradesco</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Valor Financiado */}
           <div className="space-y-2">
             <Label htmlFor="financedAmount" className="text-sm font-medium">
@@ -237,16 +263,25 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
           {/* Indexador - Só aparece se SAC */}
           {formData.calculationTable === 'SAC' && (
             <div className="space-y-2">
-              <Label htmlFor="indexer" className="text-sm font-medium">
+              <Label className="text-sm font-medium">
                 Indexador <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="indexer"
-                value={formData.indexer}
-                onChange={(e) => setFormData(prev => ({ ...prev, indexer: e.target.value }))}
-                placeholder="Ex: CDI, IPCA, IGP-M"
-                required={formData.calculationTable === 'SAC'}
-              />
+              <Select 
+                value={formData.indexer} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, indexer: value }))}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o indexador" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CDI">CDI</SelectItem>
+                  <SelectItem value="IPCA">IPCA</SelectItem>
+                  <SelectItem value="SELIC">SELIC</SelectItem>
+                  <SelectItem value="TR">TR</SelectItem>
+                  <SelectItem value="IGPM">IGP-M</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
 

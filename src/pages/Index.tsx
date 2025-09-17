@@ -19,6 +19,7 @@ interface Debt {
   interestRateType: 'monthly' | 'annual';
   iofAmount?: number;
   tacAmount?: number;
+  bank: string;
 }
 
 const Index = () => {
@@ -101,7 +102,7 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="debts" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
-              Dívidas
+              Cadastros
             </TabsTrigger>
             <TabsTrigger value="analysis" className="flex items-center gap-2">
               <Calculator className="h-4 w-4" />
@@ -117,7 +118,7 @@ const Index = () => {
           <TabsContent value="debts" className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-foreground">Suas Dívidas</h2>
+                <h2 className="text-2xl font-semibold text-foreground">Seus Cadastros</h2>
                 <p className="text-muted-foreground">
                   {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
                 </p>
@@ -149,7 +150,7 @@ const Index = () => {
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="space-y-4">
                 {debts.map((debt) => (
                   <DebtCard 
                     key={debt.id} 
