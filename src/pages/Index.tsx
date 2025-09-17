@@ -142,6 +142,12 @@ const Index = () => {
     setSelectedDebt(debt);
     setActiveTab("table");
   };
+
+  const handleViewAnalysis = (debt: Debt) => {
+    setActiveTab("analysis");
+    // A funcionalidade de pré-seleção será implementada diretamente no componente CashFlowAnalysis
+  };
+
   const handleNewDebt = () => {
     setEditingDebt(undefined);
     setIsFormOpen(true);
@@ -241,7 +247,7 @@ const Index = () => {
                   Adicionar Primeira Dívida
                 </Button>
               </div> : <div className="space-y-4">
-                {debts.map(debt => <DebtCard key={debt.id} debt={debt} onEdit={handleEditDebt} onViewTable={handleViewTable} />)}
+                {debts.map(debt => <DebtCard key={debt.id} debt={debt} onEdit={handleEditDebt} onViewTable={handleViewTable} onViewAnalysis={handleViewAnalysis} />)}
               </div>}
           </TabsContent>
 

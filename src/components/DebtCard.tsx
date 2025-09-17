@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit2, Calendar, DollarSign, TrendingUp, Building, Calculator, Percent } from "lucide-react";
+import { Edit2, Calendar, DollarSign, TrendingUp, Building, Calculator, Percent, BarChart3 } from "lucide-react";
 import { useCET } from "@/hooks/useCET";
 
 interface Debt {
@@ -23,9 +23,10 @@ interface DebtCardProps {
   debt: Debt;
   onEdit: (debt: Debt) => void;
   onViewTable?: (debt: Debt) => void;
+  onViewAnalysis?: (debt: Debt) => void;
 }
 
-export const DebtCard = ({ debt, onEdit, onViewTable }: DebtCardProps) => {
+export const DebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: DebtCardProps) => {
   const { cet, loading: cetLoading } = useCET(debt);
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -230,6 +231,17 @@ export const DebtCard = ({ debt, onEdit, onViewTable }: DebtCardProps) => {
           >
             <Calculator className="h-4 w-4 mr-2" />
             Tabela
+          </Button>
+        )}
+        {onViewAnalysis && (
+          <Button 
+            onClick={() => onViewAnalysis(debt)}
+            variant="secondary"
+            size="sm"
+            className="bg-white text-black hover:bg-gray-100"
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Análise
           </Button>
         )}
       </div>
