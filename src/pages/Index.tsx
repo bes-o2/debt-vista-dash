@@ -6,6 +6,7 @@ import { DebtCard } from "@/components/DebtCard";
 import { DebtForm } from "@/components/DebtForm";
 import { DashboardStats } from "@/components/DashboardStats";
 import { DebtChart } from "@/components/DebtChart";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -25,11 +26,78 @@ interface Debt {
 }
 
 const Index = () => {
-  const [debts, setDebts] = useState<Debt[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([
+    // Dados de teste
+    {
+      id: "1",
+      bank: "Banco do Brasil",
+      financedAmount: 350000,
+      releaseDate: "2024-01-15",
+      dueDate: "2044-01-15",
+      calculationTable: "SAC",
+      indexer: "TR",
+      interestRate: 9.5,
+      interestType: "annual",
+      iofAmount: 2500,
+      tacAmount: 800
+    },
+    {
+      id: "2", 
+      bank: "Caixa Econômica Federal",
+      financedAmount: 450000,
+      releaseDate: "2023-06-10",
+      dueDate: "2053-06-10",
+      calculationTable: "PRICE",
+      indexer: "IPCA",
+      interestRate: 8.75,
+      interestType: "annual",
+      iofAmount: 3200,
+      tacAmount: 950
+    },
+    {
+      id: "3",
+      bank: "Itaú",
+      financedAmount: 280000,
+      releaseDate: "2024-03-20",
+      dueDate: "2039-03-20",
+      calculationTable: "SAC",
+      indexer: "CDI",
+      interestRate: 1.2,
+      interestType: "monthly",
+      iofAmount: 1800,
+      tacAmount: 600
+    },
+    {
+      id: "4",
+      bank: "Santander",
+      financedAmount: 520000,
+      releaseDate: "2023-11-05",
+      dueDate: "2048-11-05",
+      calculationTable: "PRICE",
+      interestRate: 10.25,
+      interestType: "annual",
+      iofAmount: 4100,
+      tacAmount: 1200
+    },
+    {
+      id: "5",
+      bank: "Bradesco",
+      financedAmount: 180000,
+      releaseDate: "2024-07-12",
+      dueDate: "2034-07-12",
+      calculationTable: "SAC",
+      indexer: "SELIC",
+      interestRate: 11.5,
+      interestType: "annual",
+      iofAmount: 1200,
+      tacAmount: 450
+    }
+  ]);
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+  const [activeTab, setActiveTab] = useState("dashboard");
   const { toast } = useToast();
 
   const handleSaveDebt = (debtData: Omit<Debt, 'id'>) => {
@@ -60,6 +128,11 @@ const Index = () => {
   const handleEditDebt = (debt: Debt) => {
     setEditingDebt(debt);
     setIsFormOpen(true);
+  };
+
+  const handleViewTable = (debt: Debt) => {
+    setSelectedDebt(debt);
+    setActiveTab("table");
   };
 
   const handleNewDebt = () => {
@@ -97,7 +170,7 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="dashboard" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <PieChart className="h-4 w-4" />
@@ -163,7 +236,7 @@ const Index = () => {
                     key={debt.id} 
                     debt={debt} 
                     onEdit={handleEditDebt}
-                    onViewTable={(debt) => setSelectedDebt(debt)}
+                    onViewTable={handleViewTable}
                   />
                 ))}
               </div>
@@ -173,6 +246,29 @@ const Index = () => {
           <TabsContent value="table" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-3xl font-bold tracking-tight">Tabela de Amortização</h2>
+              <div className="flex items-center gap-4">
+                <Select
+                  value={selectedDebt?.id || ""}
+                  onValueChange={(debtId) => {
+                    const debt = debts.find(d => d.id === debtId);
+                    if (debt) setSelectedDebt(debt);
+                  }}
+                >
+                  <SelectTrigger className="w-80">
+                    <SelectValue placeholder="Selecione uma dívida..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border shadow-lg">
+                    {debts.map((debt) => (
+                      <SelectItem key={debt.id} value={debt.id} className="hover:bg-accent">
+                        {debt.bank} - {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        }).format(debt.financedAmount)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {selectedDebt ? (
               <AmortizationTable debt={selectedDebt} />
@@ -181,7 +277,7 @@ const Index = () => {
                 <CardContent className="pt-6">
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">
-                      Selecione uma dívida na aba "Cadastros" para visualizar sua tabela de amortização.
+                      Selecione uma dívida para visualizar sua tabela de amortização.
                     </p>
                   </div>
                 </CardContent>
