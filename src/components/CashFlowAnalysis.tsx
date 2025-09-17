@@ -37,6 +37,8 @@ interface Installment {
 
 interface CashFlowAnalysisProps {
   debts: Debt[];
+  preSelectedDebt?: Debt | null;
+  onClearPreSelection?: () => void;
 }
 
 interface ChartDataPoint {
@@ -48,7 +50,7 @@ interface ChartDataPoint {
   monthNumber: number;
 }
 
-export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
+export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }: CashFlowAnalysisProps) {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedDebts, setSelectedDebts] = useState<string[]>([]);
   const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated'>('absolute');
@@ -57,6 +59,23 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  // Effect to handle pre-selected debt
+  useEffect(() => {
+    if (preSelectedDebt) {
+      // Set the bank of the pre-selected debt
+      setSelectedBanks([preSelectedDebt.bank]);
+      // Set the specific debt
+      setSelectedDebts([preSelectedDebt.id]);
+      // Clear the pre-selection after a small delay to allow state to update
+      setTimeout(() => {
+        calculateCashFlow();
+        if (onClearPreSelection) {
+          onClearPreSelection();
+        }
+      }, 100);
+    }
+  }, [preSelectedDebt, onClearPreSelection]);
 
   // Get unique banks
   const availableBanks = useMemo(() => {

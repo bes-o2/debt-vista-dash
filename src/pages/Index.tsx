@@ -105,6 +105,7 @@ const Index = () => {
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<Debt | null>(null);
 
   // Filter debts by selected bank
   const filteredDebts = selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank);
@@ -144,8 +145,8 @@ const Index = () => {
   };
 
   const handleViewAnalysis = (debt: Debt) => {
+    setPreSelectedDebtForAnalysis(debt);
     setActiveTab("analysis");
-    // A funcionalidade de pré-seleção será implementada diretamente no componente CashFlowAnalysis
   };
 
   const handleNewDebt = () => {
@@ -319,7 +320,11 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="analysis" className="space-y-6">
-            <CashFlowAnalysis debts={debts} />
+            <CashFlowAnalysis 
+              debts={debts} 
+              preSelectedDebt={preSelectedDebtForAnalysis} 
+              onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} 
+            />
           </TabsContent>
         </Tabs>
       </main>
