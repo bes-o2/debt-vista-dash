@@ -1,14 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, CreditCard, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Building, AlertTriangle } from "lucide-react";
 
 interface Debt {
   id: string;
-  name: string;
-  amount: number;
-  interestRate: number;
+  financedAmount: number;
+  releaseDate: string;
   dueDate: string;
-  minimumPayment: number;
-  category: string;
+  calculationTable: 'SAC' | 'PRICE';
+  indexer?: string;
+  interestRate: number;
+  interestRateType: 'monthly' | 'annual';
+  iofAmount?: number;
+  tacAmount?: number;
 }
 
 interface DashboardStatsProps {
@@ -16,25 +19,44 @@ interface DashboardStatsProps {
 }
 
 export const DashboardStats = ({ debts }: DashboardStatsProps) => {
-  const totalDebt = debts.reduce((sum, debt) => sum + debt.amount, 0);
-  const totalMinimumPayment = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
-  const averageInterestRate = debts.length > 0 
-    ? debts.reduce((sum, debt) => sum + debt.interestRate, 0) / debts.length 
+  const totalFinanced = debts.reduce((sum, debt) => sum + debt.financedAmount, 0);
+  const totalCosts = debts.reduce((sum, debt) => {
+    let cost = debt.financedAmount;
+    if (debt.iofAmount) cost += debt.iofAmount;
+    if (debt.tacAmount) cost += debt.tacAmount;
+    return sum + cost;
+  }, 0);
+
+  // Convert annual rates to monthly for comparison
+  const normalizedRates = debts.map(debt => 
+    debt.interestRateType === 'annual' 
+      ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+      : debt.interestRate / 100
+  );
+
+  const averageInterestRate = normalizedRates.length > 0 
+    ? (normalizedRates.reduce((sum, rate) => sum + rate, 0) / normalizedRates.length) * 100
     : 0;
 
   const getDebtsWithUpcomingDueDate = () => {
     const today = new Date();
-    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const nextMonth = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     
     return debts.filter(debt => {
       const dueDate = new Date(debt.dueDate);
-      return dueDate >= today && dueDate <= nextWeek;
+      return dueDate >= today && dueDate <= nextMonth;
     }).length;
   };
 
   const getOverdueDebts = () => {
     const today = new Date();
     return debts.filter(debt => new Date(debt.dueDate) < today).length;
+  };
+
+  const getSacVsPriceDistribution = () => {
+    const sac = debts.filter(debt => debt.calculationTable === 'SAC').length;
+    const price = debts.filter(debt => debt.calculationTable === 'PRICE').length;
+    return { sac, price };
   };
 
   const formatCurrency = (value: number) => 
@@ -45,32 +67,33 @@ export const DashboardStats = ({ debts }: DashboardStatsProps) => {
 
   const upcomingDueDebts = getDebtsWithUpcomingDueDate();
   const overdueDebts = getOverdueDebts();
+  const { sac, price } = getSacVsPriceDistribution();
 
   const stats = [
     {
-      title: "Dívida Total",
-      value: formatCurrency(totalDebt),
+      title: "Total Financiado",
+      value: formatCurrency(totalFinanced),
       icon: DollarSign,
       trend: null,
       gradient: "bg-gradient-primary"
     },
     {
-      title: "Pagamento Mínimo Total",
-      value: formatCurrency(totalMinimumPayment),
-      icon: CreditCard,
+      title: "Custo Total (c/ taxas)",
+      value: formatCurrency(totalCosts),
+      icon: Building,
       trend: null,
       gradient: "bg-gradient-warning"
     },
     {
-      title: "Taxa Média de Juros",
-      value: `${averageInterestRate.toFixed(2)}% a.m.`,
+      title: "Taxa Média (a.m.)",
+      value: `${averageInterestRate.toFixed(3)}%`,
       icon: TrendingUp,
-      trend: averageInterestRate > 3 ? "high" : "normal",
-      gradient: averageInterestRate > 3 ? "bg-destructive" : "bg-gradient-success"
+      trend: averageInterestRate > 1.5 ? "high" : "normal",
+      gradient: averageInterestRate > 1.5 ? "bg-destructive" : "bg-gradient-success"
     },
     {
-      title: "Vencimentos Próximos",
-      value: `${upcomingDueDebts} dívida${upcomingDueDebts !== 1 ? 's' : ''}`,
+      title: "Vencimentos (30 dias)",
+      value: `${upcomingDueDebts} contrato${upcomingDueDebts !== 1 ? 's' : ''}`,
       icon: Calendar,
       trend: upcomingDueDebts > 0 ? "warning" : "normal",
       gradient: upcomingDueDebts > 0 ? "bg-gradient-warning" : "bg-gradient-success"
@@ -78,37 +101,82 @@ export const DashboardStats = ({ debts }: DashboardStatsProps) => {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat, index) => (
-        <Card key={index} className="bg-gradient-card border-border/50 hover:shadow-card transition-all duration-300">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {stat.title}
-            </CardTitle>
-            <div className={`p-2 rounded-md ${stat.gradient} text-white`}>
-              <stat.icon className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-            {stat.trend === "high" && (
-              <p className="text-xs text-destructive flex items-center mt-1">
-                <TrendingUp className="mr-1 h-3 w-3" />
-                Taxa elevada
-              </p>
-            )}
-            {stat.trend === "warning" && (
-              <p className="text-xs text-warning flex items-center mt-1">
-                <AlertTriangle className="mr-1 h-3 w-3" />
-                Atenção necessária
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, index) => (
+          <Card key={index} className="bg-gradient-card border-border/50 hover:shadow-card transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {stat.title}
+              </CardTitle>
+              <div className={`p-2 rounded-md ${stat.gradient} text-white`}>
+                <stat.icon className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+              {stat.trend === "high" && (
+                <p className="text-xs text-destructive flex items-center mt-1">
+                  <TrendingUp className="mr-1 h-3 w-3" />
+                  Taxa elevada
+                </p>
+              )}
+              {stat.trend === "warning" && (
+                <p className="text-xs text-warning flex items-center mt-1">
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  Atenção necessária
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Sistema de Amortização */}
+      {debts.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-gradient-card border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg text-foreground">Sistema de Amortização</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">SAC</span>
+                  <span className="font-medium text-foreground">{sac} contrato{sac !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">PRICE</span>
+                  <span className="font-medium text-foreground">{price} contrato{price !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card border-border/50">
+            <CardHeader>
+              <CardTitle className="text-lg text-foreground">Resumo de Taxas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Contratos ativos</span>
+                  <span className="font-medium text-foreground">{debts.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Impacto de taxas</span>
+                  <span className="font-medium text-foreground">
+                    {formatCurrency(totalCosts - totalFinanced)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {overdueDebts > 0 && (
-        <Card className="md:col-span-2 lg:col-span-4 bg-destructive/10 border-destructive/20">
+        <Card className="bg-destructive/10 border-destructive/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-md bg-destructive text-white">
@@ -116,10 +184,10 @@ export const DashboardStats = ({ debts }: DashboardStatsProps) => {
               </div>
               <div>
                 <h3 className="font-semibold text-destructive">
-                  {overdueDebts} dívida{overdueDebts !== 1 ? 's' : ''} em atraso
+                  {overdueDebts} contrato{overdueDebts !== 1 ? 's' : ''} vencido{overdueDebts !== 1 ? 's' : ''}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Verifique as dívidas vencidas e organize os pagamentos
+                  Verifique os contratos vencidos e organize os pagamentos
                 </p>
               </div>
             </div>

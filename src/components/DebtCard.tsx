@@ -1,16 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit2, Calendar, DollarSign } from "lucide-react";
+import { Edit2, Calendar, DollarSign, TrendingUp, Building } from "lucide-react";
 
 interface Debt {
   id: string;
-  name: string;
-  amount: number;
-  interestRate: number;
+  financedAmount: number;
+  releaseDate: string;
   dueDate: string;
-  minimumPayment: number;
-  category: string;
+  calculationTable: 'SAC' | 'PRICE';
+  indexer?: string;
+  interestRate: number;
+  interestRateType: 'monthly' | 'annual';
+  iofAmount?: number;
+  tacAmount?: number;
 }
 
 interface DebtCardProps {
@@ -36,6 +39,13 @@ export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
     return diffDays;
   };
 
+  const getTotalCost = () => {
+    let total = debt.financedAmount;
+    if (debt.iofAmount) total += debt.iofAmount;
+    if (debt.tacAmount) total += debt.tacAmount;
+    return total;
+  };
+
   const daysUntilDue = getDaysUntilDue(debt.dueDate);
   const isOverdue = daysUntilDue < 0;
   const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
@@ -44,9 +54,14 @@ export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
     <Card className="group hover:shadow-elegant transition-all duration-300 bg-gradient-card border-border/50">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-foreground">
-            {debt.name}
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-gradient-primary text-white">
+              <Building className="h-4 w-4" />
+            </div>
+            <CardTitle className="text-lg font-semibold text-foreground">
+              Financiamento #{debt.id.slice(-4)}
+            </CardTitle>
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -56,49 +71,88 @@ export const DebtCard = ({ debt, onEdit }: DebtCardProps) => {
             <Edit2 className="h-4 w-4" />
           </Button>
         </div>
-        <Badge 
-          variant={debt.category === 'Cartão de Crédito' ? 'destructive' : 'secondary'}
-          className="w-fit"
-        >
-          {debt.category}
-        </Badge>
+        <div className="flex gap-2">
+          <Badge 
+            variant={debt.calculationTable === 'SAC' ? 'default' : 'secondary'}
+            className="w-fit"
+          >
+            {debt.calculationTable}
+          </Badge>
+          {debt.indexer && (
+            <Badge variant="outline" className="w-fit">
+              {debt.indexer}
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-muted-foreground">
             <DollarSign className="h-4 w-4" />
-            <span className="text-sm">Valor total</span>
+            <span className="text-sm">Valor Financiado</span>
           </div>
           <span className="text-xl font-bold text-foreground">
-            {formatCurrency(debt.amount)}
+            {formatCurrency(debt.financedAmount)}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Taxa de juros</span>
-          <span className="font-medium text-foreground">
-            {debt.interestRate.toFixed(2)}% a.m.
+          <span className="font-medium text-foreground flex items-center gap-1">
+            <TrendingUp className="h-4 w-4" />
+            {debt.interestRate.toFixed(3)}% {debt.interestRateType === 'monthly' ? 'a.m.' : 'a.a.'}
           </span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Pagamento mínimo</span>
-          <span className="font-medium text-foreground">
-            {formatCurrency(debt.minimumPayment)}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            <span className="text-sm">Vencimento</span>
+        {(debt.iofAmount || debt.tacAmount) && (
+          <div className="space-y-2">
+            {debt.iofAmount && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">IOF</span>
+                <span className="font-medium text-foreground">
+                  {formatCurrency(debt.iofAmount)}
+                </span>
+              </div>
+            )}
+            {debt.tacAmount && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">TAC</span>
+                <span className="font-medium text-foreground">
+                  {formatCurrency(debt.tacAmount)}
+                </span>
+              </div>
+            )}
+            <hr className="border-border/50" />
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Custo Total</span>
+              <span className="font-bold text-foreground">
+                {formatCurrency(getTotalCost())}
+              </span>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="font-medium text-foreground">
+        )}
+
+        <div className="grid grid-cols-2 gap-4 pt-2">
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+              <Calendar className="h-3 w-3" />
+              <span className="text-xs">Liberação</span>
+            </div>
+            <div className="text-sm font-medium text-foreground">
+              {formatDate(debt.releaseDate)}
+            </div>
+          </div>
+
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+              <Calendar className="h-3 w-3" />
+              <span className="text-xs">Vencimento</span>
+            </div>
+            <div className="text-sm font-medium text-foreground">
               {formatDate(debt.dueDate)}
             </div>
-            <div className={`text-xs ${
+            <div className={`text-xs mt-1 ${
               isOverdue 
                 ? 'text-destructive' 
                 : isDueSoon 

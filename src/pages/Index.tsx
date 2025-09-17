@@ -10,44 +10,19 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Debt {
   id: string;
-  name: string;
-  amount: number;
-  interestRate: number;
+  financedAmount: number;
+  releaseDate: string;
   dueDate: string;
-  minimumPayment: number;
-  category: string;
+  calculationTable: 'SAC' | 'PRICE';
+  indexer?: string;
+  interestRate: number;
+  interestRateType: 'monthly' | 'annual';
+  iofAmount?: number;
+  tacAmount?: number;
 }
 
 const Index = () => {
-  const [debts, setDebts] = useState<Debt[]>([
-    {
-      id: "1",
-      name: "Cartão Visa",
-      amount: 5800.00,
-      interestRate: 12.5,
-      dueDate: "2024-01-15",
-      minimumPayment: 290.00,
-      category: "Cartão de Crédito"
-    },
-    {
-      id: "2", 
-      name: "Financiamento Casa",
-      amount: 185000.00,
-      interestRate: 8.2,
-      dueDate: "2024-01-08",
-      minimumPayment: 1850.00,
-      category: "Financiamento Imobiliário"
-    },
-    {
-      id: "3",
-      name: "Empréstimo Pessoal",
-      amount: 12000.00,
-      interestRate: 5.5,
-      dueDate: "2024-01-20",
-      minimumPayment: 800.00,
-      category: "Empréstimo Pessoal"
-    }
-  ]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
