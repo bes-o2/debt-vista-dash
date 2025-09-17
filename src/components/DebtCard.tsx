@@ -55,11 +55,14 @@ export const DebtCard = ({ debt, onEdit, onViewTable }: DebtCardProps) => {
   const isOverdue = daysUntilDue < 0;
   const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
 
+  // Generate contract number if not available
+  const contractDisplay = debt.contractNumber || `CT${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
   return (
     <Card className="group hover:shadow-elegant transition-all duration-300 bg-gradient-card border-border/50 relative">
       <div className="flex">
         {/* Left Section - Bank and Header */}
-        <div className="flex-shrink-0 w-64 p-6 border-r border-border/50 bg-muted/20">
+        <div className="flex-shrink-0 w-80 p-6 border-r border-border/50 bg-muted/20">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-gradient-primary text-white">
               <Building className="h-5 w-5" />
@@ -69,20 +72,20 @@ export const DebtCard = ({ debt, onEdit, onViewTable }: DebtCardProps) => {
                 {debt.bank}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {debt.contractNumber ? `Contrato #${debt.contractNumber}` : `Financiamento #${debt.id.slice(-4)}`}
+                Contrato #{contractDisplay}
               </p>
             </div>
           </div>
           
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <Badge 
-              variant={debt.calculationTable === 'SAC' ? 'default' : 'secondary'}
-              className="w-fit"
+              variant="outline"
+              className="w-fit text-lg py-2 px-4 font-semibold"
             >
               {debt.calculationTable}
             </Badge>
             {debt.indexer && (
-              <Badge variant="outline" className="w-fit">
+              <Badge variant="outline" className="w-fit text-base py-1 px-3">
                 {debt.indexer}
               </Badge>
             )}
