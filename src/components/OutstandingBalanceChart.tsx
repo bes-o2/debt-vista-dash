@@ -1,14 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useState, useMemo } from "react";
-import { Building, Calendar as CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Building, Calendar } from "lucide-react";
 
 interface Debt {
   id: string;
@@ -41,7 +37,7 @@ const COLORS = [
 
 export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps) => {
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
-  const [customDate, setCustomDate] = useState<Date>(new Date());
+  const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -69,7 +65,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
     const latestDate = new Date(Math.max(...debts.map(d => new Date(d.dueDate).getTime())));
     
     // Determine end date based on selection
-    const endDate = dateType === 'today' ? new Date() : customDate;
+    const endDate = dateType === 'today' ? new Date() : new Date(customDate);
     const startDate = dateType === 'today' ? earliestDate : earliestDate;
     
     // Generate yearly data from start to end
@@ -162,33 +158,15 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
               </div>
             </div>
             {dateType === 'custom' && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-40 justify-start text-left font-normal",
-                      !customDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {customDate ? format(customDate, "MM/yyyy") : <span>Selecionar</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={customDate}
-                    onSelect={(date) => date && setCustomDate(date)}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                    defaultMonth={customDate}
-                    captionLayout="dropdown-buttons"
-                    fromYear={2000}
-                    toYear={2030}
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="w-40"
+                />
+              </div>
             )}
           </div>
         </div>
