@@ -232,16 +232,16 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
               <span className="ml-2">Calculando tabela...</span>
             </div>
           ) : installments.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-96 border rounded-md">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
-                    <TableHead className="w-20">#</TableHead>
-                    <TableHead>Data Vcto</TableHead>
-                    <TableHead className="text-right">Saldo Devedor</TableHead>
-                    <TableHead className="text-right">Amortização</TableHead>
-                    <TableHead className="text-right">Juros</TableHead>
-                    <TableHead className="text-right">Valor Parcela</TableHead>
+                    <TableHead className="w-20 bg-background">#</TableHead>
+                    <TableHead className="bg-background">Data Vcto</TableHead>
+                    <TableHead className="text-right bg-background">Saldo Devedor</TableHead>
+                    <TableHead className="text-right bg-background">Amortização</TableHead>
+                    <TableHead className="text-right bg-background">Juros</TableHead>
+                    <TableHead className="text-right bg-background">Valor Parcela</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
