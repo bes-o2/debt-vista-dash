@@ -1,12 +1,213 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, PieChart, BarChart3, Calculator } from "lucide-react";
+import { DebtCard } from "@/components/DebtCard";
+import { DebtForm } from "@/components/DebtForm";
+import { DashboardStats } from "@/components/DashboardStats";
+import { DebtChart } from "@/components/DebtChart";
+import { useToast } from "@/hooks/use-toast";
+
+interface Debt {
+  id: string;
+  name: string;
+  amount: number;
+  interestRate: number;
+  dueDate: string;
+  minimumPayment: number;
+  category: string;
+}
 
 const Index = () => {
+  const [debts, setDebts] = useState<Debt[]>([
+    {
+      id: "1",
+      name: "Cartão Visa",
+      amount: 5800.00,
+      interestRate: 12.5,
+      dueDate: "2024-01-15",
+      minimumPayment: 290.00,
+      category: "Cartão de Crédito"
+    },
+    {
+      id: "2", 
+      name: "Financiamento Casa",
+      amount: 185000.00,
+      interestRate: 8.2,
+      dueDate: "2024-01-08",
+      minimumPayment: 1850.00,
+      category: "Financiamento Imobiliário"
+    },
+    {
+      id: "3",
+      name: "Empréstimo Pessoal",
+      amount: 12000.00,
+      interestRate: 5.5,
+      dueDate: "2024-01-20",
+      minimumPayment: 800.00,
+      category: "Empréstimo Pessoal"
+    }
+  ]);
+  
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
+  const { toast } = useToast();
+
+  const handleSaveDebt = (debtData: Omit<Debt, 'id'>) => {
+    if (editingDebt) {
+      setDebts(prev => prev.map(debt => 
+        debt.id === editingDebt.id 
+          ? { ...debtData, id: editingDebt.id }
+          : debt
+      ));
+      toast({
+        title: "Dívida atualizada",
+        description: "As informações da dívida foram atualizadas com sucesso.",
+      });
+    } else {
+      const newDebt: Debt = {
+        ...debtData,
+        id: Date.now().toString()
+      };
+      setDebts(prev => [...prev, newDebt]);
+      toast({
+        title: "Nova dívida adicionada",
+        description: "A dívida foi cadastrada com sucesso.",
+      });
+    }
+    setEditingDebt(undefined);
+  };
+
+  const handleEditDebt = (debt: Debt) => {
+    setEditingDebt(debt);
+    setIsFormOpen(true);
+  };
+
+  const handleNewDebt = () => {
+    setEditingDebt(undefined);
+    setIsFormOpen(true);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border/50 bg-gradient-card">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-primary text-white">
+                  <Calculator className="h-6 w-6" />
+                </div>
+                Análise de Endividamento
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Gerencie e monitore suas dívidas de forma inteligente
+              </p>
+            </div>
+            <Button 
+              onClick={handleNewDebt}
+              className="bg-gradient-primary hover:opacity-90 shadow-elegant"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Dívida
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <Tabs defaultValue="dashboard" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <PieChart className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="debts" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Dívidas
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-2">
+              <Calculator className="h-4 w-4" />
+              Análise
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-6">
+            <DashboardStats debts={debts} />
+            <DebtChart debts={debts} />
+          </TabsContent>
+
+          <TabsContent value="debts" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-foreground">Suas Dívidas</h2>
+                <p className="text-muted-foreground">
+                  {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <Button 
+                onClick={handleNewDebt}
+                variant="outline"
+                className="hover:bg-accent"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Dívida
+              </Button>
+            </div>
+
+            {debts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <Calculator className="h-12 w-12 text-muted-foreground" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  Nenhuma dívida cadastrada
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Comece adicionando suas primeiras dívidas para análise
+                </p>
+                <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar Primeira Dívida
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {debts.map((debt) => (
+                  <DebtCard 
+                    key={debt.id} 
+                    debt={debt} 
+                    onEdit={handleEditDebt}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="analysis" className="space-y-6">
+            <div className="text-center py-12">
+              <div className="mx-auto w-24 h-24 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
+                <Calculator className="h-12 w-12 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">
+                Análises Avançadas
+              </h3>
+              <p className="text-muted-foreground">
+                Ferramentas de simulação e estratégias de pagamento em breve!
+              </p>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
+
+      <DebtForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSave={handleSaveDebt}
+        debt={editingDebt}
+      />
     </div>
   );
 };
