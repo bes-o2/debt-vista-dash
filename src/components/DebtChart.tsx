@@ -4,7 +4,9 @@ import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown } from "lucide-react";
 
 interface Debt {
   id: string;
@@ -36,7 +38,7 @@ const COLORS = [
 ];
 
 export const DebtChart = ({ debts }: DebtChartProps) => {
-  const [selectedBank, setSelectedBank] = useState<string>("all");
+  const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [chartType, setChartType] = useState<string>("bank");
 
   // Get unique banks
@@ -47,9 +49,9 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
   // Filter debts based on selections
   const filteredDebts = useMemo(() => {
     return debts.filter(debt => {
-      return selectedBank === "all" || debt.bank === selectedBank;
+      return selectedBanks.length === 0 || selectedBanks.includes(debt.bank);
     });
-  }, [debts, selectedBank]);
+  }, [debts, selectedBanks]);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -174,8 +176,16 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     return null;
   };
 
+  const handleBankToggle = (bank: string) => {
+    setSelectedBanks(prev => 
+      prev.includes(bank) 
+        ? prev.filter(b => b !== bank)
+        : [...prev, bank]
+    );
+  };
+
   const clearFilters = () => {
-    setSelectedBank("all");
+    setSelectedBanks([]);
   };
 
   if (debts.length === 0) {
@@ -235,18 +245,56 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
         {/* Filters Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Filtrar por Banco</label>
-            <Select value={selectedBank} onValueChange={setSelectedBank}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todos os bancos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os bancos</SelectItem>
-                {availableBanks.map((bank) => (
-                  <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium text-foreground">Filtrar por Bancos</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between bg-popover hover:bg-accent hover:text-accent-foreground"
+                >
+                  {selectedBanks.length === 0 
+                    ? "Selecione os bancos" 
+                    : `${selectedBanks.length} banco${selectedBanks.length !== 1 ? 's' : ''} selecionado${selectedBanks.length !== 1 ? 's' : ''}`
+                  }
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 bg-popover border border-border shadow-lg z-50">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-foreground">Selecionar Bancos</h4>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={clearFilters}
+                      className="h-6 px-2 text-xs"
+                    >
+                      Limpar
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {availableBanks.map((bank) => (
+                      <div key={bank} className="flex items-center space-x-2 p-2 rounded hover:bg-accent">
+                        <Checkbox
+                          id={bank}
+                          checked={selectedBanks.includes(bank)}
+                          onCheckedChange={() => handleBankToggle(bank)}
+                        />
+                        <label 
+                          htmlFor={bank} 
+                          className="text-sm font-medium cursor-pointer flex-1"
+                        >
+                          {bank}
+                        </label>
+                        <Badge variant="outline" className="text-xs">
+                          {debts.filter(d => d.bank === bank).length}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">
@@ -277,12 +325,20 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
         </div>
 
         {/* Active Filters */}
-        {selectedBank !== "all" && (
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-muted-foreground">Filtro ativo:</span>
-            <Badge variant="secondary">
-              Banco: {selectedBank}
-            </Badge>
+        {selectedBanks.length > 0 && (
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-sm text-muted-foreground">Bancos selecionados:</span>
+            {selectedBanks.map((bank) => (
+              <Badge key={bank} variant="secondary" className="flex items-center gap-1">
+                {bank}
+                <button 
+                  onClick={() => handleBankToggle(bank)}
+                  className="ml-1 text-muted-foreground hover:text-foreground"
+                >
+                  ×
+                </button>
+              </Badge>
+            ))}
           </div>
         )}
       </div>
