@@ -157,7 +157,11 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
             };
           }
 
-          monthlyData[monthKey].totalBalance += installment.principal_balance;
+          // FIXED: Calculate remaining balance AFTER amortization payment
+          const remainingBalanceAfterPayment = installment.principal_balance - installment.amortization;
+          console.log(`Month ${monthKey}: Balance before: ${installment.principal_balance}, Amortization: ${installment.amortization}, Balance after: ${remainingBalanceAfterPayment}`);
+          
+          monthlyData[monthKey].totalBalance += Math.max(0, remainingBalanceAfterPayment);
           monthlyData[monthKey].totalAmortization += installment.amortization;
           monthlyData[monthKey].totalInterest += installment.interest_amount;
           monthlyData[monthKey].totalPayment += installment.installment_amount;
