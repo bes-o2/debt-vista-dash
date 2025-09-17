@@ -46,7 +46,7 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
     totalPrincipal: 0
   });
   const { toast } = useToast();
-  const { cet, loading: cetLoading } = useCET(debt);
+  const { cet, loading: cetLoading } = useCET(debt, 'monthly');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {

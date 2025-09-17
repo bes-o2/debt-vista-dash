@@ -20,7 +20,7 @@ interface Installment {
   installment_amount: number;
 }
 
-export function useCET(debt: Debt) {
+export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') {
   const [cet, setCet] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -106,8 +106,15 @@ export function useCET(debt: Debt) {
       // Calcular a taxa CET mensal
       const monthlyRate = findCETRate(initialAmount, payments);
       
-      // Manter como taxa mensal para exibição em a.m %
-      setCet(monthlyRate * 100); // Converter para percentual mensal
+      // Converter para anual se necessário
+      if (returnType === 'annual') {
+        // Converter taxa mensal para anual: (1 + taxa_mensal)^12 - 1
+        const annualRate = (Math.pow(1 + monthlyRate, 12) - 1) * 100;
+        setCet(annualRate);
+      } else {
+        // Manter como taxa mensal
+        setCet(monthlyRate * 100);
+      }
       
     } catch (error) {
       console.error('Error calculating CET:', error);
