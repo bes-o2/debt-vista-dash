@@ -7,6 +7,9 @@ import { DebtCard } from "@/components/DebtCard";
 import { DebtForm } from "@/components/DebtForm";
 import { DashboardStats } from "@/components/DashboardStats";
 import { DebtChart } from "@/components/DebtChart";
+import { OutstandingBalanceChart } from "@/components/OutstandingBalanceChart";
+import { DebtProfileChart } from "@/components/DebtProfileChart";
+import { NetDebtCard } from "@/components/NetDebtCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { AmortizationTable } from "@/components/AmortizationTable";
@@ -208,10 +211,20 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-6">
-            <DashboardStats debts={debts} />
-            <DebtChart debts={debts} />
-          </TabsContent>
+            <TabsContent value="dashboard" className="space-y-6">
+              <DashboardStats debts={debts} />
+              
+              {/* Outstanding Balance by Bank */}
+              <OutstandingBalanceChart debts={debts} />
+              
+              {/* Debt Profile Chart */}
+              <DebtProfileChart debts={debts} />
+              
+              {/* Net Debt Calculation */}
+              <NetDebtCard debts={debts} />
+              
+              <DebtChart debts={debts} />
+            </TabsContent>
 
           <TabsContent value="debts" className="space-y-6">
             <div className="flex items-center justify-between">
