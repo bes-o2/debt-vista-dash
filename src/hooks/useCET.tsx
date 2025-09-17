@@ -106,10 +106,8 @@ export function useCET(debt: Debt) {
       // Calcular a taxa CET mensal
       const monthlyRate = findCETRate(initialAmount, payments);
       
-      // Converter para anual (taxa efetiva)
-      const annualRate = Math.pow(1 + monthlyRate, 12) - 1;
-      
-      setCet(annualRate * 100); // Converter para percentual
+      // Manter como taxa mensal para exibição em a.m %
+      setCet(monthlyRate * 100); // Converter para percentual mensal
       
     } catch (error) {
       console.error('Error calculating CET:', error);

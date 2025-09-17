@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Loader2, Calculator, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useCET } from '@/hooks/useCET';
 
 interface Debt {
   id: string;
@@ -45,6 +46,7 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
     totalPrincipal: 0
   });
   const { toast } = useToast();
+  const { cet, loading: cetLoading } = useCET(debt);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -150,10 +152,10 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Pago</CardTitle>
+            <CardTitle className="text-sm font-medium">Custo Efetivo do Contrato</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">
@@ -180,6 +182,21 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
           <CardContent>
             <div className="text-2xl font-bold text-muted-foreground">
               {formatCurrency(summary.totalPrincipal)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">CET (Custo Efetivo Total) a.m %</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-accent">
+              {cetLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                `${cet?.toFixed(2)}%`
+              )}
             </div>
           </CardContent>
         </Card>
