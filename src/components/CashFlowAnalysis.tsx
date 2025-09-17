@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,7 +52,8 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedDebts, setSelectedDebts] = useState<string[]>([]);
   const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated'>('absolute');
-  const [periodFilter, setPeriodFilter] = useState<'12' | '24' | '60' | '120' | 'all'>('24');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -148,11 +150,27 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([_, data]) => data);
 
-      // Apply period filter
+      // Apply date filter
       let filteredData = sortedData;
-      if (periodFilter !== 'all') {
-        const months = parseInt(periodFilter);
-        filteredData = sortedData.slice(0, months);
+      if (startDate || endDate) {
+        filteredData = sortedData.filter(point => {
+          const [year, month] = point.month.replace(/(\w+)\/(\d+)/, (_, m, y) => {
+            const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 
+                              'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+            const monthIndex = monthNames.indexOf(m.toLowerCase()) + 1;
+            return `20${y}-${monthIndex.toString().padStart(2, '0')}`;
+          }).split('-');
+          const pointDate = `${year}-${month}`;
+          
+          if (startDate && endDate) {
+            return pointDate >= startDate && pointDate <= endDate;
+          } else if (startDate) {
+            return pointDate >= startDate;
+          } else if (endDate) {
+            return pointDate <= endDate;
+          }
+          return true;
+        });
       }
 
       // Apply analysis type (accumulated vs absolute)
@@ -386,18 +404,26 @@ export function CashFlowAnalysis({ debts }: CashFlowAnalysisProps) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Período de Análise</label>
-              <Select value={periodFilter} onValueChange={(value: any) => setPeriodFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="12">12 meses</SelectItem>
-                  <SelectItem value="24">24 meses</SelectItem>
-                  <SelectItem value="60">5 anos</SelectItem>
-                  <SelectItem value="120">10 anos</SelectItem>
-                  <SelectItem value="all">Período completo</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">Data Inicial</label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    placeholder="Data inicial"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Data Final</label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    placeholder="Data final"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
