@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,28 +54,46 @@ const formatCurrencyInput = (value: string): string => {
 
 export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   const [formData, setFormData] = useState({
-    financedAmount: debt?.financedAmount || 0,
-    releaseDate: debt?.releaseDate ? new Date(debt.releaseDate) : new Date(),
-    dueDate: debt?.dueDate ? new Date(debt.dueDate) : new Date(),
-    calculationTable: debt?.calculationTable || 'SAC' as 'SAC' | 'PRICE',
-    indexer: debt?.indexer || "",
-    interestRate: debt?.interestRate || 0,
-    interestType: debt?.interestType || 'monthly' as 'monthly' | 'annual',
-    iofAmount: debt?.iofAmount || 0,
-    tacAmount: debt?.tacAmount || 0,
-    bank: debt?.bank || 'Banco do Brasil',
-    contractNumber: debt?.contractNumber || ""
+    financedAmount: 0,
+    releaseDate: new Date(),
+    dueDate: new Date(),
+    calculationTable: 'SAC' as 'SAC' | 'PRICE',
+    indexer: "",
+    interestRate: 0,
+    interestType: 'monthly' as 'monthly' | 'annual',
+    iofAmount: 0,
+    tacAmount: 0,
+    bank: 'Banco do Brasil',
+    contractNumber: ""
   });
 
-  const [financedAmountDisplay, setFinancedAmountDisplay] = useState(
-    debt?.financedAmount ? formatCurrency(debt.financedAmount * 100) : "R$ 0,00"
-  );
-  const [iofAmountDisplay, setIofAmountDisplay] = useState(
-    debt?.iofAmount ? formatCurrency(debt.iofAmount * 100) : "R$ 0,00"
-  );
-  const [tacAmountDisplay, setTacAmountDisplay] = useState(
-    debt?.tacAmount ? formatCurrency(debt.tacAmount * 100) : "R$ 0,00"
-  );
+  const [financedAmountDisplay, setFinancedAmountDisplay] = useState("R$ 0,00");
+  const [iofAmountDisplay, setIofAmountDisplay] = useState("R$ 0,00");
+  const [tacAmountDisplay, setTacAmountDisplay] = useState("R$ 0,00");
+
+  // Update form data when debt prop changes
+  useEffect(() => {
+    if (debt) {
+      setFormData({
+        financedAmount: debt.financedAmount,
+        releaseDate: new Date(debt.releaseDate),
+        dueDate: new Date(debt.dueDate),
+        calculationTable: debt.calculationTable,
+        indexer: debt.indexer || "",
+        interestRate: debt.interestRate,
+        interestType: debt.interestType,
+        iofAmount: debt.iofAmount || 0,
+        tacAmount: debt.tacAmount || 0,
+        bank: debt.bank,
+        contractNumber: debt.contractNumber || ""
+      });
+      setFinancedAmountDisplay(formatCurrency(debt.financedAmount * 100));
+      setIofAmountDisplay(debt.iofAmount ? formatCurrency(debt.iofAmount * 100) : "R$ 0,00");
+      setTacAmountDisplay(debt.tacAmount ? formatCurrency(debt.tacAmount * 100) : "R$ 0,00");
+    } else {
+      resetForm();
+    }
+  }, [debt]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +142,6 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) {
         onClose();
-        resetForm();
       }
     }}>
       <DialogContent className="sm:max-w-lg bg-gradient-card max-h-[90vh] overflow-y-auto">
@@ -381,10 +398,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => {
-                onClose();
-                resetForm();
-              }}
+              onClick={onClose}
               className="flex-1"
             >
               Cancelar
