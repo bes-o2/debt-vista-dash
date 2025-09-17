@@ -16,9 +16,9 @@
     --popover: 0 0% 97%;
     --popover-foreground: 220 13% 18%;
 
-    /* Vibrant green - same as dark mode */
-    --primary: 108 89% 60%;
-    --primary-foreground: 220 13% 18%;
+    /* Subtle corporate green */
+    --primary: 154 45% 35%;
+    --primary-foreground: 0 0% 98%;
 
     /* Neutral secondary */
     --secondary: 210 30% 94%;
@@ -27,12 +27,12 @@
     --muted: 210 30% 94%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 108 89% 60%;
-    --accent-foreground: 220 13% 18%;
+    --accent: 154 45% 35%;
+    --accent-foreground: 0 0% 98%;
 
     /* Subtle corporate colors */
-    --success: 108 89% 60%;
-    --success-foreground: 220 13% 18%;
+    --success: 154 45% 35%;
+    --success-foreground: 0 0% 98%;
     
     --warning: 35 84% 62%;
     --warning-foreground: 220 13% 18%;
@@ -42,31 +42,31 @@
 
     --border: 214 32% 88%;
     --input: 214 32% 91%;
-    --ring: 108 89% 60%;
+    --ring: 154 45% 35%;
 
-    /* Vibrant gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(108 89% 60%), hsl(108 89% 70%));
-    --gradient-success: linear-gradient(135deg, hsl(108 89% 60%), hsl(108 89% 65%));
+    /* Subtle gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(154 45% 35%), hsl(154 45% 45%));
+    --gradient-success: linear-gradient(135deg, hsl(154 45% 35%), hsl(154 45% 40%));
     --gradient-warning: linear-gradient(135deg, hsl(35 84% 62%), hsl(35 84% 72%));
     --gradient-card: linear-gradient(135deg, hsl(0 0% 97%), hsl(210 20% 96%));
 
     /* Refined shadows */
-    --shadow-elegant: 0 8px 25px -8px hsl(108 89% 60% / 0.2);
+    --shadow-elegant: 0 8px 25px -8px hsl(154 45% 35% / 0.2);
     --shadow-card: 0 2px 10px -2px hsl(214 32% 50% / 0.15);
 
     --radius: 0.75rem;
 
     --sidebar-background: 210 20% 98%;
     --sidebar-foreground: 220 13% 18%;
-    --sidebar-primary: 108 89% 60%;
-    --sidebar-primary-foreground: 220 13% 18%;
+    --sidebar-primary: 154 45% 35%;
+    --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 210 30% 94%;
     --sidebar-accent-foreground: 220 13% 18%;
     --sidebar-border: 214 32% 88%;
-    --sidebar-ring: 108 89% 60%;
+    --sidebar-ring: 154 45% 35%;
 
     /* Chart colors - more refined */
-    --chart-1: 108 89% 60%;
+    --chart-1: 154 45% 35%;
     --chart-2: 173 50% 45%;
     --chart-3: 35 84% 62%;
     --chart-4: 259 70% 55%;
@@ -84,8 +84,8 @@
     --popover: 220 15% 10%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 108 89% 60%;
-    --primary-foreground: 220 15% 8%;
+    --primary: 154 45% 35%;
+    --primary-foreground: 0 0% 98%;
 
     --secondary: 220 15% 15%;
     --secondary-foreground: 210 40% 98%;
@@ -93,11 +93,11 @@
     --muted: 220 15% 15%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 108 89% 60%;
-    --accent-foreground: 220 15% 8%;
+    --accent: 154 45% 35%;
+    --accent-foreground: 0 0% 98%;
 
-    --success: 108 89% 60%;
-    --success-foreground: 220 15% 8%;
+    --success: 154 45% 35%;
+    --success-foreground: 0 0% 98%;
     
     --warning: 45 93% 47%;
     --warning-foreground: 220 15% 8%;
@@ -107,29 +107,29 @@
 
     --border: 220 15% 20%;
     --input: 220 15% 15%;
-    --ring: 108 89% 60%;
+    --ring: 154 45% 35%;
 
     /* Dark mode gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(108 89% 60%), hsl(108 89% 50%));
-    --gradient-success: linear-gradient(135deg, hsl(108 89% 60%), hsl(108 89% 55%));
+    --gradient-primary: linear-gradient(135deg, hsl(154 45% 35%), hsl(154 45% 45%));
+    --gradient-success: linear-gradient(135deg, hsl(154 45% 35%), hsl(154 45% 40%));
     --gradient-warning: linear-gradient(135deg, hsl(45 93% 47%), hsl(35 91% 62%));
     --gradient-card: linear-gradient(135deg, hsl(220 15% 10%), hsl(220 15% 12%));
 
     /* Dark mode shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(108 89% 60% / 0.3);
+    --shadow-elegant: 0 10px 30px -10px hsl(154 45% 35% / 0.3);
     --shadow-card: 0 4px 20px -2px hsl(220 15% 5% / 0.4);
 
     --sidebar-background: 220 15% 8%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 108 89% 60%;
-    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-primary: 154 45% 35%;
+    --sidebar-primary-foreground: 0 0% 98%;
     --sidebar-accent: 220 15% 15%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 108 89% 60%;
+    --sidebar-ring: 154 45% 35%;
 
     /* Chart colors for dark mode */
-    --chart-1: 108 89% 60%;
+    --chart-1: 154 45% 35%;
     --chart-2: 173 58% 60%;
     --chart-3: 45 93% 60%;
     --chart-4: 259 92% 65%;
