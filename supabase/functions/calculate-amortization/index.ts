@@ -148,7 +148,8 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
   }
 
   // Initialize remaining balance
-  let remainingBalance = financedAmount + iofAmount + tacAmount;
+  const totalFinancedAmount = financedAmount + iofAmount + tacAmount;
+  let remainingBalance = totalFinancedAmount;
   const installments: Installment[] = [];
 
   // Calculate PRICE factor if needed
@@ -171,13 +172,19 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     let installmentAmount: number;
 
     if (calculationTable === 'SAC') {
-      // SAC: Fixed amortization
-      amortizationAmount = financedAmount / totalMonths;
+      // SAC: Fixed amortization on total financed (including financed fees)
+      amortizationAmount = totalFinancedAmount / totalMonths;
       installmentAmount = amortizationAmount + interestAmount;
     } else {
       // PRICE: Fixed installment
       installmentAmount = remainingBalance * priceFactor;
       amortizationAmount = installmentAmount - interestAmount;
+    }
+
+    // Final installment rounding adjustment to avoid residual balance
+    if (amortizationAmount > remainingBalance - 1e-6 || i === totalMonths) {
+      amortizationAmount = Math.min(remainingBalance, amortizationAmount);
+      installmentAmount = amortizationAmount + interestAmount;
     }
 
     installments.push({
