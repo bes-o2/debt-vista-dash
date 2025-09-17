@@ -7,10 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useBanks } from "@/hooks/useBanks";
+import { toast } from "@/hooks/use-toast";
 
 interface Debt {
   id: string;
@@ -53,6 +55,10 @@ const formatCurrencyInput = (value: string): string => {
 };
 
 export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
+  const { banks, addBank } = useBanks();
+  const [newBankName, setNewBankName] = useState("");
+  const [showNewBankInput, setShowNewBankInput] = useState(false);
+  
   const [formData, setFormData] = useState({
     financedAmount: 0,
     releaseDate: new Date(),
@@ -63,7 +69,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     interestType: 'monthly' as 'monthly' | 'annual',
     iofAmount: 0,
     tacAmount: 0,
-    bank: 'Banco do Brasil',
+    bank: banks.length > 0 ? banks[0].name : 'Banco do Brasil',
     contractNumber: ""
   });
 
@@ -119,6 +125,27 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     onClose();
   };
 
+  const handleAddNewBank = async () => {
+    if (!newBankName.trim()) return;
+    
+    try {
+      await addBank(newBankName.trim());
+      setFormData(prev => ({ ...prev, bank: newBankName.trim() }));
+      setNewBankName("");
+      setShowNewBankInput(false);
+      toast({
+        title: "Banco adicionado",
+        description: `${newBankName} foi adicionado com sucesso.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao adicionar banco",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       financedAmount: 0,
@@ -130,12 +157,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       interestType: 'monthly',
       iofAmount: 0,
       tacAmount: 0,
-      bank: 'Banco do Brasil',
+      bank: banks.length > 0 ? banks[0].name : 'Banco do Brasil',
       contractNumber: ""
     });
     setFinancedAmountDisplay("R$ 0,00");
     setIofAmountDisplay("R$ 0,00");
     setTacAmountDisplay("R$ 0,00");
+    setNewBankName("");
+    setShowNewBankInput(false);
   };
 
   return (
@@ -157,21 +186,75 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
             <Label className="text-sm font-medium">
               Banco <span className="text-red-500">*</span>
             </Label>
-            <Select 
-              value={formData.bank} 
-              onValueChange={(value) => setFormData(prev => ({ ...prev, bank: value }))}
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o banco" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Banco do Brasil">Banco do Brasil</SelectItem>
-                <SelectItem value="Caixa Econômica Federal">Caixa Econômica Federal</SelectItem>
-                <SelectItem value="Itaú">Itaú</SelectItem>
-                <SelectItem value="Bradesco">Bradesco</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Select 
+                value={formData.bank} 
+                onValueChange={(value) => {
+                  if (value === "add_new") {
+                    setShowNewBankInput(true);
+                  } else {
+                    setFormData(prev => ({ ...prev, bank: value }));
+                  }
+                }}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o banco" />
+                </SelectTrigger>
+                <SelectContent>
+                  {banks.map((bank) => (
+                    <SelectItem key={bank.id} value={bank.name}>
+                      {bank.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="add_new" className="text-primary">
+                    <div className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Adicionar novo banco
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {showNewBankInput && (
+                <div className="flex gap-2">
+                  <Input
+                    value={newBankName}
+                    onChange={(e) => setNewBankName(e.target.value)}
+                    placeholder="Nome do novo banco"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddNewBank();
+                      }
+                      if (e.key === 'Escape') {
+                        setShowNewBankInput(false);
+                        setNewBankName("");
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddNewBank}
+                    disabled={!newBankName.trim()}
+                    size="sm"
+                  >
+                    Adicionar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowNewBankInput(false);
+                      setNewBankName("");
+                    }}
+                    size="sm"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Valor Financiado */}
