@@ -67,79 +67,87 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     }).format(value);
 
   // Dados por banco para o gráfico de pizza
-  const bankData = filteredDebts.reduce((acc, debt) => {
-    const existing = acc.find(item => item.name === debt.bank);
-    if (existing) {
-      existing.value += debt.financedAmount;
-      existing.count += 1;
-    } else {
-      acc.push({ 
-        name: debt.bank, 
-        value: debt.financedAmount,
-        count: 1
-      });
-    }
-    return acc;
-  }, [] as { name: string; value: number; count: number }[]);
-
-  // Dados por sistema de amortização
-  const systemData = filteredDebts.reduce((acc, debt) => {
-    const existing = acc.find(item => item.name === debt.calculationTable);
-    if (existing) {
-      existing.value += debt.financedAmount;
-      existing.count += 1;
-    } else {
-      acc.push({ 
-        name: debt.calculationTable, 
-        value: debt.financedAmount,
-        count: 1
-      });
-    }
-    return acc;
-  }, [] as { name: string; value: number; count: number }[]);
-
-  // Dados comparativos de bancos (valor financiado vs custo total)
-  const bankComparisonData = availableBanks.map(bank => {
-    const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
-    const totalFinanced = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
-    const totalCost = bankDebts.reduce((sum, debt) => {
-      return sum + debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
-    }, 0);
-    const avgRate = bankDebts.length > 0 
-      ? bankDebts.reduce((sum, debt) => {
-          return sum + (debt.interestType === 'annual' 
-            ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-            : debt.interestRate / 100);
-        }, 0) / bankDebts.length * 100
-      : 0;
-
-    return {
-      name: bank,
-      financedAmount: totalFinanced,
-      totalCost: totalCost,
-      fees: totalCost - totalFinanced,
-      avgRate: avgRate,
-      count: bankDebts.length
-    };
-  }).filter(item => item.count > 0);
-
-  // Dados de indexadores
-  const indexerData = filteredDebts
-    .filter(debt => debt.indexer)
-    .reduce((acc, debt) => {
-      const existing = acc.find(item => item.name === debt.indexer);
+  const bankData = useMemo(() => {
+    return filteredDebts.reduce((acc, debt) => {
+      const existing = acc.find(item => item.name === debt.bank);
       if (existing) {
         existing.value += debt.financedAmount;
         existing.count += 1;
       } else {
         acc.push({ 
-          name: debt.indexer!, 
+          name: debt.bank, 
           value: debt.financedAmount,
           count: 1
         });
       }
       return acc;
     }, [] as { name: string; value: number; count: number }[]);
+  }, [filteredDebts]);
+
+  // Dados por sistema de amortização
+  const systemData = useMemo(() => {
+    return filteredDebts.reduce((acc, debt) => {
+      const existing = acc.find(item => item.name === debt.calculationTable);
+      if (existing) {
+        existing.value += debt.financedAmount;
+        existing.count += 1;
+      } else {
+        acc.push({ 
+          name: debt.calculationTable, 
+          value: debt.financedAmount,
+          count: 1
+        });
+      }
+      return acc;
+    }, [] as { name: string; value: number; count: number }[]);
+  }, [filteredDebts]);
+
+  // Dados comparativos de bancos (valor financiado vs custo total)
+  const bankComparisonData = useMemo(() => {
+    return availableBanks.map(bank => {
+      const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
+      const totalFinanced = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
+      const totalCost = bankDebts.reduce((sum, debt) => {
+        return sum + debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
+      }, 0);
+      const avgRate = bankDebts.length > 0 
+        ? bankDebts.reduce((sum, debt) => {
+            return sum + (debt.interestType === 'annual' 
+              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+              : debt.interestRate / 100);
+          }, 0) / bankDebts.length * 100
+        : 0;
+
+      return {
+        name: bank,
+        financedAmount: totalFinanced,
+        totalCost: totalCost,
+        fees: totalCost - totalFinanced,
+        avgRate: avgRate,
+        count: bankDebts.length
+      };
+    }).filter(item => item.count > 0);
+  }, [availableBanks, filteredDebts]);
+
+  // Dados de indexadores
+  const indexerData = useMemo(() => {
+    return filteredDebts
+      .filter(debt => debt.indexer)
+      .reduce((acc, debt) => {
+        const existing = acc.find(item => item.name === debt.indexer);
+        if (existing) {
+          existing.value += debt.financedAmount;
+          existing.count += 1;
+        } else {
+          acc.push({ 
+            name: debt.indexer!, 
+            value: debt.financedAmount,
+            count: 1
+          });
+        }
+        return acc;
+      }, [] as { name: string; value: number; count: number }[]);
+  }, [filteredDebts]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
