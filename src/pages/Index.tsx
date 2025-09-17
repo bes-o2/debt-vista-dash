@@ -17,6 +17,7 @@ import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
 import { useToast } from "@/hooks/use-toast";
+import { SettingsButton } from "@/components/SettingsButton";
 interface Debt {
   id: string;
   financedAmount: number;
@@ -172,6 +173,7 @@ const Index = () => {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Voltar ao Dashboard
               </Button>
+              <SettingsButton />
               <ThemeToggle />
               <Button onClick={signOut} variant="outline" className="hover:bg-accent">
                 <LogOut className="mr-2 h-4 w-4" />

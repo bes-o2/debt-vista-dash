@@ -2,3 +2,6 @@ project_id = "zujkmyfwfhjkixlymgiv"
 
 [functions.calculate-amortization]
 verify_jwt = false
+
+[functions.fetch-bcb-rates]
+verify_jwt = false
