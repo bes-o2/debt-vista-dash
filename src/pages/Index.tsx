@@ -9,6 +9,7 @@ import { DebtChart } from "@/components/DebtChart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
+import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
 import { useToast } from "@/hooks/use-toast";
 
 interface Debt {
@@ -286,17 +287,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="analysis" className="space-y-6">
-            <div className="text-center py-12">
-              <div className="mx-auto w-24 h-24 bg-gradient-primary rounded-full flex items-center justify-center mb-4">
-                <Calculator className="h-12 w-12 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                Análises Avançadas
-              </h3>
-              <p className="text-muted-foreground">
-                Ferramentas de simulação e estratégias de pagamento em breve!
-              </p>
-            </div>
+            <CashFlowAnalysis debts={debts} />
           </TabsContent>
         </Tabs>
       </main>
