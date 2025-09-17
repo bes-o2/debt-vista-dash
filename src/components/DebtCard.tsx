@@ -109,9 +109,19 @@ export const DebtCard = ({ debt, onEdit, onViewTable }: DebtCardProps) => {
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Taxa de juros</span>
-                <span className="font-medium text-foreground flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4" />
-                  {debt.interestRate.toFixed(3)}% {debt.interestType === 'monthly' ? 'a.m.' : 'a.a.'}
+                <span className="font-medium text-foreground">
+                  {(() => {
+                    const rate = debt.interestRate;
+                    if (debt.interestType === 'monthly') {
+                      // Convert monthly to annual: (1 + monthly)^12 - 1
+                      const annualRate = (Math.pow(1 + rate / 100, 12) - 1) * 100;
+                      return `${annualRate.toFixed(2)}% a.a. | ${rate.toFixed(3)}% a.m.`;
+                    } else {
+                      // Convert annual to monthly: (1 + annual)^(1/12) - 1
+                      const monthlyRate = (Math.pow(1 + rate / 100, 1/12) - 1) * 100;
+                      return `${rate.toFixed(2)}% a.a. | ${monthlyRate.toFixed(3)}% a.m.`;
+                    }
+                  })()}
                 </span>
               </div>
 
