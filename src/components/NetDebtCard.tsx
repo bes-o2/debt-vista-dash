@@ -96,32 +96,66 @@ export const NetDebtCard = ({ debts }: NetDebtCardProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cash-balance" className="text-sm font-medium">
-              Informe o saldo de caixa disponível
+          <div className="space-y-3">
+            <Label htmlFor="cash-balance" className="text-sm font-medium text-foreground">
+              Saldo de Caixa Disponível
             </Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                R$
-              </span>
+            
+            <div className="relative group">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+                <span className="text-lg font-semibold text-muted-foreground group-focus-within:text-primary transition-colors">
+                  R$
+                </span>
+              </div>
               <Input
                 id="cash-balance"
                 type="text"
                 value={cashBalance}
                 onChange={handleCashBalanceChange}
                 placeholder="0,00"
-                className="pl-10 text-lg font-medium"
+                className="pl-12 pr-4 py-6 text-xl font-semibold text-foreground border-2 border-border 
+                          focus:border-primary focus:ring-4 focus:ring-primary/20 
+                          hover:border-primary/50 transition-all duration-200
+                          bg-background/50 backdrop-blur-sm"
               />
+              
+              {/* Currency indicator */}
+              <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                <div className="text-xs text-muted-foreground px-2 py-1 bg-muted/50 rounded-md">
+                  BRL
+                </div>
+              </div>
+            </div>
+            
+            {/* Format helper */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="h-1 w-1 bg-muted-foreground rounded-full"></div>
+              <span>Use vírgula para decimais (ex: 1.500,50)</span>
             </div>
           </div>
           
-          <div className="bg-muted/30 rounded-lg p-4">
+          {/* Display formatted value */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 
+                          rounded-xl p-4 border border-green-200/50 dark:border-green-800/30">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Valor informado:</span>
-              <span className="font-bold text-lg text-foreground">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  Valor processado:
+                </span>
+              </div>
+              <span className="font-bold text-lg text-green-800 dark:text-green-200">
                 {formatCurrency(cashValue)}
               </span>
             </div>
+            
+            {cashValue > 0 && (
+              <div className="mt-2 pt-2 border-t border-green-200/50 dark:border-green-800/30">
+                <div className="text-xs text-green-600 dark:text-green-400">
+                  ✓ Saldo válido para cálculo da dívida líquida
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
