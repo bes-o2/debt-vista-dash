@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Calendar, Building2, CreditCard } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Calendar, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,19 +39,11 @@ interface PaymentScheduleTableProps {
   endDate?: string;
 }
 
-interface PaymentFlowData {
+interface ContractPayments {
   debtId: string;
   bank: string;
   contractNumber: string;
-  installment_number: number;
-  due_date: string;
-  installment_amount: number;
-}
-
-interface BankSubtotal {
-  bank: string;
-  totalAmount: number;
-  contractCount: number;
+  monthlyPayments: { [month: string]: number };
 }
 
 export function PaymentScheduleTable({ 
@@ -61,7 +53,8 @@ export function PaymentScheduleTable({
   startDate, 
   endDate 
 }: PaymentScheduleTableProps) {
-  const [paymentFlowData, setPaymentFlowData] = useState<PaymentFlowData[]>([]);
+  const [contractPayments, setContractPayments] = useState<ContractPayments[]>([]);
+  const [months, setMonths] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -81,15 +74,21 @@ export function PaymentScheduleTable({
   }, [debts, selectedBanks, selectedDebts]);
 
   const formatCurrency = (value: number) => {
+    if (value === 0) return '-';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-      minimumFractionDigits: 2
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+  const formatMonthHeader = (month: string) => {
+    const date = new Date(month + '-01');
+    return date.toLocaleDateString('pt-BR', { 
+      month: 'short', 
+      year: '2-digit' 
+    }).replace('.', '');
   };
 
   const calculatePaymentFlow = async () => {
@@ -97,7 +96,8 @@ export function PaymentScheduleTable({
 
     setLoading(true);
     try {
-      const allPayments: PaymentFlowData[] = [];
+      const allContracts: ContractPayments[] = [];
+      const allMonths = new Set<string>();
 
       // Calculate installments for each selected debt
       for (const debt of filteredDebts) {
@@ -120,34 +120,37 @@ export function PaymentScheduleTable({
 
         const installments: Installment[] = data.installments;
         const contractDisplay = debt.contractNumber || `CT${debt.id.substring(0, 8).toUpperCase()}`;
+        const monthlyPayments: { [month: string]: number } = {};
 
-        // Convert installments to payment flow data
+        // Process installments for this contract
         installments.forEach((installment) => {
           const dueDate = installment.due_date;
+          const month = dueDate.substring(0, 7); // YYYY-MM
           
           // Apply date filters if provided
           if (startDate && dueDate < startDate) return;
           if (endDate && dueDate > endDate) return;
 
-          allPayments.push({
-            debtId: debt.id,
-            bank: debt.bank,
-            contractNumber: contractDisplay,
-            installment_number: installment.installment_number,
-            due_date: dueDate,
-            installment_amount: installment.installment_amount
-          });
+          monthlyPayments[month] = installment.installment_amount;
+          allMonths.add(month);
+        });
+
+        allContracts.push({
+          debtId: debt.id,
+          bank: debt.bank,
+          contractNumber: contractDisplay,
+          monthlyPayments
         });
       }
 
-      // Sort by due date and then by bank
-      allPayments.sort((a, b) => {
-        const dateCompare = a.due_date.localeCompare(b.due_date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.bank.localeCompare(b.bank);
-      });
-
-      setPaymentFlowData(allPayments);
+      // Sort months chronologically
+      const sortedMonths = Array.from(allMonths).sort();
+      
+      // Limit to first 24 months to prevent infinite width
+      const limitedMonths = sortedMonths.slice(0, 24);
+      
+      setMonths(limitedMonths);
+      setContractPayments(allContracts);
 
     } catch (error) {
       console.error('Error calculating payment flow:', error);
@@ -166,45 +169,50 @@ export function PaymentScheduleTable({
     if (filteredDebts.length > 0) {
       calculatePaymentFlow();
     } else {
-      setPaymentFlowData([]);
+      setContractPayments([]);
+      setMonths([]);
     }
   }, [filteredDebts, startDate, endDate]);
 
-  // Group data by month and calculate bank subtotals
-  const groupedData = useMemo(() => {
-    const grouped: { [month: string]: PaymentFlowData[] } = {};
+  // Group contracts by bank for subtotals
+  const contractsByBank = useMemo(() => {
+    const grouped: { [bank: string]: ContractPayments[] } = {};
     
-    paymentFlowData.forEach(payment => {
-      const month = payment.due_date.substring(0, 7); // YYYY-MM
-      if (!grouped[month]) {
-        grouped[month] = [];
+    contractPayments.forEach(contract => {
+      if (!grouped[contract.bank]) {
+        grouped[contract.bank] = [];
       }
-      grouped[month].push(payment);
+      grouped[contract.bank].push(contract);
     });
 
     return grouped;
-  }, [paymentFlowData]);
+  }, [contractPayments]);
 
-  // Calculate bank subtotals for each month
-  const getBankSubtotals = (monthData: PaymentFlowData[]): BankSubtotal[] => {
-    const bankTotals: { [bank: string]: BankSubtotal } = {};
+  // Calculate monthly totals for each bank
+  const getBankMonthlyTotals = (contracts: ContractPayments[]) => {
+    const totals: { [month: string]: number } = {};
     
-    monthData.forEach(payment => {
-      if (!bankTotals[payment.bank]) {
-        bankTotals[payment.bank] = {
-          bank: payment.bank,
-          totalAmount: 0,
-          contractCount: 0
-        };
-      }
-      bankTotals[payment.bank].totalAmount += payment.installment_amount;
-      bankTotals[payment.bank].contractCount += 1;
+    contracts.forEach(contract => {
+      Object.entries(contract.monthlyPayments).forEach(([month, amount]) => {
+        totals[month] = (totals[month] || 0) + amount;
+      });
     });
 
-    return Object.values(bankTotals).sort((a, b) => a.bank.localeCompare(b.bank));
+    return totals;
   };
 
-  const totalAmount = paymentFlowData.reduce((sum, payment) => sum + payment.installment_amount, 0);
+  // Calculate grand totals for each month
+  const grandTotals = useMemo(() => {
+    const totals: { [month: string]: number } = {};
+    
+    contractPayments.forEach(contract => {
+      Object.entries(contract.monthlyPayments).forEach(([month, amount]) => {
+        totals[month] = (totals[month] || 0) + amount;
+      });
+    });
+
+    return totals;
+  }, [contractPayments]);
 
   if (filteredDebts.length === 0) {
     return (
@@ -232,25 +240,21 @@ export function PaymentScheduleTable({
             <div>
               <CardTitle className="text-2xl">Fluxo de Vencimentos</CardTitle>
               <p className="text-muted-foreground">
-                Projeção das PMTs dos contratos selecionados por data de vencimento
+                Projeção das PMTs dos contratos selecionados por mês
               </p>
             </div>
           </div>
         </CardHeader>
-        {paymentFlowData.length > 0 && (
+        {contractPayments.length > 0 && (
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">Total de Pagamentos</p>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(totalAmount)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Contratos</p>
+                <p className="text-sm text-muted-foreground">Contratos Selecionados</p>
                 <p className="text-2xl font-bold">{filteredDebts.length}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">Parcelas</p>
-                <p className="text-2xl font-bold">{paymentFlowData.length}</p>
+                <p className="text-sm text-muted-foreground">Período Exibido</p>
+                <p className="text-2xl font-bold">{months.length} meses</p>
               </div>
             </div>
           </CardContent>
@@ -266,7 +270,7 @@ export function PaymentScheduleTable({
             </div>
           </CardContent>
         </Card>
-      ) : paymentFlowData.length === 0 ? (
+      ) : contractPayments.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">
@@ -280,103 +284,98 @@ export function PaymentScheduleTable({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              Cronograma de Pagamentos
+              <Building2 className="h-5 w-5" />
+              Cronograma Horizontal de Pagamentos
+              {months.length >= 24 && (
+                <Badge variant="outline" className="text-xs">
+                  Limitado a 24 meses
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {Object.entries(groupedData)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([month, monthData]) => {
-                  const bankSubtotals = getBankSubtotals(monthData);
-                  const monthTotal = monthData.reduce((sum, payment) => sum + payment.installment_amount, 0);
-                  const monthLabel = new Date(month + '-01').toLocaleDateString('pt-BR', { 
-                    month: 'long', 
-                    year: 'numeric' 
-                  });
-
-                  return (
-                    <div key={month} className="space-y-4">
-                      {/* Month Header */}
-                      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                        <h3 className="text-lg font-semibold capitalize">{monthLabel}</h3>
-                        <Badge variant="outline" className="text-sm">
-                          {formatCurrency(monthTotal)}
-                        </Badge>
-                      </div>
-
-                      {/* Contract Details */}
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Contrato</TableHead>
-                            <TableHead>Banco</TableHead>
-                            <TableHead>Parcela</TableHead>
-                            <TableHead>Vencimento</TableHead>
-                            <TableHead className="text-right">Valor</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {monthData.map((payment, index) => (
-                            <TableRow key={`${payment.debtId}-${payment.installment_number}`}>
-                              <TableCell className="font-medium">
-                                {payment.contractNumber}
-                              </TableCell>
-                              <TableCell>
+            <ScrollArea className="w-full">
+              <div className="min-w-fit">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background border-r min-w-[200px]">
+                        Contrato / Banco
+                      </TableHead>
+                      {months.map(month => (
+                        <TableHead key={month} className="text-center min-w-[100px]">
+                          {formatMonthHeader(month)}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Object.entries(contractsByBank)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([bank, contracts]) => {
+                        const bankTotals = getBankMonthlyTotals(contracts);
+                        
+                        return (
+                          <React.Fragment key={bank}>
+                            {/* Bank header row */}
+                            <TableRow className="bg-muted/30">
+                              <TableCell className="sticky left-0 bg-muted/30 border-r font-semibold">
                                 <div className="flex items-center gap-2">
-                                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                                  {payment.bank}
+                                  <Building2 className="h-4 w-4" />
+                                  {bank}
+                                  <Badge variant="secondary" className="text-xs">
+                                    {contracts.length}
+                                  </Badge>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <Badge variant="secondary">
-                                  {payment.installment_number}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{formatDate(payment.due_date)}</TableCell>
-                              <TableCell className="text-right font-medium">
-                                {formatCurrency(payment.installment_amount)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-
-                      {/* Bank Subtotals */}
-                      {bankSubtotals.length > 1 && (
-                        <div className="mt-4">
-                          <Separator className="mb-3" />
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-medium text-muted-foreground mb-2">
-                              Subtotais por Banco
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                              {bankSubtotals.map(subtotal => (
-                                <div 
-                                  key={subtotal.bank}
-                                  className="flex items-center justify-between p-3 bg-muted/20 rounded-lg"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">{subtotal.bank}</span>
-                                    <Badge variant="outline" className="text-xs">
-                                      {subtotal.contractCount}
-                                    </Badge>
-                                  </div>
-                                  <span className="text-sm font-semibold">
-                                    {formatCurrency(subtotal.totalAmount)}
-                                  </span>
-                                </div>
+                              {months.map(month => (
+                                <TableCell key={month} className="text-center font-semibold">
+                                  {formatCurrency(bankTotals[month] || 0)}
+                                </TableCell>
                               ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
+                            </TableRow>
+                            
+                            {/* Contract rows for this bank */}
+                            {contracts.map(contract => (
+                              <TableRow key={contract.debtId}>
+                                <TableCell className="sticky left-0 bg-background border-r pl-8">
+                                  <div className="text-sm">
+                                    <div className="font-medium">{contract.contractNumber}</div>
+                                    <div className="text-muted-foreground text-xs">
+                                      {formatCurrency(
+                                        filteredDebts.find(d => d.id === contract.debtId)?.financedAmount || 0
+                                      )}
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                {months.map(month => (
+                                  <TableCell key={month} className="text-center text-sm">
+                                    {formatCurrency(contract.monthlyPayments[month] || 0)}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    
+                    {/* Grand total row */}
+                    {Object.keys(contractsByBank).length > 1 && (
+                      <TableRow className="bg-primary/10 font-bold">
+                        <TableCell className="sticky left-0 bg-primary/10 border-r">
+                          TOTAL GERAL
+                        </TableCell>
+                        {months.map(month => (
+                          <TableCell key={month} className="text-center">
+                            {formatCurrency(grandTotals[month] || 0)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
       )}
