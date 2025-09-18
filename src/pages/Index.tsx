@@ -19,6 +19,8 @@ import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
+import { CompanySelector } from "@/components/CompanySelector";
+import { useCompany } from "@/hooks/useCompany";
 interface Debt {
   id: string;
   financedAmount: number;
@@ -180,6 +182,7 @@ const Index = () => {
               
             </div>
             <div className="flex items-center gap-3">
+              <CompanySelector />
               <Button onClick={() => setActiveTab("dashboard")} variant="outline" className="hover:bg-accent">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Voltar ao Dashboard

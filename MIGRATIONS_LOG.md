@@ -130,7 +130,23 @@ EXECUTE FUNCTION public.update_updated_at_column();
 
 ## 📝 MIGRAÇÕES FUTURAS IDENTIFICADAS
 
-### **MIGRAÇÃO #2: Persistência de Contratos (URGENTE)**
+### **MIGRAÇÃO #2: Estrutura Multi-Empresa (CRÍTICA)**
+**Prioridade:** 🔴 Crítica - **NECESSÁRIO PARA ISOLAMENTO DE DADOS POR EMPRESA**
+**Descrição:** Implementar suporte a múltiplas empresas por usuário CFO
+
+**Tabelas Necessárias:**
+```sql
+-- Estrutura Multi-Empresa (já implementada no frontend com localStorage temporário)
+-- Ver migração completa no código do sistema
+-- Inclui: profiles, companies, user_companies, debts com company_id
+```
+
+**Status:** ❌ Migração falhou por erro de autenticação no banco
+**Frontend:** ✅ Implementado com localStorage temporário
+
+---
+
+### **MIGRAÇÃO #3: Persistência de Contratos (URGENTE)**
 **Prioridade:** 🔴 Alta - **BLOQUEANDO FUNCIONALIDADE PRINCIPAL**
 **Descrição:** Mover dados de contratos do localStorage para banco de dados - **NECESSÁRIO PARA PMTs FUNCIONAREM**
 
