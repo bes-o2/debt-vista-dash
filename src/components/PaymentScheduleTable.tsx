@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Calendar, Building2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar, Building2, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -127,9 +128,9 @@ export function PaymentScheduleTable({
           const dueDate = installment.due_date;
           const month = dueDate.substring(0, 7); // YYYY-MM
           
-          // Apply date filters if provided
-          if (startDate && dueDate < startDate) return;
-          if (endDate && dueDate > endDate) return;
+          // Apply date filters if provided (only filter if dates are actually set)
+          if (startDate && startDate.trim() && dueDate < startDate) return;
+          if (endDate && endDate.trim() && dueDate > endDate) return;
 
           monthlyPayments[month] = installment.installment_amount;
           allMonths.add(month);
@@ -146,8 +147,9 @@ export function PaymentScheduleTable({
       // Sort months chronologically
       const sortedMonths = Array.from(allMonths).sort();
       
-      // Limit to first 24 months to prevent infinite width
-      const limitedMonths = sortedMonths.slice(0, 24);
+      // Only limit to 24 months if no date filters are applied
+      const shouldLimit = !startDate?.trim() && !endDate?.trim();
+      const limitedMonths = shouldLimit ? sortedMonths.slice(0, 24) : sortedMonths;
       
       setMonths(limitedMonths);
       setContractPayments(allContracts);
@@ -173,6 +175,69 @@ export function PaymentScheduleTable({
       setMonths([]);
     }
   }, [filteredDebts, startDate, endDate]);
+
+  // Export to CSV function
+  const exportToCSV = () => {
+    if (contractPayments.length === 0 || months.length === 0) return;
+
+    const csvData: string[] = [];
+    
+    // Header row
+    const header = ['Banco', 'Contrato', 'Valor Financiado', ...months.map(formatMonthHeader)];
+    csvData.push(header.join(','));
+
+    // Data rows grouped by bank
+    Object.entries(contractsByBank)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .forEach(([bank, contracts]) => {
+        // Bank subtotal row
+        const bankTotals = getBankMonthlyTotals(contracts);
+        const bankRow = [
+          `"${bank} (SUBTOTAL)"`,
+          `"${contracts.length} contratos"`,
+          '""',
+          ...months.map(month => bankTotals[month] || 0)
+        ];
+        csvData.push(bankRow.join(','));
+
+        // Individual contract rows
+        contracts.forEach(contract => {
+          const debt = filteredDebts.find(d => d.id === contract.debtId);
+          const contractRow = [
+            `"${bank}"`,
+            `"${contract.contractNumber}"`,
+            debt?.financedAmount || 0,
+            ...months.map(month => contract.monthlyPayments[month] || 0)
+          ];
+          csvData.push(contractRow.join(','));
+        });
+
+        csvData.push(''); // Empty row between banks
+      });
+
+    // Grand total row if multiple banks
+    if (Object.keys(contractsByBank).length > 1) {
+      const totalRow = [
+        '"TOTAL GERAL"',
+        '""',
+        '""',
+        ...months.map(month => grandTotals[month] || 0)
+      ];
+      csvData.push(totalRow.join(','));
+    }
+
+    // Create and download CSV file
+    const csvContent = csvData.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `fluxo_vencimentos_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Group contracts by bank for subtotals
   const contractsByBank = useMemo(() => {
@@ -283,15 +348,26 @@ export function PaymentScheduleTable({
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Cronograma Horizontal de Pagamentos
-              {months.length >= 24 && (
-                <Badge variant="outline" className="text-xs">
-                  Limitado a 24 meses
-                </Badge>
-              )}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Cronograma Horizontal de Pagamentos
+                {months.length >= 24 && !startDate?.trim() && !endDate?.trim() && (
+                  <Badge variant="outline" className="text-xs">
+                    Limitado a 24 meses
+                  </Badge>
+                )}
+              </CardTitle>
+              <Button
+                onClick={exportToCSV}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <ScrollArea className="w-full">

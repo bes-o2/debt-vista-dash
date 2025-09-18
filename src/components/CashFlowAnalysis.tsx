@@ -174,9 +174,9 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([_, data]) => data);
 
-      // Apply date filter
+      // Apply date filter only if dates are actually provided
       let filteredData = sortedData;
-      if (startDate || endDate) {
+      if ((startDate && startDate.trim()) || (endDate && endDate.trim())) {
         filteredData = sortedData.filter(point => {
           const [year, month] = point.month.replace(/(\w+)\/(\d+)/, (_, m, y) => {
             const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 
@@ -186,11 +186,11 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
           }).split('-');
           const pointDate = `${year}-${month}`;
           
-          if (startDate && endDate) {
+          if (startDate && startDate.trim() && endDate && endDate.trim()) {
             return pointDate >= startDate && pointDate <= endDate;
-          } else if (startDate) {
+          } else if (startDate && startDate.trim()) {
             return pointDate >= startDate;
-          } else if (endDate) {
+          } else if (endDate && endDate.trim()) {
             return pointDate <= endDate;
           }
           return true;
