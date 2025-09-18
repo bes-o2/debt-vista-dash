@@ -5,54 +5,54 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Bank color mapping based on real Brazilian bank brand colors
+// Bank color mapping based on real Brazilian bank brand colors (corporate versions)
 const BANK_COLORS: Record<string, string> = {
   // Major Brazilian Banks
-  'Itaú': 'hsl(25 95% 55%)', // Orange
-  'Itau': 'hsl(25 95% 55%)', // Orange (alternative spelling)
-  'Bradesco': 'hsl(358 85% 55%)', // Red
-  'Banco do Brasil': 'hsl(55 95% 50%)', // Yellow
-  'BB': 'hsl(55 95% 50%)', // Yellow (abbreviation)
-  'Santander': 'hsl(358 85% 55%)', // Red
-  'Caixa': 'hsl(205 90% 45%)', // Blue
-  'Caixa Econômica': 'hsl(205 90% 45%)', // Blue
-  'Caixa Economica': 'hsl(205 90% 45%)', // Blue (without accent)
-  'CEF': 'hsl(205 90% 45%)', // Blue (abbreviation)
-  'Banrisul': 'hsl(205 90% 45%)', // Blue
-  'BTG Pactual': 'hsl(220 25% 25%)', // Dark gray/black
-  'BTG': 'hsl(220 25% 25%)', // Dark gray/black
-  'Nubank': 'hsl(280 100% 60%)', // Purple
-  'Nu': 'hsl(280 100% 60%)', // Purple
-  'Inter': 'hsl(25 95% 55%)', // Orange
-  'Banco Inter': 'hsl(25 95% 55%)', // Orange
-  'C6 Bank': 'hsl(220 25% 25%)', // Dark gray
-  'C6': 'hsl(220 25% 25%)', // Dark gray
-  'Sicoob': 'hsl(145 75% 40%)', // Green
-  'Sicredi': 'hsl(145 75% 40%)', // Green
-  'Safra': 'hsl(205 90% 45%)', // Blue
-  'Banco Safra': 'hsl(205 90% 45%)', // Blue
-  'Original': 'hsl(145 75% 40%)', // Green
-  'Banco Original': 'hsl(145 75% 40%)', // Green
-  'Pine': 'hsl(145 75% 40%)', // Green
-  'PAN': 'hsl(205 90% 45%)', // Blue
-  'Banco PAN': 'hsl(205 90% 45%)', // Blue
-  'Votorantim': 'hsl(25 95% 55%)', // Orange
-  'BV': 'hsl(25 95% 55%)', // Orange
-  'Banco Votorantim': 'hsl(25 95% 55%)', // Orange
+  'Itaú': 'hsl(20 85% 45%)', // Corporate Orange
+  'Itau': 'hsl(20 85% 45%)', // Corporate Orange (alternative spelling)
+  'Bradesco': 'hsl(8 75% 45%)', // Deep Red/Burgundy
+  'Banco do Brasil': 'hsl(48 80% 35%)', // Corporate Yellow/Gold
+  'BB': 'hsl(48 80% 35%)', // Corporate Yellow/Gold (abbreviation)
+  'Santander': 'hsl(358 75% 50%)', // Bright Red
+  'Caixa': 'hsl(210 85% 40%)', // Corporate Blue
+  'Caixa Econômica': 'hsl(210 85% 40%)', // Corporate Blue
+  'Caixa Economica': 'hsl(210 85% 40%)', // Corporate Blue (without accent)
+  'CEF': 'hsl(210 85% 40%)', // Corporate Blue (abbreviation)
+  'Banrisul': 'hsl(215 80% 45%)', // Deep Blue
+  'BTG Pactual': 'hsl(220 30% 25%)', // Corporate Dark Gray
+  'BTG': 'hsl(220 30% 25%)', // Corporate Dark Gray
+  'Nubank': 'hsl(280 85% 50%)', // Corporate Purple
+  'Nu': 'hsl(280 85% 50%)', // Corporate Purple
+  'Inter': 'hsl(25 80% 45%)', // Corporate Orange
+  'Banco Inter': 'hsl(25 80% 45%)', // Corporate Orange
+  'C6 Bank': 'hsl(220 35% 30%)', // Corporate Dark Gray
+  'C6': 'hsl(220 35% 30%)', // Corporate Dark Gray
+  'Sicoob': 'hsl(145 65% 35%)', // Corporate Green
+  'Sicredi': 'hsl(140 70% 40%)', // Slightly different Corporate Green
+  'Safra': 'hsl(200 75% 40%)', // Corporate Blue
+  'Banco Safra': 'hsl(200 75% 40%)', // Corporate Blue
+  'Original': 'hsl(150 70% 35%)', // Corporate Green
+  'Banco Original': 'hsl(150 70% 35%)', // Corporate Green
+  'Pine': 'hsl(155 65% 38%)', // Corporate Green
+  'PAN': 'hsl(195 80% 42%)', // Corporate Blue
+  'Banco PAN': 'hsl(195 80% 42%)', // Corporate Blue
+  'Votorantim': 'hsl(30 75% 40%)', // Corporate Orange
+  'BV': 'hsl(30 75% 40%)', // Corporate Orange
+  'Banco Votorantim': 'hsl(30 75% 40%)', // Corporate Orange
 };
 
-// Fallback colors for banks not in the mapping
+// Fallback colors for banks not in the mapping (corporate versions)
 const FALLBACK_COLORS = [
-  'hsl(220 70% 50%)', // Blue
-  'hsl(25 95% 55%)', // Orange  
-  'hsl(145 75% 40%)', // Green
-  'hsl(280 100% 60%)', // Purple
-  'hsl(358 85% 55%)', // Red
-  'hsl(45 95% 50%)', // Yellow
-  'hsl(200 95% 45%)', // Light Blue
-  'hsl(320 85% 60%)', // Pink
-  'hsl(35 85% 50%)', // Brown/Orange
-  'hsl(260 85% 55%)', // Indigo
+  'hsl(220 65% 40%)', // Corporate Blue
+  'hsl(20 80% 40%)', // Corporate Orange  
+  'hsl(145 65% 35%)', // Corporate Green
+  'hsl(280 75% 45%)', // Corporate Purple
+  'hsl(358 70% 45%)', // Corporate Red
+  'hsl(45 75% 40%)', // Corporate Gold
+  'hsl(200 80% 40%)', // Corporate Light Blue
+  'hsl(320 70% 45%)', // Corporate Pink
+  'hsl(35 70% 40%)', // Corporate Brown/Orange
+  'hsl(260 75% 45%)', // Corporate Indigo
 ];
 
 export function getBankColor(bankName: string): string {
