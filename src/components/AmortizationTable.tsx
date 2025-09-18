@@ -46,7 +46,8 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
     totalPrincipal: 0
   });
   const { toast } = useToast();
-  const { cet, loading: cetLoading } = useCET(debt, 'monthly');
+  const { cet: cetMonthly, loading: cetMonthlyLoading } = useCET(debt, 'monthly');
+  const { cet: cetAnnual, loading: cetAnnualLoading } = useCET(debt, 'annual');
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -188,15 +189,30 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">CET (Custo Efetivo Total) a.m %</CardTitle>
+            <CardTitle className="text-sm font-medium">Custo Efetivo Total</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-accent">
-              {cetLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
-              ) : (
-                `${cet?.toFixed(2)}%`
-              )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">a.m</div>
+                <div className="text-xl font-bold text-accent">
+                  {cetMonthlyLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                  ) : (
+                    `${cetMonthly?.toFixed(2)}%`
+                  )}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-muted-foreground mb-1">a.a</div>
+                <div className="text-xl font-bold text-accent">
+                  {cetAnnualLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                  ) : (
+                    `${cetAnnual?.toFixed(2)}%`
+                  )}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
