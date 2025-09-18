@@ -37,7 +37,7 @@ const COLORS = [
 
 export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps) => {
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
-  const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [customDate, setCustomDate] = useState<string>(new Date().getFullYear().toString());
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -65,7 +65,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
     const latestDate = new Date(Math.max(...debts.map(d => new Date(d.dueDate).getTime())));
     
     // Determine end date based on selection
-    const endDate = dateType === 'today' ? new Date() : new Date(customDate);
+    const endDate = dateType === 'today' ? new Date() : new Date(`${customDate}-12-31`);
     const startDate = dateType === 'today' ? earliestDate : earliestDate;
     
     // Generate yearly data from start to end
@@ -161,10 +161,13 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <Input
-                  type="date"
+                  type="number"
+                  min="2000"
+                  max="2050"
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
-                  className="w-40"
+                  placeholder="Ano"
+                  className="w-24"
                 />
               </div>
             )}
