@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from "recharts";
 import { useState, useMemo } from "react";
 import { Building, Calendar } from "lucide-react";
 
@@ -119,6 +119,35 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
     return null;
   };
 
+  // Custom label function to format values inside bars
+  const renderCustomLabel = (props: any) => {
+    const { x, y, width, height, value } = props;
+    
+    // Only show label if value is significant and bar is tall enough
+    if (value < 10000 || height < 30) return null;
+    
+    const formattedValue = value >= 1000000 
+      ? `${(value / 1000000).toFixed(1)}M`
+      : value >= 1000 
+      ? `${(value / 1000).toFixed(0)}K`
+      : value.toFixed(0);
+    
+    return (
+      <text
+        x={x + width / 2}
+        y={y + height / 2}
+        fill="white"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={12}
+        fontWeight="bold"
+        style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+      >
+        {formattedValue}
+      </text>
+    );
+  };
+
   return (
     <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
       <CardHeader>
@@ -198,7 +227,9 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
                 stackId="debt"
                 fill={bank.color}
                 name={bank.name}
-              />
+              >
+                <LabelList content={renderCustomLabel} />
+              </Bar>
             ))}
           </BarChart>
         </ResponsiveContainer>
