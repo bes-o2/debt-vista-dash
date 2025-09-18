@@ -147,7 +147,7 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
               Curto Prazo (≤12 meses): {data?.shortTerm?.toFixed(0)}% ({formatCurrency(data?.shortTermAmount || 0)})
             </p>
             <p className="text-sm">
-              <span className="inline-block w-3 h-3 bg-muted rounded mr-2"></span>
+              <span className="inline-block w-3 h-3 rounded mr-2" style={{ backgroundColor: "hsl(280 100% 60%)" }}></span>
               Longo Prazo ({'>'}12 meses): {data?.longTerm?.toFixed(0)}% ({formatCurrency(data?.longTermAmount || 0)})
             </p>
             <p className="text-sm font-medium text-muted-foreground mt-2">
@@ -257,7 +257,7 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
             <Bar 
               dataKey="longTerm" 
               stackId="debt" 
-              fill="hsl(var(--muted))"
+              fill="hsl(280 100% 60%)"
               name="Longo Prazo"
             />
           </BarChart>
@@ -269,7 +269,7 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
             <span>Curto Prazo (≤12 meses)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-muted rounded"></div>
+            <div className="w-3 h-3 rounded" style={{ backgroundColor: "hsl(280 100% 60%)" }}></div>
             <span>Longo Prazo ({'>'}12 meses)</span>
           </div>
         </div>
