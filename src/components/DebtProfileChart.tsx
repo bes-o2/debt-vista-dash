@@ -26,6 +26,7 @@ interface DebtProfileChartProps {
 }
 
 export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
+  // State management for date filtering only
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
