@@ -42,34 +42,42 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
     return debts.filter(debt => debt.bank === selectedBank);
   }, [debts, selectedBank]);
 
-  // Calculate short-term vs long-term debt profile based on PMTs
+  // Calculate short-term vs long-term debt profile by bank based on PMTs
   const chartData = useMemo(() => {
     const baseDate = dateType === 'today' ? new Date() : new Date(customDate);
-    const currentYear = baseDate.getFullYear();
-    const years = Array.from({ length: 6 }, (_, i) => currentYear + i);
     
-    return years.map(year => {
-      let filteredDebts = debts;
+    let filteredDebts = debts;
+    
+    // Apply debt filter (but not bank filter since we want to show all banks)
+    if (selectedDebt !== 'all') {
+      filteredDebts = filteredDebts.filter(debt => debt.id === selectedDebt);
+    }
+    
+    // Group debts by bank
+    const bankGroups = filteredDebts.reduce((acc, debt) => {
+      if (!acc[debt.bank]) {
+        acc[debt.bank] = [];
+      }
+      acc[debt.bank].push(debt);
+      return acc;
+    }, {} as Record<string, Debt[]>);
+    
+    // Calculate PMTs for each bank
+    return Object.entries(bankGroups).map(([bankName, bankDebts]) => {
+      // Apply bank filter if specified
+      if (selectedBank !== 'all' && bankName !== selectedBank) {
+        return null;
+      }
       
-      // Apply filters
-      if (selectedBank !== 'all') {
-        filteredDebts = filteredDebts.filter(debt => debt.bank === selectedBank);
-      }
-      if (selectedDebt !== 'all') {
-        filteredDebts = filteredDebts.filter(debt => debt.id === selectedDebt);
-      }
-
       let shortTermPMTs = 0;
       let longTermPMTs = 0;
 
-      filteredDebts.forEach(debt => {
+      bankDebts.forEach(debt => {
         const releaseDate = new Date(debt.releaseDate);
         const dueDate = new Date(debt.dueDate);
-        const yearStart = new Date(year, 0, 1);
-        const yearEnd = new Date(year, 11, 31);
         
-        // Check if debt is active during this year
-        if (yearEnd < releaseDate || yearStart > dueDate) return;
+        // Check if debt is still active
+        if (baseDate > dueDate || baseDate < releaseDate) return;
         
         // Calculate monthly payment based on calculation table
         const totalMonths = Math.round((dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
@@ -95,36 +103,30 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
           monthlyPayment = amortization + avgInterest;
         }
         
-        // Calculate payments for this specific year
-        const paymentStartDate = new Date(Math.max(yearStart.getTime(), releaseDate.getTime()));
-        const paymentEndDate = new Date(Math.min(yearEnd.getTime(), dueDate.getTime()));
+        // Calculate months to maturity from base date
+        const monthsToMaturity = Math.round((dueDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
         
-        if (paymentStartDate <= paymentEndDate) {
-          const monthsInYear = Math.round((paymentEndDate.getTime() - paymentStartDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)) + 1;
-          const yearlyPMT = monthlyPayment * Math.min(monthsInYear, 12);
-          
-          // Classify based on time to maturity from year start
-          const monthsToMaturity = Math.round((dueDate.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
-          
-          if (monthsToMaturity <= 12) {
-            shortTermPMTs += yearlyPMT;
-          } else {
-            longTermPMTs += yearlyPMT;
-          }
+        if (monthsToMaturity <= 12) {
+          // Short-term: PMTs for the remaining months (up to 12)
+          shortTermPMTs += monthlyPayment * Math.min(monthsToMaturity, 12);
+        } else {
+          // Long-term: PMTs for months 13+ and short-term for next 12 months
+          shortTermPMTs += monthlyPayment * 12; // Next 12 months
+          longTermPMTs += monthlyPayment * (monthsToMaturity - 12); // Beyond 12 months
         }
       });
 
       const totalPMTs = shortTermPMTs + longTermPMTs;
       
       return {
-        year: year.toString(),
+        bank: bankName,
         shortTerm: totalPMTs > 0 ? (shortTermPMTs / totalPMTs) * 100 : 0,
         longTerm: totalPMTs > 0 ? (longTermPMTs / totalPMTs) * 100 : 0,
         shortTermAmount: shortTermPMTs,
         longTermAmount: longTermPMTs,
         totalAmount: totalPMTs
       };
-    });
+    }).filter(Boolean);
   }, [debts, selectedBank, selectedDebt, dateType, customDate]);
 
   const formatCurrency = (value: number) => 
@@ -236,7 +238,7 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis 
-              dataKey="year" 
+              dataKey="bank" 
               stroke="hsl(var(--muted-foreground))"
               fontSize={12}
             />
