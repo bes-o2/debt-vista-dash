@@ -141,40 +141,43 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
   return (
     <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
       <CardHeader>
-        <CardTitle className="text-lg text-foreground flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <PieChartIcon className="h-5 w-5 text-primary" />
-          </div>
-          Perfil da Dívida
-        </CardTitle>
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-6">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Data Base</Label>
-            <Select value={dateType} onValueChange={(value: 'today' | 'custom') => setDateType(value)}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">● Hoje</SelectItem>
-                <SelectItem value="custom">Personalizado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {dateType === 'custom' && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Data</Label>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
-                  className="w-40"
-                />
-              </div>
+        <div className="flex items-start justify-between">
+          <CardTitle className="text-lg text-foreground flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <PieChartIcon className="h-5 w-5 text-primary" />
             </div>
-          )}
+            Perfil da Dívida
+          </CardTitle>
+          
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Data Base</Label>
+              <Select value={dateType} onValueChange={(value: 'today' | 'custom') => setDateType(value)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">● Hoje</SelectItem>
+                  <SelectItem value="custom">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {dateType === 'custom' && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Data</Label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={customDate}
+                    onChange={(e) => setCustomDate(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
