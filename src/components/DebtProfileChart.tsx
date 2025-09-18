@@ -26,35 +26,15 @@ interface DebtProfileChartProps {
 }
 
 export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
-  const [selectedBank, setSelectedBank] = useState<string>('all');
-  const [selectedDebt, setSelectedDebt] = useState<string>('all');
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
-
-  // Get unique banks
-  const availableBanks = useMemo(() => {
-    return [...new Set(debts.map(debt => debt.bank))];
-  }, [debts]);
-
-  // Get filtered debts for debt selection
-  const availableDebts = useMemo(() => {
-    if (selectedBank === 'all') return debts;
-    return debts.filter(debt => debt.bank === selectedBank);
-  }, [debts, selectedBank]);
 
   // Calculate short-term vs long-term debt profile by bank based on PMTs
   const chartData = useMemo(() => {
     const baseDate = dateType === 'today' ? new Date() : new Date(customDate);
     
-    let filteredDebts = debts;
-    
-    // Apply debt filter (but not bank filter since we want to show all banks)
-    if (selectedDebt !== 'all') {
-      filteredDebts = filteredDebts.filter(debt => debt.id === selectedDebt);
-    }
-    
     // Group debts by bank
-    const bankGroups = filteredDebts.reduce((acc, debt) => {
+    const bankGroups = debts.reduce((acc, debt) => {
       if (!acc[debt.bank]) {
         acc[debt.bank] = [];
       }
@@ -64,11 +44,6 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
     
     // Calculate PMTs for each bank
     return Object.entries(bankGroups).map(([bankName, bankDebts]) => {
-      // Apply bank filter if specified
-      if (selectedBank !== 'all' && bankName !== selectedBank) {
-        return null;
-      }
-      
       let shortTermPMTs = 0;
       let longTermPMTs = 0;
 
@@ -126,8 +101,8 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
         longTermAmount: longTermPMTs,
         totalAmount: totalPMTs
       };
-    }).filter(Boolean);
-  }, [debts, selectedBank, selectedDebt, dateType, customDate]);
+    });
+  }, [debts, dateType, customDate]);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -171,43 +146,11 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
           </div>
           Perfil da Dívida
         </CardTitle>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Banco</Label>
-            <Select value={selectedBank} onValueChange={setSelectedBank}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os bancos</SelectItem>
-                {availableBanks.map(bank => (
-                  <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Dívida</Label>
-            <Select value={selectedDebt} onValueChange={setSelectedDebt}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as dívidas</SelectItem>
-                {availableDebts.map(debt => (
-                  <SelectItem key={debt.id} value={debt.id}>
-                    {debt.contractNumber || `${debt.bank} - ${formatCurrency(debt.financedAmount)}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-6">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Data Base</Label>
             <Select value={dateType} onValueChange={(value: 'today' | 'custom') => setDateType(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -226,7 +169,7 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
                   type="date"
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
-                  className="flex-1"
+                  className="w-40"
                 />
               </div>
             </div>
