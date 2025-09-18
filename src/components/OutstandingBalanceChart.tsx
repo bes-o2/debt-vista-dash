@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from "recharts";
 import { useState, useMemo } from "react";
 import { Building, Calendar } from "lucide-react";
+import { getBankColor } from "@/lib/utils";
 
 interface Debt {
   id: string;
@@ -25,16 +26,6 @@ interface OutstandingBalanceChartProps {
   debts: Debt[];
 }
 
-const COLORS = [
-  'hsl(var(--chart-1))', 
-  'hsl(var(--chart-2))', 
-  'hsl(var(--chart-3))',  
-  'hsl(var(--chart-4))',   
-  'hsl(var(--chart-5))', 
-  'hsl(214 84% 56%)', 
-  'hsl(35 91% 62%)',  
-];
-
 export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps) => {
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<string>(new Date().getFullYear().toString());
@@ -47,12 +38,12 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
       maximumFractionDigits: 0
     }).format(value);
 
-  // Get unique banks and their colors
+  // Get unique banks and their colors using real bank colors
   const banks = useMemo(() => {
     const uniqueBanks = [...new Set(debts.map(debt => debt.bank))];
-    return uniqueBanks.map((bank, index) => ({
+    return uniqueBanks.map((bank) => ({
       name: bank,
-      color: COLORS[index % COLORS.length]
+      color: getBankColor(bank)
     }));
   }, [debts]);
 

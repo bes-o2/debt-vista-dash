@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useState, useMemo } from "react";
 import { PieChart as PieChartIcon, Calendar } from "lucide-react";
+import { getBankColor } from "@/lib/utils";
 
 interface Debt {
   id: string;

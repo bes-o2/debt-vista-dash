@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown } from "lucide-react";
+import { getBankColor } from "@/lib/utils";
 
 interface Debt {
   id: string;
@@ -27,15 +28,6 @@ interface DebtChartProps {
   debts: Debt[];
 }
 
-const COLORS = [
-  'hsl(var(--chart-1))', 
-  'hsl(var(--chart-2))', 
-  'hsl(var(--chart-3))',  
-  'hsl(var(--chart-4))',   
-  'hsl(var(--chart-5))', 
-  'hsl(214 84% 56%)', 
-  'hsl(35 91% 62%)',  
-];
 
 export const DebtChart = ({ debts }: DebtChartProps) => {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
@@ -423,7 +415,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                       dataKey="value"
                     >
                       {bankData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={getBankColor(entry.name)} />
                       ))}
                     </Pie>
                     <Tooltip content={<CustomPieTooltip />} />
@@ -448,7 +440,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     <div className="flex items-center gap-3">
                       <div 
                         className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        style={{ backgroundColor: getBankColor(bank.name) }}
                       />
                       <span className="font-medium text-foreground">{bank.name}</span>
                     </div>
@@ -489,7 +481,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                       dataKey="value"
                     >
                       {systemData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={index === 0 ? 'hsl(358 85% 55%)' : 'hsl(205 90% 45%)'} />
                       ))}
                     </Pie>
                     <Tooltip content={<CustomPieTooltip />} />
@@ -514,7 +506,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     <div className="flex items-center gap-3">
                       <div 
                         className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        style={{ backgroundColor: index === 0 ? 'hsl(358 85% 55%)' : 'hsl(205 90% 45%)' }}
                       />
                       <span className="font-medium text-foreground">{system.name}</span>
                     </div>
