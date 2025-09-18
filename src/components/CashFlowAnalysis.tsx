@@ -10,6 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PaymentScheduleTable } from '@/components/PaymentScheduleTable';
 
 interface Debt {
   id: string;
@@ -601,6 +602,15 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
           </CardContent>
         </Card>
       )}
+
+      {/* Payment Schedule Table */}
+      <PaymentScheduleTable
+        debts={debts}
+        selectedBanks={selectedBanks}
+        selectedDebts={selectedDebts}
+        startDate={startDate}
+        endDate={endDate}
+      />
 
       {chartData.length === 0 && !loading && (
         <Card className="border-2 border-dashed border-muted-foreground/25">
