@@ -32,7 +32,7 @@ interface DebtChartProps {
 export const DebtChart = ({ debts }: DebtChartProps) => {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedIndexerType, setSelectedIndexerType] = useState<string>("all");
-  const [chartType, setChartType] = useState<string>("bank");
+  const [chartType, setChartType] = useState<string>("comparison");
 
   // Get unique banks
   const availableBanks = useMemo(() => {
