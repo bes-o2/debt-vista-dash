@@ -42,10 +42,11 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
     return debts.filter(debt => debt.bank === selectedBank);
   }, [debts, selectedBank]);
 
-  // Calculate short-term vs long-term debt profile
+  // Calculate short-term vs long-term debt profile based on PMTs
   const chartData = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 6 }, (_, i) => currentYear - 5 + i);
+    const baseDate = dateType === 'today' ? new Date() : new Date(customDate);
+    const currentYear = baseDate.getFullYear();
+    const years = Array.from({ length: 6 }, (_, i) => currentYear + i);
     
     return years.map(year => {
       let filteredDebts = debts;
@@ -58,42 +59,73 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
         filteredDebts = filteredDebts.filter(debt => debt.id === selectedDebt);
       }
 
-      let shortTermAmount = 0;
-      let longTermAmount = 0;
+      let shortTermPMTs = 0;
+      let longTermPMTs = 0;
 
       filteredDebts.forEach(debt => {
-        const releaseYear = new Date(debt.releaseDate).getFullYear();
-        const dueYear = new Date(debt.dueDate).getFullYear();
+        const releaseDate = new Date(debt.releaseDate);
+        const dueDate = new Date(debt.dueDate);
+        const yearStart = new Date(year, 0, 1);
+        const yearEnd = new Date(year, 11, 31);
         
-        if (year < releaseYear || year > dueYear) return;
+        // Check if debt is active during this year
+        if (yearEnd < releaseDate || yearStart > dueDate) return;
         
-        // Simulate outstanding balance
-        const totalYears = dueYear - releaseYear;
-        const yearsElapsed = year - releaseYear;
-        const remainingBalance = debt.financedAmount * (1 - yearsElapsed / totalYears);
-        const balance = Math.max(0, remainingBalance);
+        // Calculate monthly payment based on calculation table
+        const totalMonths = Math.round((dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+        let monthlyPayment = 0;
         
-        // Classify as short-term (<=1 year) or long-term (>1 year)
-        const yearsToMaturity = dueYear - year;
-        if (yearsToMaturity <= 1) {
-          shortTermAmount += balance;
+        if (debt.calculationTable === 'PRICE') {
+          // PRICE - Fixed installments
+          const monthlyRate = debt.interestType === 'annual' 
+            ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+            : debt.interestRate / 100;
+          if (monthlyRate > 0) {
+            monthlyPayment = debt.financedAmount * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+          } else {
+            monthlyPayment = debt.financedAmount / totalMonths;
+          }
         } else {
-          longTermAmount += balance;
+          // SAC - Decreasing installments (use average for simplification)
+          const monthlyRate = debt.interestType === 'annual' 
+            ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+            : debt.interestRate / 100;
+          const amortization = debt.financedAmount / totalMonths;
+          const avgInterest = debt.financedAmount * monthlyRate * 0.5; // Average interest
+          monthlyPayment = amortization + avgInterest;
+        }
+        
+        // Calculate payments for this specific year
+        const paymentStartDate = new Date(Math.max(yearStart.getTime(), releaseDate.getTime()));
+        const paymentEndDate = new Date(Math.min(yearEnd.getTime(), dueDate.getTime()));
+        
+        if (paymentStartDate <= paymentEndDate) {
+          const monthsInYear = Math.round((paymentEndDate.getTime() - paymentStartDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)) + 1;
+          const yearlyPMT = monthlyPayment * Math.min(monthsInYear, 12);
+          
+          // Classify based on time to maturity from year start
+          const monthsToMaturity = Math.round((dueDate.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+          
+          if (monthsToMaturity <= 12) {
+            shortTermPMTs += yearlyPMT;
+          } else {
+            longTermPMTs += yearlyPMT;
+          }
         }
       });
 
-      const totalAmount = shortTermAmount + longTermAmount;
+      const totalPMTs = shortTermPMTs + longTermPMTs;
       
       return {
         year: year.toString(),
-        shortTerm: totalAmount > 0 ? (shortTermAmount / totalAmount) * 100 : 0,
-        longTerm: totalAmount > 0 ? (longTermAmount / totalAmount) * 100 : 0,
-        shortTermAmount,
-        longTermAmount,
-        totalAmount
+        shortTerm: totalPMTs > 0 ? (shortTermPMTs / totalPMTs) * 100 : 0,
+        longTerm: totalPMTs > 0 ? (longTermPMTs / totalPMTs) * 100 : 0,
+        shortTermAmount: shortTermPMTs,
+        longTermAmount: longTermPMTs,
+        totalAmount: totalPMTs
       };
     });
-  }, [debts, selectedBank, selectedDebt]);
+  }, [debts, selectedBank, selectedDebt, dateType, customDate]);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -112,11 +144,11 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
           <div className="space-y-1">
             <p className="text-sm">
               <span className="inline-block w-3 h-3 bg-muted-foreground rounded mr-2"></span>
-              Curto Prazo: {data?.shortTerm?.toFixed(0)}% ({formatCurrency(data?.shortTermAmount || 0)})
+              Curto Prazo (≤12 meses): {data?.shortTerm?.toFixed(0)}% ({formatCurrency(data?.shortTermAmount || 0)})
             </p>
             <p className="text-sm">
               <span className="inline-block w-3 h-3 bg-muted rounded mr-2"></span>
-              Longo Prazo: {data?.longTerm?.toFixed(0)}% ({formatCurrency(data?.longTermAmount || 0)})
+              Longo Prazo ({'>'}12 meses): {data?.longTerm?.toFixed(0)}% ({formatCurrency(data?.longTermAmount || 0)})
             </p>
             <p className="text-sm font-medium text-muted-foreground mt-2">
               Total: {formatCurrency(data?.totalAmount || 0)}
@@ -234,11 +266,11 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
         <div className="flex items-center justify-center gap-4 mt-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-muted-foreground rounded"></div>
-            <span>Curto Prazo (≤1 ano)</span>
+            <span>Curto Prazo (≤12 meses)</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-muted rounded"></div>
-            <span>Longo Prazo (&gt;1 ano)</span>
+            <span>Longo Prazo ({'>'}12 meses)</span>
           </div>
         </div>
       </CardContent>
