@@ -34,7 +34,9 @@ interface Debt {
   contractNumber?: string;
 }
 const Index = () => {
-  const { signOut } = useAuth();
+  const {
+    signOut
+  } = useAuth();
   const [debts, setDebts] = useState<Debt[]>([
   // Dados de teste
   {
@@ -108,7 +110,7 @@ const Index = () => {
   const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<Debt | null>(null);
-  
+
   // Global filters state
   const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
   const [globalSelectedCalculationType, setGlobalSelectedCalculationType] = useState<string>("all");
@@ -150,17 +152,14 @@ const Index = () => {
     setSelectedDebt(debt);
     setActiveTab("table");
   };
-
   const handleViewAnalysis = (debt: Debt) => {
     setPreSelectedDebtForAnalysis(debt);
     setActiveTab("analysis");
   };
-
   const handleNewDebt = () => {
     setEditingDebt(undefined);
     setIsFormOpen(true);
   };
-
   const handleClearGlobalFilters = () => {
     setGlobalSelectedBank("all");
     setGlobalSelectedCalculationType("all");
@@ -220,23 +219,9 @@ const Index = () => {
 
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
-              <GlobalFilters
-                debts={debts}
-                selectedBank={globalSelectedBank}
-                selectedCalculationType={globalSelectedCalculationType}
-                selectedDebts={globalSelectedDebts}
-                onBankChange={setGlobalSelectedBank}
-                onCalculationTypeChange={setGlobalSelectedCalculationType}
-                onDebtsChange={setGlobalSelectedDebts}
-                onClearFilters={handleClearGlobalFilters}
-              />
+              <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onClearFilters={handleClearGlobalFilters} />
               
-              <DashboardStats 
-                debts={debts} 
-                selectedBank={globalSelectedBank}
-                selectedCalculationType={globalSelectedCalculationType}
-                selectedDebts={globalSelectedDebts}
-              />
+              <DashboardStats debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} />
               
               {/* Outstanding Balance by Bank */}
               <OutstandingBalanceChart debts={debts} />
@@ -253,7 +238,7 @@ const Index = () => {
           <TabsContent value="debts" className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-foreground">Seus Cadastros</h2>
+                <h2 className="text-2xl text-foreground font-bold">Dívidas Cadastradas</h2>
                 <p className="text-muted-foreground">
                   {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
                 </p>
@@ -351,11 +336,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="analysis" className="space-y-6">
-            <CashFlowAnalysis 
-              debts={debts} 
-              preSelectedDebt={preSelectedDebtForAnalysis} 
-              onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} 
-            />
+            <CashFlowAnalysis debts={debts} preSelectedDebt={preSelectedDebtForAnalysis} onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} />
           </TabsContent>
         </Tabs>
       </main>
