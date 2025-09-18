@@ -28,7 +28,7 @@ interface DebtChartProps {
   debts: Debt[];
 }
 
-
+// Component for debt visualization with real bank colors
 export const DebtChart = ({ debts }: DebtChartProps) => {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedIndexerType, setSelectedIndexerType] = useState<string>("all");
