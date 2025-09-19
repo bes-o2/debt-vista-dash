@@ -43,7 +43,8 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
   const [summary, setSummary] = useState({
     totalPaid: 0,
     totalInterest: 0,
-    totalPrincipal: 0
+    totalPrincipal: 0,
+    currentInstallment: 0
   });
   const { toast } = useToast();
   const { cet: cetMonthly, loading: cetMonthlyLoading } = useCET(debt, 'monthly');
@@ -52,7 +53,9 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'BRL'
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
   };
 
@@ -89,11 +92,17 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
       const totalPaid = calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.installment_amount, 0);
       const totalInterest = calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.interest_amount, 0);
       const totalPrincipal = calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.amortization, 0);
+      
+      // Get current installment (PMT) - assuming first installment for PRICE or average for SAC
+      const currentInstallment = debt.calculationTable === 'PRICE' 
+        ? calculatedInstallments[0]?.installment_amount || 0
+        : calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.installment_amount, 0) / calculatedInstallments.length;
 
       console.log('Summary calculations:', {
         totalPaid,
         totalInterest, 
         totalPrincipal,
+        currentInstallment,
         financedAmount: debt.financedAmount,
         installmentCount: calculatedInstallments.length
       });
@@ -101,7 +110,8 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
       setSummary({
         totalPaid,
         totalInterest,
-        totalPrincipal
+        totalPrincipal,
+        currentInstallment
       });
 
       toast({
@@ -162,44 +172,47 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Pago (Parcelas)</CardTitle>
+        <Card className="bg-gradient-card border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Pago (Parcelas)</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="text-2xl font-bold text-primary">
               {formatCurrency(summary.totalPaid)}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Juros</CardTitle>
+        <Card className="bg-gradient-card border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Parcela Atual</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {formatCurrency(summary.totalInterest)}
+          <CardContent className="pt-0">
+            <div className="text-2xl font-bold text-accent">
+              {formatCurrency(summary.currentInstallment)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              {debt.calculationTable === 'PRICE' ? 'Fixa (PRICE)' : 'Média (SAC)'}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Principal (Amortizado)</CardTitle>
+        <Card className="bg-gradient-card border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Principal (Amortizado)</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="text-2xl font-bold text-muted-foreground">
               {formatCurrency(summary.totalPrincipal)}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Custo Efetivo Total</CardTitle>
+        <Card className="bg-gradient-card border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Custo Efetivo Total</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <div className="text-xs text-muted-foreground mb-1">a.m</div>
