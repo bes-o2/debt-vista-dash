@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut, Building, Filter, X } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut, Building, Filter, X, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { CompactDebtCard } from "@/components/CompactDebtCard";
@@ -40,8 +42,8 @@ const Index = () => {
     migrateLegacyData
   } = useDebts();
 
-  // Convert database debts to legacy format for backward compatibility
-  const debts: LegacyDebt[] = dbDebts.map(convertToLegacyFormat);
+  // Convert database debts to legacy format for backward compatibility - memoized to prevent infinite recalculation
+  const debts: LegacyDebt[] = useMemo(() => dbDebts.map(convertToLegacyFormat), [dbDebts, convertToLegacyFormat]);
 
   // Check for localStorage data and offer migration
   useEffect(() => {
@@ -354,7 +356,7 @@ const Index = () => {
               <h2 className="text-3xl font-bold tracking-tight">Tabela de Amortização</h2>
               
               {/* Filters Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Bank Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Filtrar por Banco</Label>
@@ -369,6 +371,56 @@ const Index = () => {
                         </SelectItem>)}
                     </SelectContent>
                   </Select>
+                </div>
+                
+                {/* Start Date Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Data Inicial</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {globalStartDate ? format(globalStartDate, "dd/MM/yyyy") : "Selecionar data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={globalStartDate}
+                        onSelect={setGlobalStartDate}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                {/* End Date Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Data Final</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {globalEndDate ? format(globalEndDate, "dd/MM/yyyy") : "Selecionar data"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={globalEndDate}
+                        onSelect={setGlobalEndDate}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* Debt Filter */}

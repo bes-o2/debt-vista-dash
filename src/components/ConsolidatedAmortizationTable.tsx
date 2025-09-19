@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -70,13 +70,15 @@ export function ConsolidatedAmortizationTable({
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const calculateConsolidatedAmortization = async () => {
+  const calculateConsolidatedAmortization = async (silent: boolean = false) => {
     if (debts.length === 0) {
-      toast({
-        title: "Selecione pelo menos uma dívida",
-        description: "É necessário selecionar dívidas para gerar a tabela consolidada.",
-        variant: "destructive"
-      });
+      if (!silent) {
+        toast({
+          title: "Selecione pelo menos uma dívida",
+          description: "É necessário selecionar dívidas para gerar a tabela consolidada.",
+          variant: "destructive"
+        });
+      }
       return;
     }
 
@@ -162,10 +164,12 @@ export function ConsolidatedAmortizationTable({
         totalCurrentInstallment
       });
 
-      toast({
-        title: "Tabela consolidada gerada com sucesso!",
-        description: `${consolidatedArray.length} períodos consolidados de ${debts.length} contratos.`
-      });
+      if (!silent) {
+        toast({
+          title: "Tabela consolidada gerada com sucesso!",
+          description: `${consolidatedArray.length} períodos consolidados de ${debts.length} contratos.`
+        });
+      }
     } catch (error) {
       console.error('Error calculating consolidated amortization:', error);
       toast({
@@ -208,12 +212,13 @@ export function ConsolidatedAmortizationTable({
   };
 
   useEffect(() => {
+    const idsKey = debts.map(d => d.id).sort().join(',');
     if (debts.length > 0) {
-      calculateConsolidatedAmortization();
+      calculateConsolidatedAmortization(true); // Silent recalculation
     } else {
       setConsolidatedInstallments([]);
     }
-  }, [debts, startDate, endDate]);
+  }, [debts.map(d => d.id).sort().join(','), startDate, endDate]);
 
   if (debts.length === 0) {
     return (
@@ -288,7 +293,7 @@ export function ConsolidatedAmortizationTable({
               </span>
             </CardTitle>
             <div className="flex gap-2">
-              <Button onClick={calculateConsolidatedAmortization} disabled={loading} variant="outline" size="sm">
+              <Button onClick={() => calculateConsolidatedAmortization()} disabled={loading} variant="outline" size="sm">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
                 Recalcular
               </Button>
@@ -322,7 +327,7 @@ export function ConsolidatedAmortizationTable({
                 </TableHeader>
                 <TableBody>
                   {consolidatedInstallments.map((period, index) => (
-                    <>
+                    <React.Fragment key={period.due_date}>
                       {period.debts.map((debt, debtIndex) => (
                         <TableRow key={`${period.due_date}-${debt.debt_id}`}>
                           {debtIndex === 0 && (
@@ -345,7 +350,7 @@ export function ConsolidatedAmortizationTable({
                           </TableCell>
                         </TableRow>
                       ))}
-                    </>
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
@@ -353,7 +358,7 @@ export function ConsolidatedAmortizationTable({
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p className="mb-4">Clique em "Calcular" para gerar a tabela consolidada.</p>
-              <Button onClick={calculateConsolidatedAmortization} disabled={loading}>
+              <Button onClick={() => calculateConsolidatedAmortization()} disabled={loading}>
                 <Calculator className="h-4 w-4 mr-2" />
                 Calcular Tabela Consolidada
               </Button>
