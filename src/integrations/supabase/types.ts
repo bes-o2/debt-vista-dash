@@ -280,6 +280,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      debug_company_creation: {
+        Args: { _name: string; _user_id: string }
+        Returns: Json
+      }
       is_company_owner: {
         Args: { _company_id: string }
         Returns: boolean
