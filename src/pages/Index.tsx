@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut, Building } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut, Building, Filter, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { CompactDebtCard } from "@/components/CompactDebtCard";
@@ -14,6 +14,9 @@ import { DebtProfileChart } from "@/components/DebtProfileChart";
 import { NetDebtCard } from "@/components/NetDebtCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
@@ -55,6 +58,7 @@ const Index = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
   const [selectedDebt, setSelectedDebt] = useState<LegacyDebt | null>(null);
+  const [selectedDebtsForTable, setSelectedDebtsForTable] = useState<string[]>([]);
   const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<LegacyDebt | null>(null);
@@ -66,6 +70,18 @@ const Index = () => {
 
   // Filter debts by selected bank
   const filteredDebts = selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank);
+  
+  // Group filtered debts by bank for the multi-select
+  const debtsByBank = useMemo(() => {
+    return filteredDebts.reduce((acc, debt) => {
+      if (!acc[debt.bank]) {
+        acc[debt.bank] = [];
+      }
+      acc[debt.bank].push(debt);
+      return acc;
+    }, {} as Record<string, LegacyDebt[]>);
+  }, [filteredDebts]);
+  
   const { toast } = useToast();
   
   const handleSaveDebt = (debtData: DebtInput) => {
@@ -113,6 +129,28 @@ const Index = () => {
     setGlobalSelectedBank("all");
     setGlobalSelectedCalculationType("all");
     setGlobalSelectedDebts([]);
+  };
+
+  const formatCurrency = (value: number) => 
+    new Intl.NumberFormat('pt-BR', { 
+      style: 'currency', 
+      currency: 'BRL' 
+    }).format(value);
+
+  const handleDebtToggleForTable = (debtId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedDebtsForTable([...selectedDebtsForTable, debtId]);
+    } else {
+      setSelectedDebtsForTable(selectedDebtsForTable.filter(id => id !== debtId));
+    }
+  };
+
+  const handleSelectAllDebtsForTable = () => {
+    if (selectedDebtsForTable.length === filteredDebts.length) {
+      setSelectedDebtsForTable([]);
+    } else {
+      setSelectedDebtsForTable(filteredDebts.map(debt => debt.id));
+    }
   };
   return <div className="min-h-screen bg-background">
       {/* Header */}
@@ -309,43 +347,85 @@ const Index = () => {
 
                 {/* Debt Filter */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Selecionar Dívida</Label>
-                  <Select value={selectedDebt?.id || ""} onValueChange={debtId => {
-                  const debt = filteredDebts.find(d => d.id === debtId);
-                  if (debt) setSelectedDebt(debt);
-                }} disabled={filteredDebts.length === 0}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={filteredDebts.length > 0 ? "Selecione uma dívida..." : "Nenhuma dívida disponível"} />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background border border-border shadow-lg z-50">
-                      {filteredDebts.map(debt => {
-                      const contractDisplay = debt.contractNumber || `CT${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-                      const monthlyRate = debt.interestType === 'monthly' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1) * 100;
-                      const annualRate = debt.interestType === 'annual' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 12) - 1) * 100;
-                      return <SelectItem key={debt.id} value={debt.id} className="hover:bg-accent">
-                            <div className="text-left">
-                              <div className="font-medium">
-                                Contrato {contractDisplay} | {new Intl.NumberFormat('pt-BR', {
-                              style: 'currency',
-                              currency: 'BRL'
-                            }).format(debt.financedAmount)}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {monthlyRate.toFixed(3)}% a.m // {annualRate.toFixed(2)}% a.a
-                              </div>
-                            </div>
-                          </SelectItem>;
-                    })}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-sm font-medium">Selecionar Dívidas</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                        disabled={filteredDebts.length === 0}
+                      >
+                        {selectedDebtsForTable.length === 0
+                          ? filteredDebts.length > 0 ? "Selecione dívidas..." : "Nenhuma dívida disponível"
+                          : selectedDebtsForTable.length === filteredDebts.length
+                          ? "Todas selecionadas"
+                          : `${selectedDebtsForTable.length} selecionada${selectedDebtsForTable.length !== 1 ? 's' : ''}`}
+                        <Filter className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0 bg-background border border-border shadow-lg z-50">
+                      <Command>
+                        <CommandInput placeholder="Buscar dívida..." />
+                        <CommandEmpty>Nenhuma dívida encontrada.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem onSelect={handleSelectAllDebtsForTable}>
+                            <Checkbox 
+                              checked={selectedDebtsForTable.length === filteredDebts.length}
+                              className="mr-2"
+                            />
+                            <span className="font-medium">
+                              {selectedDebtsForTable.length === filteredDebts.length ? "Desmarcar todas" : "Selecionar todas"}
+                            </span>
+                          </CommandItem>
+                        </CommandGroup>
+                        {Object.entries(debtsByBank).map(([bankName, bankDebts]) => (
+                          <CommandGroup key={bankName} heading={bankName}>
+                            {bankDebts.map((debt) => {
+                              const contractDisplay = debt.contractNumber || `CT${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+                              const monthlyRate = debt.interestType === 'monthly' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1) * 100;
+                              const annualRate = debt.interestType === 'annual' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 12) - 1) * 100;
+                              
+                              return (
+                                <CommandItem
+                                  key={debt.id}
+                                  onSelect={() => handleDebtToggleForTable(debt.id, !selectedDebtsForTable.includes(debt.id))}
+                                >
+                                  <Checkbox 
+                                    checked={selectedDebtsForTable.includes(debt.id)}
+                                    className="mr-2"
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">
+                                      Contrato {contractDisplay}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">
+                                      {formatCurrency(debt.financedAmount)} • {monthlyRate.toFixed(3)}% a.m
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              );
+                            })}
+                          </CommandGroup>
+                        ))}
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             </div>
-            {selectedDebt ? <AmortizationTable debt={selectedDebt} /> : <Card>
+            {selectedDebtsForTable.length > 0 ? 
+              <div className="space-y-6">
+                {selectedDebtsForTable.map(debtId => {
+                  const debt = filteredDebts.find(d => d.id === debtId);
+                  return debt ? <AmortizationTable key={debt.id} debt={debt} /> : null;
+                })}
+              </div>
+              : <Card>
                 <CardContent className="pt-6">
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">
-                      Selecione uma dívida para visualizar sua tabela de amortização.
+                      Selecione uma ou mais dívidas para visualizar suas tabelas de amortização.
                     </p>
                   </div>
                 </CardContent>
