@@ -202,7 +202,7 @@ export function useDebts() {
       interestType: debt.interest_type,
       iofAmount: debt.iof_rate || 0,
       tacAmount: debt.additional_fees || 0,
-      bank: debt.title?.split(' ')[0] || 'Banco',
+      bank: debt.title || 'Banco do Brasil',
       contractNumber: debt.title,
     };
   };
