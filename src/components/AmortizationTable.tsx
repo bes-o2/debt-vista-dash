@@ -164,7 +164,7 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Custo Efetivo do Contrato</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Pago (Parcelas)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">
@@ -186,7 +186,7 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Principal</CardTitle>
+            <CardTitle className="text-sm font-medium">Principal (Amortizado)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-muted-foreground">
