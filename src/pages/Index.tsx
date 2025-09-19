@@ -312,15 +312,9 @@ const Index = () => {
                   }, {} as Record<string, typeof debts>)
                 ).map(([bankName, bankDebts]) => (
                   <div key={bankName} className="space-y-3">
-                    <div className="flex items-center gap-3 pb-2 border-b border-border/50">
-                      <div className="p-2 rounded-lg bg-gradient-primary text-white">
-                        <Building className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground">
-                          {bankName}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
+                    <div className="pb-2 border-b border-border/50">
+                      <h3 className="text-lg font-semibold text-foreground">
+                        {bankName} <span className="text-sm text-muted-foreground font-normal">
                           {bankDebts.length} dívida{bankDebts.length !== 1 ? 's' : ''} • Total: {
                             new Intl.NumberFormat('pt-BR', { 
                               style: 'currency', 
@@ -331,8 +325,8 @@ const Index = () => {
                               bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0)
                             )
                           }
-                        </p>
-                      </div>
+                        </span>
+                      </h3>
                     </div>
                     <div className="grid gap-3">
                       {bankDebts.map(debt => (
