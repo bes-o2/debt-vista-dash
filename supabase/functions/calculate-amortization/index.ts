@@ -139,44 +139,64 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
   const totalMonths = (dueDateTime.getFullYear() - releaseDateTime.getFullYear()) * 12 + 
                      (dueDateTime.getMonth() - releaseDateTime.getMonth());
 
-  // Convert interest rate to monthly
-  let monthlyRate: number;
+  // Convert interest rate to daily equivalent
+  let dailyRate: number;
   if (interestType === 'annual') {
-    monthlyRate = Math.pow(1 + interestRate / 100, 1/12) - 1;
+    // Convert annual to daily: (1 + annual)^(1/365) - 1
+    dailyRate = Math.pow(1 + interestRate / 100, 1/365) - 1;
   } else {
-    monthlyRate = interestRate / 100;
+    // Convert monthly to daily: (1 + monthly)^(1/30) - 1
+    dailyRate = Math.pow(1 + interestRate / 100, 1/30) - 1;
   }
 
-  // Initialize remaining balance
-  const totalFinancedAmount = financedAmount + iofAmount + tacAmount;
-  let remainingBalance = totalFinancedAmount;
+  // Initialize remaining balance - SAC uses only financedAmount for amortization
+  let remainingBalance = financedAmount;
   const installments: Installment[] = [];
 
-  // Calculate PRICE factor if needed
+  // Calculate PRICE factor if needed (uses total financed amount including fees)
   let priceFactor = 0;
   if (calculationTable === 'PRICE') {
+    const totalFinancedAmount = financedAmount + iofAmount + tacAmount;
+    const monthlyRate = interestType === 'annual' 
+      ? Math.pow(1 + interestRate / 100, 1/12) - 1
+      : interestRate / 100;
     priceFactor = monthlyRate * Math.pow(1 + monthlyRate, totalMonths) / 
                   (Math.pow(1 + monthlyRate, totalMonths) - 1);
+    remainingBalance = totalFinancedAmount;
   }
+
+  // Helper function to calculate days between dates
+  function getDaysBetween(startDate: Date, endDate: Date): number {
+    const timeDiff = endDate.getTime() - startDate.getTime();
+    return Math.ceil(timeDiff / (1000 * 3600 * 24));
+  }
+
+  let previousDate = releaseDateTime;
 
   for (let i = 1; i <= totalMonths; i++) {
     // Calculate due date for this installment
     const installmentDate = new Date(releaseDateTime);
     installmentDate.setMonth(installmentDate.getMonth() + i);
 
-    // Calculate interest for this period
-    const interestAmount = remainingBalance * monthlyRate;
+    // Calculate actual days in this period
+    const daysInPeriod = getDaysBetween(previousDate, installmentDate);
+
+    // Calculate interest for this period based on actual days
+    const interestAmount = remainingBalance * dailyRate * daysInPeriod;
 
     // Calculate amortization based on table type
     let amortizationAmount: number;
     let installmentAmount: number;
 
     if (calculationTable === 'SAC') {
-      // SAC: Fixed amortization on total financed (including financed fees)
-      amortizationAmount = totalFinancedAmount / totalMonths;
+      // SAC: Fixed amortization on financedAmount only (excluding TAC/IOF)
+      amortizationAmount = financedAmount / totalMonths;
       installmentAmount = amortizationAmount + interestAmount;
     } else {
       // PRICE: Fixed installment
+      const monthlyRate = interestType === 'annual' 
+        ? Math.pow(1 + interestRate / 100, 1/12) - 1
+        : interestRate / 100;
       installmentAmount = remainingBalance * priceFactor;
       amortizationAmount = installmentAmount - interestAmount;
     }
@@ -195,11 +215,12 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
       interest_amount: Number(interestAmount.toFixed(2)),
       indexer_rate: 0,
       installment_amount: Number(installmentAmount.toFixed(2)),
-      days_in_period: 30
+      days_in_period: daysInPeriod
     });
 
     // Update remaining balance
     remainingBalance -= amortizationAmount;
+    previousDate = installmentDate;
 
     // Stop if balance is paid off
     if (remainingBalance <= 0.01) {
