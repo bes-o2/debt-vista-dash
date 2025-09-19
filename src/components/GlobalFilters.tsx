@@ -50,6 +50,17 @@ export const GlobalFilters = ({
     return [...new Set(debts.map(debt => debt.bank))];
   }, [debts]);
 
+  // Group debts by bank
+  const debtsByBank = useMemo(() => {
+    return debts.reduce((acc, debt) => {
+      if (!acc[debt.bank]) {
+        acc[debt.bank] = [];
+      }
+      acc[debt.bank].push(debt);
+      return acc;
+    }, {} as Record<string, typeof debts>);
+  }, [debts]);
+
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
       style: 'currency', 
@@ -154,25 +165,29 @@ export const GlobalFilters = ({
                       {selectedDebts.length === debts.length ? "Desmarcar todas" : "Selecionar todas"}
                     </span>
                   </CommandItem>
-                  {debts.map((debt) => (
-                    <CommandItem
-                      key={debt.id}
-                      onSelect={() => handleDebtToggle(debt.id, !selectedDebts.includes(debt.id))}
-                    >
-                      <Checkbox 
-                        checked={selectedDebts.includes(debt.id)}
-                        className="mr-2"
-                      />
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {debt.bank} - {debt.calculationTable}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {formatCurrency(debt.financedAmount)}
-                          {debt.contractNumber && ` • ${debt.contractNumber}`}
-                        </span>
-                      </div>
-                    </CommandItem>
+                  {Object.entries(debtsByBank).map(([bankName, bankDebts]) => (
+                    <CommandGroup key={bankName} heading={bankName}>
+                      {bankDebts.map((debt) => (
+                        <CommandItem
+                          key={debt.id}
+                          onSelect={() => handleDebtToggle(debt.id, !selectedDebts.includes(debt.id))}
+                        >
+                          <Checkbox 
+                            checked={selectedDebts.includes(debt.id)}
+                            className="mr-2"
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {debt.calculationTable}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {formatCurrency(debt.financedAmount)}
+                              {debt.contractNumber && ` • ${debt.contractNumber}`}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
                   ))}
                 </CommandGroup>
               </Command>
