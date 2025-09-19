@@ -44,6 +44,69 @@ export type Database = {
         }
         Relationships: []
       }
+      economic_indices: {
+        Row: {
+          created_at: string
+          id: string
+          index_type: string
+          rate: number
+          reference_date: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          index_type: string
+          rate: number
+          reference_date: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          index_type?: string
+          rate?: number
+          reference_date?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      index_projections: {
+        Row: {
+          created_at: string
+          created_by: string
+          horizon_months: number
+          id: string
+          index_type: string
+          projected_rate: number
+          projection_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          horizon_months: number
+          id?: string
+          index_type: string
+          projected_rate: number
+          projection_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          horizon_months?: number
+          id?: string
+          index_type?: string
+          projected_rate?: number
+          projection_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
