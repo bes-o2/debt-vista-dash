@@ -44,6 +44,115 @@ export type Database = {
         }
         Relationships: []
       }
+      debt_installments: {
+        Row: {
+          created_at: string
+          debt_id: string
+          due_date: string
+          id: string
+          installment_number: number
+          interest_amount: number
+          principal_amount: number
+          remaining_balance: number
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          debt_id: string
+          due_date: string
+          id?: string
+          installment_number: number
+          interest_amount: number
+          principal_amount: number
+          remaining_balance: number
+          total_amount: number
+        }
+        Update: {
+          created_at?: string
+          debt_id?: string
+          due_date?: string
+          id?: string
+          installment_number?: number
+          interest_amount?: number
+          principal_amount?: number
+          remaining_balance?: number
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debt_installments_debt_id_fkey"
+            columns: ["debt_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      debts: {
+        Row: {
+          additional_fees: number | null
+          calculation_table: string
+          company_id: string
+          created_at: string
+          created_by: string
+          description: string | null
+          financed_amount: number
+          first_due_date: string
+          id: string
+          interest_base: string
+          interest_rate: number
+          interest_type: string
+          iof_rate: number | null
+          last_due_date: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          additional_fees?: number | null
+          calculation_table: string
+          company_id: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          financed_amount: number
+          first_due_date: string
+          id?: string
+          interest_base: string
+          interest_rate: number
+          interest_type: string
+          iof_rate?: number | null
+          last_due_date: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          additional_fees?: number | null
+          calculation_table?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          financed_amount?: number
+          first_due_date?: string
+          id?: string
+          interest_base?: string
+          interest_rate?: number
+          interest_type?: string
+          iof_rate?: number | null
+          last_due_date?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       economic_indices: {
         Row: {
           created_at: string
