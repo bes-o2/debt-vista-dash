@@ -2,10 +2,13 @@ import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Filter, X } from "lucide-react";
+import { Filter, X, CalendarIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Debt {
   id: string;
@@ -27,9 +30,13 @@ interface GlobalFiltersProps {
   selectedBank: string;
   selectedCalculationType: string;
   selectedDebts: string[];
+  startDate: Date | undefined;
+  endDate: Date | undefined;
   onBankChange: (bank: string) => void;
   onCalculationTypeChange: (type: string) => void;
   onDebtsChange: (debtIds: string[]) => void;
+  onStartDateChange: (date: Date | undefined) => void;
+  onEndDateChange: (date: Date | undefined) => void;
   onClearFilters: () => void;
 }
 
@@ -38,9 +45,13 @@ export const GlobalFilters = ({
   selectedBank,
   selectedCalculationType,
   selectedDebts,
+  startDate,
+  endDate,
   onBankChange,
   onCalculationTypeChange,
   onDebtsChange,
+  onStartDateChange,
+  onEndDateChange,
   onClearFilters
 }: GlobalFiltersProps) => {
   const [debtSelectorOpen, setDebtSelectorOpen] = useState(false);
@@ -83,7 +94,7 @@ export const GlobalFilters = ({
     }
   };
 
-  const hasActiveFilters = selectedBank !== "all" || selectedCalculationType !== "all" || selectedDebts.length > 0;
+  const hasActiveFilters = selectedBank !== "all" || selectedCalculationType !== "all" || selectedDebts.length > 0 || startDate || endDate;
 
   return (
     <div className="rounded-3xl bg-card p-6 border border-border mb-6">
@@ -100,7 +111,7 @@ export const GlobalFilters = ({
       </div>
 
       {/* Filters Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
         {/* Bank Filter */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Banco</label>
@@ -195,6 +206,63 @@ export const GlobalFilters = ({
           </Popover>
         </div>
 
+        {/* Start Date Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">Data Inicial</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !startDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {startDate ? format(startDate, "dd/MM/yyyy") : <span>Selecionar data</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-background border border-border shadow-lg z-50" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={onStartDateChange}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* End Date Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-foreground">Data Final</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !endDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {endDate ? format(endDate, "dd/MM/yyyy") : <span>Selecionar data</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-background border border-border shadow-lg z-50" align="start">
+              <Calendar
+                mode="single"
+                selected={endDate}
+                onSelect={onEndDateChange}
+                disabled={(date) => startDate ? date < startDate : false}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
         {/* Clear Filters Button */}
         <div className="flex items-end">
           <Button 
@@ -237,6 +305,24 @@ export const GlobalFilters = ({
               <X 
                 className="h-3 w-3 cursor-pointer hover:text-destructive" 
                 onClick={() => onDebtsChange([])}
+              />
+            </Badge>
+          )}
+          {startDate && (
+            <Badge variant="secondary" className="gap-1">
+              Data Inicial: {format(startDate, "dd/MM/yyyy")}
+              <X 
+                className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                onClick={() => onStartDateChange(undefined)}
+              />
+            </Badge>
+          )}
+          {endDate && (
+            <Badge variant="secondary" className="gap-1">
+              Data Final: {format(endDate, "dd/MM/yyyy")}
+              <X 
+                className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                onClick={() => onEndDateChange(undefined)}
               />
             </Badge>
           )}

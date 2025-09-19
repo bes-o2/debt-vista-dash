@@ -20,6 +20,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
+import { ConsolidatedAmortizationTable } from "@/components/ConsolidatedAmortizationTable";
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
@@ -67,6 +68,8 @@ const Index = () => {
   const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
   const [globalSelectedCalculationType, setGlobalSelectedCalculationType] = useState<string>("all");
   const [globalSelectedDebts, setGlobalSelectedDebts] = useState<string[]>([]);
+  const [globalStartDate, setGlobalStartDate] = useState<Date | undefined>(undefined);
+  const [globalEndDate, setGlobalEndDate] = useState<Date | undefined>(undefined);
 
   // Filter debts by selected bank
   const filteredDebts = selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank);
@@ -129,6 +132,8 @@ const Index = () => {
     setGlobalSelectedBank("all");
     setGlobalSelectedCalculationType("all");
     setGlobalSelectedDebts([]);
+    setGlobalStartDate(undefined);
+    setGlobalEndDate(undefined);
   };
 
   const formatCurrency = (value: number) => 
@@ -207,7 +212,20 @@ const Index = () => {
 
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
-              <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onClearFilters={handleClearGlobalFilters} />
+              <GlobalFilters 
+                debts={debts} 
+                selectedBank={globalSelectedBank} 
+                selectedCalculationType={globalSelectedCalculationType} 
+                selectedDebts={globalSelectedDebts}
+                startDate={globalStartDate}
+                endDate={globalEndDate}
+                onBankChange={setGlobalSelectedBank} 
+                onCalculationTypeChange={setGlobalSelectedCalculationType} 
+                onDebtsChange={setGlobalSelectedDebts}
+                onStartDateChange={setGlobalStartDate}
+                onEndDateChange={setGlobalEndDate}
+                onClearFilters={handleClearGlobalFilters} 
+              />
               
               <DashboardStats debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} />
               
@@ -415,17 +433,16 @@ const Index = () => {
               </div>
             </div>
             {selectedDebtsForTable.length > 0 ? 
-              <div className="space-y-6">
-                {selectedDebtsForTable.map(debtId => {
-                  const debt = filteredDebts.find(d => d.id === debtId);
-                  return debt ? <AmortizationTable key={debt.id} debt={debt} autoCalculate={false} /> : null;
-                })}
-              </div>
+              <ConsolidatedAmortizationTable 
+                debts={selectedDebtsForTable.map(debtId => filteredDebts.find(d => d.id === debtId)!).filter(Boolean)}
+                startDate={globalStartDate}
+                endDate={globalEndDate}
+              />
               : <Card>
                 <CardContent className="pt-6">
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">
-                      Selecione uma ou mais dívidas para visualizar suas tabelas de amortização.
+                      Selecione uma ou mais dívidas para visualizar a tabela consolidada de amortização.
                     </p>
                   </div>
                 </CardContent>
