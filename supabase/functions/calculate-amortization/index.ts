@@ -83,10 +83,15 @@ serve(async (req) => {
         .delete()
         .eq('debt_id', debtId);
 
-      // Insert new installments
+      // Insert new installments with correct field mapping
       const installmentsToInsert = installments.map(inst => ({
         debt_id: debtId,
-        ...inst
+        installment_number: inst.installment_number,
+        due_date: inst.due_date,
+        principal_amount: inst.amortization,
+        interest_amount: inst.interest_amount,
+        total_amount: inst.installment_amount,
+        remaining_balance: inst.principal_balance
       }));
 
       const { error: insertError } = await supabaseClient
