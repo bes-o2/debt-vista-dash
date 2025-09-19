@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Installment {
@@ -30,15 +30,23 @@ export const useDebtInstallments = (debts: Debt[]) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Memoize debt IDs to prevent infinite re-renders
+  const debtIds = useMemo(() => debts.map(debt => debt.id).sort(), [debts]);
+  const debtMap = useMemo(() => {
+    const map: { [id: string]: Debt } = {};
+    debts.forEach(debt => {
+      map[debt.id] = debt;
+    });
+    return map;
+  }, [debts]);
+
   const fetchInstallments = async () => {
-    if (debts.length === 0) return;
+    if (debtIds.length === 0) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      const debtIds = debts.map(debt => debt.id);
-      
       // First, try to get existing installments from the database
       const { data: existingInstallments, error: fetchError } = await supabase
         .from('debt_installments')
@@ -66,7 +74,7 @@ export const useDebtInstallments = (debts: Debt[]) => {
       });
 
       // For debts without calculated installments, calculate them
-      const debtsNeedingCalculation = debts.filter(debt => !groupedInstallments[debt.id]);
+      const debtsNeedingCalculation = debtIds.filter(id => !groupedInstallments[id]).map(id => debtMap[id]);
       
       if (debtsNeedingCalculation.length > 0) {
         console.log(`Calculating installments for ${debtsNeedingCalculation.length} debts`);
@@ -122,7 +130,7 @@ export const useDebtInstallments = (debts: Debt[]) => {
 
   useEffect(() => {
     fetchInstallments();
-  }, [debts]);
+  }, [debtIds.join(',')]);  // Use stringified debt IDs to prevent infinite loops
 
   return {
     installmentsData,
