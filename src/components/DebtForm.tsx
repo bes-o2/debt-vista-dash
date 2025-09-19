@@ -46,6 +46,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     releaseDate: new Date(),
     dueDate: new Date(),
     calculationTable: 'SAC' as 'SAC' | 'PRICE',
+    rateType: 'pre' as 'pre' | 'post',
     indexer: "",
     interestRate: 0,
     interestType: 'monthly' as 'monthly' | 'annual',
@@ -63,7 +64,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     !formData.bank?.trim() ||
     formData.financedAmount <= 0 ||
     formData.interestRate <= 0 ||
-    (formData.calculationTable === 'SAC' && !formData.indexer.trim()) ||
+    (formData.rateType === 'post' && !formData.indexer.trim()) ||
     formData.dueDate < formData.releaseDate
   );
 
@@ -75,7 +76,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         releaseDate: new Date(debt.first_due_date),
         dueDate: new Date(debt.last_due_date),
         calculationTable: debt.calculation_table,
-        indexer: debt.interest_base || "",
+        rateType: debt.interest_base === 'Pré-fixado' ? 'pre' : 'post',
+        indexer: debt.interest_base === 'Pré-fixado' ? "" : debt.interest_base || "",
         interestRate: debt.interest_rate,
         interestType: debt.interest_type,
         iofAmount: debt.iof_rate || 0,
@@ -112,7 +114,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         first_due_date: formData.releaseDate.toISOString().split('T')[0],
         last_due_date: formData.dueDate.toISOString().split('T')[0],
         calculation_table: formData.calculationTable,
-        interest_base: formData.calculationTable === 'SAC' ? formData.indexer : 'Pré-fixado',
+        interest_base: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
         interest_rate: formData.interestRate,
         interest_type: formData.interestType,
         iof_rate: formData.iofAmount || undefined,
@@ -157,6 +159,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       releaseDate: new Date(),
       dueDate: new Date(),
       calculationTable: 'SAC',
+      rateType: 'pre',
       indexer: "",
       interestRate: 0,
       interestType: 'monthly',
@@ -333,8 +336,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
               onValueChange={(value: 'SAC' | 'PRICE') => {
                 setFormData(prev => ({ 
                   ...prev, 
-                  calculationTable: value,
-                  indexer: value === 'PRICE' ? "" : prev.indexer
+                  calculationTable: value
                 }));
               }}
               required
@@ -349,8 +351,35 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
             </Select>
           </div>
 
-          {/* Indexador - Só aparece se SAC */}
-          {formData.calculationTable === 'SAC' && (
+          {/* Tipo de Taxa */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Tipo de Taxa <span className="text-red-500">*</span>
+            </Label>
+            <RadioGroup 
+              value={formData.rateType} 
+              onValueChange={(value: 'pre' | 'post') => 
+                setFormData(prev => ({ 
+                  ...prev, 
+                  rateType: value,
+                  indexer: value === 'pre' ? "" : prev.indexer
+                }))
+              }
+              className="flex gap-6"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="pre" id="pre" />
+                <Label htmlFor="pre">Pré Fixada</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="post" id="post" />
+                <Label htmlFor="post">Pós Fixada</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Indexador - Só aparece se Pós Fixada */}
+          {formData.rateType === 'post' && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 Indexador <span className="text-red-500">*</span>
