@@ -1,11 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from "recharts";
 import { useState, useMemo } from "react";
-import { Building, Calendar } from "lucide-react";
+import { Building, Calendar, Loader2 } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
+import { useDebtInstallments } from "@/hooks/useDebtInstallments";
+import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { type LegacyDebt } from "@/hooks/useDebts";
 
 interface Debt {
   id: string;
@@ -23,12 +25,16 @@ interface Debt {
 }
 
 interface OutstandingBalanceChartProps {
-  debts: Debt[];
+  debts: LegacyDebt[];
 }
 
 export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps) => {
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<string>(new Date().getFullYear().toString());
+  
+  // Use the hook to get real installment data
+  const normalizedDebts = debts.map(normalizeDebtForCalculation);
+  const { installmentsData, loading: installmentsLoading } = useDebtInstallments(normalizedDebts);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -47,17 +53,16 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
     }));
   }, [debts]);
 
-  // Calculate outstanding balance by bank over time
+  // Calculate outstanding balance by bank over time using real installment data
   const chartData = useMemo(() => {
-    if (debts.length === 0) return [];
+    if (debts.length === 0 || Object.keys(installmentsData).length === 0) return [];
 
     // Find the earliest release date and latest due date
     const earliestDate = new Date(Math.min(...debts.map(d => new Date(d.releaseDate).getTime())));
-    const latestDate = new Date(Math.max(...debts.map(d => new Date(d.dueDate).getTime())));
     
     // Determine end date based on selection
     const endDate = dateType === 'today' ? new Date() : new Date(`${customDate}-12-31`);
-    const startDate = dateType === 'today' ? earliestDate : earliestDate;
+    const startDate = earliestDate;
     
     // Generate yearly data from start to end
     const startYear = startDate.getFullYear();
@@ -66,25 +71,32 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
     
     return years.map(year => {
       const yearData: any = { year: year.toString() };
+      const targetDate = new Date(year, 11, 31); // December 31st of the year
 
       banks.forEach(bank => {
         const bankDebts = debts.filter(d => d.bank === bank.name);
         const bankBalance = bankDebts.reduce((sum, debt) => {
-          const releaseYear = new Date(debt.releaseDate).getFullYear();
-          const dueYear = new Date(debt.dueDate).getFullYear();
+          const debtInstallments = installmentsData[debt.id];
+          if (!debtInstallments || debtInstallments.length === 0) {
+            return sum;
+          }
+
+          // Find the installment that would be due just after our target date
+          // or the last installment if all are before the target date
+          const installmentsBeforeTarget = debtInstallments.filter(inst => 
+            new Date(inst.due_date) <= targetDate
+          );
+
+          if (installmentsBeforeTarget.length === 0) {
+            // If no installments are due yet, return the full financed amount
+            return sum + debt.financedAmount;
+          }
+
+          // Get the last installment before or on the target date
+          const lastInstallment = installmentsBeforeTarget[installmentsBeforeTarget.length - 1];
           
-          // Skip if debt hasn't started or has ended
-          if (year < releaseYear || year > dueYear) return sum;
-          
-          const totalYears = dueYear - releaseYear;
-          const yearsElapsed = year - releaseYear;
-          
-          // Linear amortization
-          const remainingBalance = totalYears > 0 
-            ? debt.financedAmount * (1 - yearsElapsed / totalYears)
-            : debt.financedAmount;
-          
-          return sum + Math.max(0, remainingBalance);
+          // Return the remaining balance after this installment
+          return sum + Math.max(0, lastInstallment.remaining_balance);
         }, 0);
         
         yearData[bank.name] = bankBalance;
@@ -92,7 +104,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
       
       return yearData;
     });
-  }, [debts, banks, dateType, customDate]);
+  }, [debts, banks, dateType, customDate, installmentsData]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -195,7 +207,13 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
         </div>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={400}>
+        {installmentsLoading ? (
+          <div className="flex items-center justify-center h-96">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="ml-2">Carregando dados de parcelas...</span>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={400}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis 
@@ -224,6 +242,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             ))}
           </BarChart>
         </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   );
