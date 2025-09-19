@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut } from "lucide-react";
@@ -21,97 +21,42 @@ import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
 import { CompanySelector } from "@/components/CompanySelector";
 import { useCompany } from "@/hooks/useCompany";
-interface Debt {
-  id: string;
-  financedAmount: number;
-  releaseDate: string;
-  dueDate: string;
-  calculationTable: 'SAC' | 'PRICE';
-  indexer?: string;
-  interestRate: number;
-  interestType: 'monthly' | 'annual';
-  iofAmount?: number;
-  tacAmount?: number;
-  bank: string;
-  contractNumber?: string;
-}
+import { useDebts, type LegacyDebt } from "@/hooks/useDebts";
 const Index = () => {
-  const {
-    signOut
-  } = useAuth();
-  const [debts, setDebts] = useState<Debt[]>([
-  // Dados de teste
-  {
-    id: "1",
-    bank: "Banco do Brasil",
-    financedAmount: 350000,
-    releaseDate: "2024-01-15",
-    dueDate: "2044-01-15",
-    calculationTable: "SAC",
-    indexer: "TR",
-    interestRate: 9.5,
-    interestType: "annual",
-    iofAmount: 2500,
-    tacAmount: 800,
-    contractNumber: "BB240115001"
-  }, {
-    id: "2",
-    bank: "Caixa Econômica Federal",
-    financedAmount: 450000,
-    releaseDate: "2023-06-10",
-    dueDate: "2053-06-10",
-    calculationTable: "PRICE",
-    indexer: "IPCA",
-    interestRate: 8.75,
-    interestType: "annual",
-    iofAmount: 3200,
-    tacAmount: 950,
-    contractNumber: "CEF230610002"
-  }, {
-    id: "3",
-    bank: "Itaú",
-    financedAmount: 280000,
-    releaseDate: "2024-03-20",
-    dueDate: "2039-03-20",
-    calculationTable: "SAC",
-    indexer: "CDI",
-    interestRate: 1.2,
-    interestType: "monthly",
-    iofAmount: 1800,
-    tacAmount: 600,
-    contractNumber: "ITAU240320003"
-  }, {
-    id: "4",
-    bank: "Santander",
-    financedAmount: 520000,
-    releaseDate: "2023-11-05",
-    dueDate: "2048-11-05",
-    calculationTable: "PRICE",
-    interestRate: 10.25,
-    interestType: "annual",
-    iofAmount: 4100,
-    tacAmount: 1200,
-    contractNumber: "SAN231105004"
-  }, {
-    id: "5",
-    bank: "Bradesco",
-    financedAmount: 180000,
-    releaseDate: "2024-07-12",
-    dueDate: "2034-07-12",
-    calculationTable: "SAC",
-    indexer: "SELIC",
-    interestRate: 11.5,
-    interestType: "annual",
-    iofAmount: 1200,
-    tacAmount: 450,
-    contractNumber: "BRAD240712005"
-  }]);
+  const { signOut } = useAuth();
+  const { selectedCompany } = useCompany();
+  const { 
+    debts: dbDebts, 
+    isLoading: isLoadingDebts, 
+    createDebt, 
+    updateDebt, 
+    deleteDebt,
+    convertToLegacyFormat,
+    migrateLegacyData
+  } = useDebts();
+
+  // Convert database debts to legacy format for backward compatibility
+  const debts: LegacyDebt[] = dbDebts.map(convertToLegacyFormat);
+
+  // Check for localStorage data and offer migration
+  useEffect(() => {
+    const legacyData = localStorage.getItem('debts');
+    if (legacyData && selectedCompany && debts.length === 0) {
+      // Show migration prompt
+      const shouldMigrate = window.confirm(
+        'Detectamos dados de dívidas salvos localmente. Deseja migrar estes dados para o banco de dados da empresa selecionada?'
+      );
+      if (shouldMigrate) {
+        migrateLegacyData();
+      }
+    }
+  }, [selectedCompany, debts.length, migrateLegacyData]);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
-  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+  const [editingDebt, setEditingDebt] = useState<LegacyDebt | undefined>(undefined);
+  const [selectedDebt, setSelectedDebt] = useState<LegacyDebt | null>(null);
   const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<Debt | null>(null);
+  const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<LegacyDebt | null>(null);
 
   // Global filters state
   const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
@@ -120,41 +65,53 @@ const Index = () => {
 
   // Filter debts by selected bank
   const filteredDebts = selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank);
-  const {
-    toast
-  } = useToast();
-  const handleSaveDebt = (debtData: Omit<Debt, 'id'>) => {
-    if (editingDebt) {
-      setDebts(prev => prev.map(debt => debt.id === editingDebt.id ? {
-        ...debtData,
-        id: editingDebt.id
-      } : debt));
+  const { toast } = useToast();
+  
+  const handleSaveDebt = (debtData: Omit<LegacyDebt, 'id'>) => {
+    if (!selectedCompany) {
       toast({
-        title: "Dívida atualizada",
-        description: "As informações da dívida foram atualizadas com sucesso."
+        title: "Erro",
+        description: "Selecione uma empresa antes de cadastrar dívidas.",
+        variant: "destructive",
       });
-    } else {
-      const newDebt: Debt = {
-        ...debtData,
-        id: Date.now().toString()
-      };
-      setDebts(prev => [...prev, newDebt]);
-      toast({
-        title: "Nova dívida adicionada",
-        description: "A dívida foi cadastrada com sucesso."
-      });
+      return;
     }
+
+    // Convert legacy format to new format
+    const newDebtData = {
+      title: debtData.contractNumber || `Contrato ${debtData.bank}`,
+      description: `Contrato do ${debtData.bank}`,
+      financed_amount: debtData.financedAmount,
+      first_due_date: debtData.releaseDate,
+      last_due_date: debtData.dueDate,
+      calculation_table: debtData.calculationTable,
+      interest_base: debtData.indexer || 'Pré-fixado',
+      interest_rate: debtData.interestRate,
+      interest_type: debtData.interestType,
+      iof_rate: debtData.iofAmount || 0,
+      additional_fees: debtData.tacAmount || 0,
+    };
+
+    if (editingDebt) {
+      updateDebt({ id: editingDebt.id, ...newDebtData });
+    } else {
+      createDebt(newDebtData);
+    }
+    
     setEditingDebt(undefined);
+    setIsFormOpen(false);
   };
-  const handleEditDebt = (debt: Debt) => {
+  const handleEditDebt = (debt: LegacyDebt) => {
     setEditingDebt(debt);
     setIsFormOpen(true);
   };
-  const handleViewTable = (debt: Debt) => {
+  
+  const handleViewTable = (debt: LegacyDebt) => {
     setSelectedDebt(debt);
     setActiveTab("table");
   };
-  const handleViewAnalysis = (debt: Debt) => {
+  
+  const handleViewAnalysis = (debt: LegacyDebt) => {
     setPreSelectedDebtForAnalysis(debt);
     setActiveTab("analysis");
   };
@@ -252,7 +209,20 @@ const Index = () => {
               </Button>
             </div>
 
-            {debts.length === 0 ? <div className="text-center py-12">
+            {isLoadingDebts ? (
+              <div className="text-center py-12">
+                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-between mb-4">
+                  <Calculator className="h-12 w-12 text-muted-foreground animate-pulse" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground mb-2">
+                  Carregando dívidas...
+                </h3>
+                <p className="text-muted-foreground">
+                  Aguarde enquanto buscamos suas dívidas cadastradas
+                </p>
+              </div>
+            ) : debts.length === 0 ? (
+              <div className="text-center py-12">
                 <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
                   <Calculator className="h-12 w-12 text-muted-foreground" />
                 </div>
@@ -260,15 +230,23 @@ const Index = () => {
                   Nenhuma dívida cadastrada
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Comece adicionando suas primeiras dívidas para análise
+                  {selectedCompany 
+                    ? "Comece adicionando suas primeiras dívidas para análise"
+                    : "Selecione uma empresa e comece adicionando dívidas"
+                  }
                 </p>
-                <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Primeira Dívida
-                </Button>
-              </div> : <div className="space-y-4">
+                {selectedCompany && (
+                  <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Primeira Dívida
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
                 {debts.map(debt => <DebtCard key={debt.id} debt={debt} onEdit={handleEditDebt} onViewTable={handleViewTable} onViewAnalysis={handleViewAnalysis} />)}
-              </div>}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="table" className="space-y-6">

@@ -15,8 +15,9 @@ export interface EconomicIndex {
 export interface IndexProjection {
   id: string;
   index_type: 'CDI' | 'SELIC' | 'IPCA';
-  year: number;
-  projected_value: number;
+  projected_rate: number;
+  projection_date: string;
+  horizon_months: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -32,24 +33,47 @@ export function useEconomicIndices() {
   const [isUpdating, setIsUpdating] = useState(false);
   const queryClient = useQueryClient();
 
-  // Fetch latest rates for each index - temporarily disabled until migration is confirmed
-  const today = new Date();
-  const lastBusinessDay = new Date(today);
-  // If today is weekend, go back to last Friday
-  if (today.getDay() === 0) lastBusinessDay.setDate(today.getDate() - 2); // Sunday -> Friday
-  if (today.getDay() === 6) lastBusinessDay.setDate(today.getDate() - 1); // Saturday -> Friday
-  
-  const latestRates: LatestRates = {
-    CDI: { value: 10.65, date: lastBusinessDay.toISOString().split('T')[0] },
-    SELIC: { value: 12.25, date: lastBusinessDay.toISOString().split('T')[0] },
-    IPCA: { value: 4.87, date: new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0] } // IPCA is monthly, so last month
-  };
-  const isLoadingRates = false;
-  const ratesError = null;
+  // Fetch latest rates for each index
+  const { data: latestRatesData, isLoading: isLoadingRates, error: ratesError } = useQuery({
+    queryKey: ['economic-indices', 'latest'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('economic_indices')
+        .select('*')
+        .order('reference_date', { ascending: false })
+        .limit(3);
 
-  // Fetch projections - temporarily disabled until migration is confirmed
-  const projections: IndexProjection[] = [];
-  const isLoadingProjections = false;
+      if (error) throw error;
+
+      // Group by index_type and get the latest value for each
+      const grouped = data.reduce((acc, item) => {
+        if (!acc[item.index_type] || item.reference_date > acc[item.index_type].date) {
+          acc[item.index_type] = { value: item.rate, date: item.reference_date };
+        }
+        return acc;
+      }, {} as LatestRates);
+
+      return grouped;
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+
+  const latestRates = latestRatesData || {};
+  const isLoadingRatesValue = isLoadingRates;
+
+  // Fetch projections
+  const { data: projections = [], isLoading: isLoadingProjections } = useQuery({
+    queryKey: ['index-projections'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('index_projections')
+        .select('*')
+        .order('projection_date', { ascending: false });
+
+      if (error) throw error;
+      return data as IndexProjection[];
+    },
+  });
 
   // Mutation to update rates from BCB
   const updateRatesMutation = useMutation({
@@ -102,17 +126,40 @@ export function useEconomicIndices() {
     }
   });
 
-  // Mutation to save projections - temporarily disabled until migration is confirmed
-  const saveProjectionMutation = {
-    isPending: false,
-    mutate: (projection: any) => {
+  // Mutation to save projections
+  const saveProjectionMutation = useMutation({
+    mutationFn: async (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
+      const user = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('index_projections')
+        .insert([{
+          index_type: projection.index_type,
+          projected_rate: projection.projected_rate,
+          projection_date: projection.projection_date,
+          horizon_months: projection.horizon_months,
+          created_by: user.data.user?.id || ''
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['index-projections'] });
       toast({
-        title: "Aguardando migração",
-        description: "Execute a migração do banco de dados primeiro.",
+        title: "Projeção salva",
+        description: "A projeção foi salva com sucesso.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao salvar projeção",
+        description: error.message,
         variant: "destructive",
       });
     }
-  };
+  });
 
   const updateRates = async (forceUpdate: boolean = false) => {
     setIsUpdating(true);
@@ -126,7 +173,7 @@ export function useEconomicIndices() {
   return {
     latestRates,
     projections,
-    isLoading: isLoadingRates || isLoadingProjections,
+    isLoading: isLoadingRatesValue || isLoadingProjections,
     isUpdating: isUpdating || updateRatesMutation.isPending,
     error: ratesError,
     updateRates,

@@ -41,10 +41,12 @@ export function SettingsModal() {
   const handleSaveProjection = (indexType: string, year: number) => {
     const value = newProjections[indexType]?.[year];
     if (value && !isNaN(parseFloat(value))) {
+      const projectionDate = `${year}-12-31`; // Use end of year as projection date
       saveProjection({
         index_type: indexType as 'CDI' | 'SELIC' | 'IPCA',
-        year,
-        projected_value: parseFloat(value)
+        projected_rate: parseFloat(value),
+        projection_date: projectionDate,
+        horizon_months: 12 // 12 months projection
       });
       
       // Clear the input after saving
@@ -59,8 +61,11 @@ export function SettingsModal() {
   };
 
   const getProjectionValue = (indexType: string, year: number): string => {
-    const existing = projections?.find(p => p.index_type === indexType && p.year === year);
-    return existing ? existing.projected_value.toString() : '';
+    const existing = projections?.find(p => 
+      p.index_type === indexType && 
+      new Date(p.projection_date).getFullYear() === year
+    );
+    return existing ? existing.projected_rate.toString() : '';
   };
 
   const formatRate = (value: number): string => {
