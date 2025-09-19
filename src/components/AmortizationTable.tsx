@@ -150,11 +150,15 @@ export function AmortizationTable({
     URL.revokeObjectURL(url);
   };
   useEffect(() => {
-    if (debt) {
+    // Only auto-calculate if this is likely a single debt view
+    // Prevent auto-calculation when multiple debts are selected to avoid API spam
+    const isMultipleDebtsView = document.querySelectorAll('[data-debt-table]').length > 1;
+    
+    if (debt && !isMultipleDebtsView) {
       calculateAmortization();
     }
   }, [debt]);
-  return <div className="space-y-6">
+  return <div className="space-y-6" data-debt-table>
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="bg-gradient-card border-border/50">
@@ -290,7 +294,11 @@ export function AmortizationTable({
                 </TableBody>
               </Table>
             </div> : <div className="text-center py-8 text-muted-foreground">
-              Nenhuma parcela calculada ainda.
+              <p className="mb-4">Clique em "Calcular" para gerar a tabela de amortização.</p>
+              <Button onClick={calculateAmortization} disabled={loading}>
+                <Calculator className="h-4 w-4 mr-2" />
+                Calcular Tabela
+              </Button>
             </div>}
         </CardContent>
       </Card>
