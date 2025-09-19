@@ -72,7 +72,9 @@ const Index = () => {
   const [globalEndDate, setGlobalEndDate] = useState<Date | undefined>(undefined);
 
   // Filter debts by selected bank
-  const filteredDebts = selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank);
+  const filteredDebts = useMemo(() => (
+    selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank)
+  ), [debts, selectedBank]);
   
   // Group filtered debts by bank for the multi-select
   const debtsByBank = useMemo(() => {
@@ -84,6 +86,12 @@ const Index = () => {
       return acc;
     }, {} as Record<string, LegacyDebt[]>);
   }, [filteredDebts]);
+  
+  const selectedDebtsObjects = useMemo(() => (
+    selectedDebtsForTable
+      .map(debtId => filteredDebts.find(d => d.id === debtId))
+      .filter(Boolean) as LegacyDebt[]
+  ), [selectedDebtsForTable, filteredDebts]);
   
   const { toast } = useToast();
   
@@ -434,7 +442,7 @@ const Index = () => {
             </div>
             {selectedDebtsForTable.length > 0 ? 
               <ConsolidatedAmortizationTable 
-                debts={selectedDebtsForTable.map(debtId => filteredDebts.find(d => d.id === debtId)!).filter(Boolean)}
+                debts={selectedDebtsObjects}
                 startDate={globalStartDate}
                 endDate={globalEndDate}
               />
