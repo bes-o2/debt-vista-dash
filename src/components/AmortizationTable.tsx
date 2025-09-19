@@ -66,6 +66,14 @@ export function AmortizationTable({
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
+
+  const calculateMonthsRemaining = () => {
+    const now = new Date();
+    const dueDate = new Date(debt.dueDate);
+    const diffTime = dueDate.getTime() - now.getTime();
+    const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30.44)); // Average days per month
+    return Math.max(0, diffMonths);
+  };
   const calculateAmortization = async () => {
     setLoading(true);
     try {
@@ -148,7 +156,7 @@ export function AmortizationTable({
   }, [debt]);
   return <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground text-center">Total Pago (Parcelas)</CardTitle>
@@ -181,6 +189,17 @@ export function AmortizationTable({
           <CardContent className="pt-0 text-center">
             <div className="text-2xl font-bold text-muted-foreground">
               {formatCurrency(summary.totalPrincipal)}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-center">Vencimento em</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-center">
+            <div className="text-2xl font-bold text-warning">
+              {calculateMonthsRemaining()} meses
             </div>
           </CardContent>
         </Card>
