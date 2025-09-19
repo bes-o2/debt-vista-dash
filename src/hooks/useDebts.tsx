@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useCompany } from '@/hooks/useCompany';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Debt {
   id: string;
@@ -56,6 +57,7 @@ export interface LegacyDebt {
 export function useDebts() {
   const queryClient = useQueryClient();
   const { selectedCompany } = useCompany();
+  const { user } = useAuth();
 
   // Fetch debts for the selected company
   const { data: debts = [], isLoading, error } = useQuery({
@@ -82,8 +84,7 @@ export function useDebts() {
         throw new Error('Nenhuma empresa selecionada');
       }
 
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
+      if (!user?.id) {
         throw new Error('Usuário não autenticado');
       }
 
@@ -92,7 +93,7 @@ export function useDebts() {
         .insert([{
           ...debtData,
           company_id: selectedCompany.id,
-          created_by: user.data.user.id
+          created_by: user.id
         }])
         .select()
         .single();

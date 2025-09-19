@@ -31,21 +31,78 @@ export const useCompanies = () => {
       setLoading(true);
       setError(null);
 
-      // Temporário: usar localStorage até migração ser aplicada
-      const storedCompanies = localStorage.getItem(`companies_${user.id}`);
-      if (storedCompanies) {
-        setCompanies(JSON.parse(storedCompanies));
+      // Buscar empresas do banco de dados
+      const { data: userCompanies, error: userCompaniesError } = await supabase
+        .from('user_companies')
+        .select(`
+          company_id,
+          role,
+          companies:company_id (
+            id,
+            name,
+            cnpj,
+            industry,
+            created_by,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('user_id', user.id);
+
+      if (userCompaniesError) {
+        throw userCompaniesError;
+      }
+
+      if (userCompanies && userCompanies.length > 0) {
+        // Transformar dados para o formato esperado
+        const companiesList: Company[] = userCompanies
+          .map(uc => uc.companies)
+          .filter(Boolean) as Company[];
+        
+        setCompanies(companiesList);
       } else {
-        // Criar empresa padrão se não existir nenhuma
-        const defaultCompany: Company = {
-          id: crypto.randomUUID(),
-          name: 'Minha Empresa',
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        setCompanies([defaultCompany]);
-        localStorage.setItem(`companies_${user.id}`, JSON.stringify([defaultCompany]));
+        // Se não há empresas, buscar se existe alguma empresa criada pelo usuário
+        const { data: ownedCompanies, error: ownedError } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('created_by', user.id);
+
+        if (ownedError) {
+          throw ownedError;
+        }
+
+        if (ownedCompanies && ownedCompanies.length > 0) {
+          setCompanies(ownedCompanies);
+        } else {
+          // Criar empresa padrão
+          const { data: newCompany, error: createError } = await supabase
+            .from('companies')
+            .insert([{
+              name: 'Minha Empresa',
+              created_by: user.id
+            }])
+            .select()
+            .single();
+
+          if (createError) {
+            throw createError;
+          }
+
+          // Associar usuário à empresa
+          const { error: associationError } = await supabase
+            .from('user_companies')
+            .insert([{
+              user_id: user.id,
+              company_id: newCompany.id,
+              role: 'owner'
+            }]);
+
+          if (associationError) {
+            throw associationError;
+          }
+
+          setCompanies([newCompany]);
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar empresas';
@@ -67,18 +124,35 @@ export const useCompanies = () => {
     }
 
     try {
-      // Temporário: usar localStorage até migração ser aplicada
-      const newCompany: Company = {
-        id: crypto.randomUUID(),
-        ...companyData,
-        created_by: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      // Criar empresa no banco de dados
+      const { data: newCompany, error: createError } = await supabase
+        .from('companies')
+        .insert([{
+          ...companyData,
+          created_by: user.id
+        }])
+        .select()
+        .single();
 
-      const updatedCompanies = [...companies, newCompany];
-      setCompanies(updatedCompanies);
-      localStorage.setItem(`companies_${user.id}`, JSON.stringify(updatedCompanies));
+      if (createError) {
+        throw createError;
+      }
+
+      // Associar usuário à empresa
+      const { error: associationError } = await supabase
+        .from('user_companies')
+        .insert([{
+          user_id: user.id,
+          company_id: newCompany.id,
+          role: 'owner'
+        }]);
+
+      if (associationError) {
+        throw associationError;
+      }
+
+      // Atualizar estado local
+      setCompanies([...companies, newCompany]);
       
       toast({
         title: "Sucesso",
@@ -101,15 +175,24 @@ export const useCompanies = () => {
     if (!user) return;
 
     try {
-      // Temporário: usar localStorage até migração ser aplicada
+      // Atualizar empresa no banco de dados
+      const { data: updatedCompany, error: updateError } = await supabase
+        .from('companies')
+        .update(companyData)
+        .eq('id', id)
+        .eq('created_by', user.id) // Garantir que só o criador pode atualizar
+        .select()
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Atualizar estado local
       const updatedCompanies = companies.map(company => 
-        company.id === id 
-          ? { ...company, ...companyData, updated_at: new Date().toISOString() }
-          : company
+        company.id === id ? updatedCompany : company
       );
-      
       setCompanies(updatedCompanies);
-      localStorage.setItem(`companies_${user.id}`, JSON.stringify(updatedCompanies));
       
       toast({
         title: "Sucesso",
