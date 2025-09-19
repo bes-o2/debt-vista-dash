@@ -16,6 +16,7 @@ interface DebtData {
   interestRate: number;
   interestType: 'monthly' | 'annual';
   indexer?: string;
+  indexerRate?: number;
   iofAmount?: number;
   tacAmount?: number;
 }
@@ -62,6 +63,10 @@ serve(async (req) => {
 
     console.log('Calculating amortization for debt:', debtId);
 
+    // Get indexer rate if applicable
+    const indexerRate = await getIndexerRate(supabaseClient, indexer);
+    console.log('Indexer rate found:', { indexer, indexerRate });
+
     // Calculate installments using JavaScript (fallback when DB function isn't available)
     const installments = calculateAmortizationJS({
       financedAmount,
@@ -71,6 +76,7 @@ serve(async (req) => {
       interestRate,
       interestType,
       indexer,
+      indexerRate,
       iofAmount,
       tacAmount
     });
@@ -125,6 +131,64 @@ serve(async (req) => {
   }
 });
 
+// Function to map indexer names and get the latest rate
+function mapIndexerName(indexer?: string): string | null {
+  if (!indexer) return null;
+  
+  const indexerMap: { [key: string]: string } = {
+    'CDI': 'CDI',
+    'SELIC': 'SELIC', 
+    'IPCA': 'IPCA',
+    'cdi': 'CDI',
+    'selic': 'SELIC',
+    'ipca': 'IPCA',
+    'pré-fixado': null,
+    'PRE_FIXADO': null,
+    'prefixado': null
+  };
+  
+  return indexerMap[indexer] || null;
+}
+
+async function getIndexerRate(supabaseClient: any, indexer?: string): Promise<number> {
+  try {
+    const mappedIndexer = mapIndexerName(indexer);
+    
+    if (!mappedIndexer) {
+      console.log('No indexer specified or pre-fixed debt, using indexer rate = 0');
+      return 0;
+    }
+
+    console.log('Fetching latest rate for indexer:', mappedIndexer);
+
+    // Get the latest rate for this indexer
+    const { data, error } = await supabaseClient
+      .from('economic_indices')
+      .select('rate, reference_date')
+      .eq('index_type', mappedIndexer)
+      .order('reference_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching indexer rate:', error);
+      return 0;
+    }
+
+    if (!data) {
+      console.log('No data found for indexer, using fallback rate = 0');
+      return 0;
+    }
+
+    console.log('Indexer rate found:', { rate: data.rate, date: data.reference_date });
+    return data.rate || 0;
+
+  } catch (error) {
+    console.error('Error in getIndexerRate:', error);
+    return 0;
+  }
+}
+
 function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[] {
   const {
     financedAmount,
@@ -133,9 +197,18 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     calculationTable,
     interestRate,
     interestType,
+    indexerRate = 0,
     iofAmount = 0,
     tacAmount = 0
   } = params;
+
+  // Calculate final rate: indexer + nominal interest rate
+  const finalRate = indexerRate + interestRate;
+  console.log('Rate composition:', { 
+    indexerRate, 
+    nominalRate: interestRate, 
+    finalRate 
+  });
 
   const releaseDateTime = new Date(releaseDate);
   const dueDateTime = new Date(dueDate);
@@ -144,14 +217,14 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
   const totalMonths = (dueDateTime.getFullYear() - releaseDateTime.getFullYear()) * 12 + 
                      (dueDateTime.getMonth() - releaseDateTime.getMonth());
 
-  // Convert interest rate to daily equivalent
+  // Convert final rate (indexer + nominal) to daily equivalent
   let dailyRate: number;
   if (interestType === 'annual') {
     // Convert annual to daily: (1 + annual)^(1/365) - 1
-    dailyRate = Math.pow(1 + interestRate / 100, 1/365) - 1;
+    dailyRate = Math.pow(1 + finalRate / 100, 1/365) - 1;
   } else {
     // Convert monthly to daily: (1 + monthly)^(1/30) - 1
-    dailyRate = Math.pow(1 + interestRate / 100, 1/30) - 1;
+    dailyRate = Math.pow(1 + finalRate / 100, 1/30) - 1;
   }
 
   // Initialize remaining balance - SAC uses only financedAmount for amortization
@@ -163,8 +236,8 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
   if (calculationTable === 'PRICE') {
     const totalFinancedAmount = financedAmount + iofAmount + tacAmount;
     const monthlyRate = interestType === 'annual' 
-      ? Math.pow(1 + interestRate / 100, 1/12) - 1
-      : interestRate / 100;
+      ? Math.pow(1 + finalRate / 100, 1/12) - 1
+      : finalRate / 100;
     priceFactor = monthlyRate * Math.pow(1 + monthlyRate, totalMonths) / 
                   (Math.pow(1 + monthlyRate, totalMonths) - 1);
     remainingBalance = totalFinancedAmount;
@@ -200,8 +273,8 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     } else {
       // PRICE: Fixed installment
       const monthlyRate = interestType === 'annual' 
-        ? Math.pow(1 + interestRate / 100, 1/12) - 1
-        : interestRate / 100;
+        ? Math.pow(1 + finalRate / 100, 1/12) - 1
+        : finalRate / 100;
       installmentAmount = remainingBalance * priceFactor;
       amortizationAmount = installmentAmount - interestAmount;
     }
@@ -218,7 +291,7 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
       principal_balance: Number(remainingBalance.toFixed(2)),
       amortization: Number(amortizationAmount.toFixed(2)),
       interest_amount: Number(interestAmount.toFixed(2)),
-      indexer_rate: 0,
+      indexer_rate: Number(indexerRate.toFixed(4)),
       installment_amount: Number(installmentAmount.toFixed(2)),
       days_in_period: daysInPeriod
     });
