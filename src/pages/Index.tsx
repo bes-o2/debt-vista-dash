@@ -418,7 +418,7 @@ const Index = () => {
               <div className="space-y-6">
                 {selectedDebtsForTable.map(debtId => {
                   const debt = filteredDebts.find(d => d.id === debtId);
-                  return debt ? <AmortizationTable key={debt.id} debt={debt} /> : null;
+                  return debt ? <AmortizationTable key={debt.id} debt={debt} autoCalculate={false} /> : null;
                 })}
               </div>
               : <Card>

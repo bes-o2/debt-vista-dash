@@ -32,9 +32,11 @@ interface Installment {
 }
 interface AmortizationTableProps {
   debt: Debt;
+  autoCalculate?: boolean; // Control whether to auto-calculate on mount
 }
 export function AmortizationTable({
-  debt
+  debt,
+  autoCalculate = true
 }: AmortizationTableProps) {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -150,15 +152,12 @@ export function AmortizationTable({
     URL.revokeObjectURL(url);
   };
   useEffect(() => {
-    // Only auto-calculate if this is likely a single debt view
-    // Prevent auto-calculation when multiple debts are selected to avoid API spam
-    const isMultipleDebtsView = document.querySelectorAll('[data-debt-table]').length > 1;
-    
-    if (debt && !isMultipleDebtsView) {
+    // Only auto-calculate if autoCalculate prop is true
+    if (debt && autoCalculate) {
       calculateAmortization();
     }
-  }, [debt]);
-  return <div className="space-y-6" data-debt-table>
+  }, [debt, autoCalculate]);
+  return <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="bg-gradient-card border-border/50">
