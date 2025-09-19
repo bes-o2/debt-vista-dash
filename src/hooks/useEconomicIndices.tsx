@@ -61,19 +61,19 @@ export function useEconomicIndices() {
   const latestRates = latestRatesData || {};
   const isLoadingRatesValue = isLoadingRates;
 
-  // Fetch projections
-  const { data: projections = [], isLoading: isLoadingProjections } = useQuery({
-    queryKey: ['index-projections'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('index_projections')
-        .select('*')
-        .order('projection_date', { ascending: false });
+  // Projections temporarily disabled - will be re-enabled for system-wide projections
+  // const { data: projections = [], isLoading: isLoadingProjections } = useQuery({
+  //   queryKey: ['index-projections'],
+  //   queryFn: async () => {
+  //     const { data, error } = await supabase
+  //       .from('index_projections')
+  //       .select('*')
+  //       .order('projection_date', { ascending: false });
 
-      if (error) throw error;
-      return data as IndexProjection[];
-    },
-  });
+  //     if (error) throw error;
+  //     return data as IndexProjection[];
+  //   },
+  // });
 
   // Mutation to update rates from BCB
   const updateRatesMutation = useMutation({
@@ -126,58 +126,28 @@ export function useEconomicIndices() {
     }
   });
 
-  // Mutation to save projections
-  const saveProjectionMutation = useMutation({
-    mutationFn: async (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
-      const user = await supabase.auth.getUser();
-      const { data, error } = await supabase
-        .from('index_projections')
-        .insert([{
-          index_type: projection.index_type,
-          projected_rate: projection.projected_rate,
-          projection_date: projection.projection_date,
-          horizon_months: projection.horizon_months,
-          created_by: user.data.user?.id || ''
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['index-projections'] });
-      toast({
-        title: "Projeção salva",
-        description: "A projeção foi salva com sucesso.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro ao salvar projeção",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
+  // Projections functionality temporarily disabled
+  // const saveProjectionMutation = useMutation({...});
 
   const updateRates = async (forceUpdate: boolean = false) => {
     setIsUpdating(true);
     updateRatesMutation.mutate(forceUpdate);
   };
 
-  const saveProjection = (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
-    saveProjectionMutation.mutate(projection);
-  };
+  // Temporarily disabled projection functionality
+  // const saveProjection = (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
+  //   saveProjectionMutation.mutate(projection);
+  // };
 
   return {
     latestRates,
-    projections,
-    isLoading: isLoadingRatesValue || isLoadingProjections,
+    isLoading: isLoadingRatesValue,
     isUpdating: isUpdating || updateRatesMutation.isPending,
     error: ratesError,
     updateRates,
-    saveProjection,
-    isSavingProjection: saveProjectionMutation.isPending,
+    // Temporarily disabled - will be re-enabled for system-wide projections
+    // projections,
+    // saveProjection,
+    // isSavingProjection: saveProjectionMutation.isPending,
   };
 }

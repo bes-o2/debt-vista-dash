@@ -13,60 +13,12 @@ import { ptBR } from "date-fns/locale";
 export function SettingsModal() {
   const { 
     latestRates, 
-    projections, 
     isLoading, 
     isUpdating, 
-    updateRates, 
-    saveProjection, 
-    isSavingProjection 
+    updateRates
   } = useEconomicIndices();
 
-  const [newProjections, setNewProjections] = useState<{
-    [key: string]: { [year: number]: string }
-  }>({});
-
-  const currentYear = new Date().getFullYear();
-  const nextYear = currentYear + 1;
-
-  const handleProjectionChange = (indexType: string, year: number, value: string) => {
-    setNewProjections(prev => ({
-      ...prev,
-      [indexType]: {
-        ...prev[indexType],
-        [year]: value
-      }
-    }));
-  };
-
-  const handleSaveProjection = (indexType: string, year: number) => {
-    const value = newProjections[indexType]?.[year];
-    if (value && !isNaN(parseFloat(value))) {
-      const projectionDate = `${year}-12-31`; // Use end of year as projection date
-      saveProjection({
-        index_type: indexType as 'CDI' | 'SELIC' | 'IPCA',
-        projected_rate: parseFloat(value),
-        projection_date: projectionDate,
-        horizon_months: 12 // 12 months projection
-      });
-      
-      // Clear the input after saving
-      setNewProjections(prev => ({
-        ...prev,
-        [indexType]: {
-          ...prev[indexType],
-          [year]: ''
-        }
-      }));
-    }
-  };
-
-  const getProjectionValue = (indexType: string, year: number): string => {
-    const existing = projections?.find(p => 
-      p.index_type === indexType && 
-      new Date(p.projection_date).getFullYear() === year
-    );
-    return existing ? existing.projected_rate.toString() : '';
-  };
+  // Projection functionality temporarily disabled
 
   const formatRate = (value: number): string => {
     return `${value.toFixed(4)}%`;
@@ -82,14 +34,10 @@ export function SettingsModal() {
 
   return (
     <Tabs defaultValue="rates" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
+      <TabsList className="grid w-full grid-cols-1">
         <TabsTrigger value="rates" className="flex items-center gap-2">
           <Database className="h-4 w-4" />
           Taxas e Indexadores
-        </TabsTrigger>
-        <TabsTrigger value="projections" className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4" />
-          Projeções
         </TabsTrigger>
       </TabsList>
 
@@ -175,70 +123,6 @@ export function SettingsModal() {
         </Card>
       </TabsContent>
 
-      <TabsContent value="projections" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Projeções Manuais
-            </CardTitle>
-            <CardDescription>
-              Configure projeções personalizadas para cálculos futuros
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {['CDI', 'SELIC', 'IPCA'].map((indexType) => (
-                <Card key={indexType} className="border-l-4 border-l-secondary">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">{indexType}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[currentYear, nextYear].map((year) => (
-                        <div key={year} className="space-y-2">
-                          <Label htmlFor={`${indexType}-${year}`}>
-                            Projeção para {year}
-                          </Label>
-                          <div className="flex gap-2">
-                            <Input
-                              id={`${indexType}-${year}`}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              max="100"
-                              placeholder={getProjectionValue(indexType, year) || "Ex: 10.5"}
-                              value={newProjections[indexType]?.[year] || ''}
-                              onChange={(e) => handleProjectionChange(indexType, year, e.target.value)}
-                              className="flex-1"
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => handleSaveProjection(indexType, year)}
-                              disabled={
-                                isSavingProjection || 
-                                !newProjections[indexType]?.[year] ||
-                                isNaN(parseFloat(newProjections[indexType][year]))
-                              }
-                            >
-                              Salvar
-                            </Button>
-                          </div>
-                          {getProjectionValue(indexType, year) && (
-                            <div className="text-sm text-muted-foreground">
-                              Atual: {formatRate(parseFloat(getProjectionValue(indexType, year)))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
     </Tabs>
   );
 }
