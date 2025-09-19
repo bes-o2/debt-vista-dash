@@ -174,9 +174,9 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Pago (Parcelas)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-center">Total Pago (Parcelas)</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 text-center">
             <div className="text-2xl font-bold text-primary">
               {formatCurrency(summary.totalPaid)}
             </div>
@@ -185,9 +185,9 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
 
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Parcela Atual</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-center">Parcela Atual</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 text-center">
             <div className="text-2xl font-bold text-accent">
               {formatCurrency(summary.currentInstallment)}
             </div>
@@ -199,9 +199,9 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
 
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Principal (Amortizado)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground text-center">Principal (Amortizado)</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 text-center">
             <div className="text-2xl font-bold text-muted-foreground">
               {formatCurrency(summary.totalPrincipal)}
             </div>
