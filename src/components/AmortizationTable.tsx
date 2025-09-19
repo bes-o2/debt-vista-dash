@@ -90,6 +90,14 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
       const totalInterest = calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.interest_amount, 0);
       const totalPrincipal = calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.amortization, 0);
 
+      console.log('Summary calculations:', {
+        totalPaid,
+        totalInterest, 
+        totalPrincipal,
+        financedAmount: debt.financedAmount,
+        installmentCount: calculatedInstallments.length
+      });
+
       setSummary({
         totalPaid,
         totalInterest,

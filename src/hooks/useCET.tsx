@@ -103,8 +103,23 @@ export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') 
       // Valor presente inicial (valor financiado + custos iniciais)
       const initialAmount = debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
       
+      console.log('CET calculation data:', {
+        financedAmount: debt.financedAmount,
+        iofAmount: debt.iofAmount || 0,
+        tacAmount: debt.tacAmount || 0,
+        initialAmount,
+        paymentsCount: payments.length,
+        totalPayments: payments.reduce((sum, p) => sum + p, 0)
+      });
+      
       // Calcular a taxa CET mensal
       const monthlyRate = findCETRate(initialAmount, payments);
+      
+      console.log('CET rates calculated:', {
+        monthlyRate: monthlyRate * 100,
+        annualRate: (Math.pow(1 + monthlyRate, 12) - 1) * 100,
+        returnType
+      });
       
       // Converter para anual se necessário
       if (returnType === 'annual') {
