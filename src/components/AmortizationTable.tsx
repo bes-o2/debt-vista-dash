@@ -195,17 +195,6 @@ export function AmortizationTable({
 
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground text-center">Vencimento em</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 text-center">
-            <div className="text-2xl font-bold text-warning">
-              {calculateMonthsRemaining()} meses
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card border-border/50">
-          <CardHeader className="pb-3">
             <CardTitle className="text-sm text-muted-foreground font-medium text-center">Custo Efetivo Total</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -222,6 +211,17 @@ export function AmortizationTable({
                   {cetAnnualLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : `${cetAnnual?.toFixed(2)}%`}
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground text-center">Vencimento em</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-center">
+            <div className="text-2xl font-bold text-warning">
+              {calculateMonthsRemaining()} meses
             </div>
           </CardContent>
         </Card>
