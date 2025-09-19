@@ -43,17 +43,31 @@ serve(async (req) => {
     const results: { [key: string]: number } = {};
     const errors: string[] = [];
 
-    // Calculate date range (last 30 days for historical data)
-    const endDate = new Date();
+    // Calculate date range - use current actual date, not future date
+    // BCB API requires dd/mm/yyyy format and doesn't accept future dates
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDate = now.getDate();
+    
+    // Set end date to today or yesterday to avoid future date issues
+    const endDate = new Date(currentYear, currentMonth, currentDate - 1);
+    
+    // Start date: 30 days ago from end date
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - 30);
     
-    const formatDate = (date: Date): string => {
-      return date.toISOString().split('T')[0].replace(/-/g, '/');
+    const formatDateForBCB = (date: Date): string => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
     };
 
-    const startDateStr = formatDate(startDate);
-    const endDateStr = formatDate(endDate);
+    const startDateStr = formatDateForBCB(startDate);
+    const endDateStr = formatDateForBCB(endDate);
+
+    console.log(`Date range: ${startDateStr} to ${endDateStr}`);
 
     for (const [rateType, config] of Object.entries(RATE_MAPPINGS)) {
       try {
@@ -63,10 +77,10 @@ serve(async (req) => {
         if (!forceUpdate) {
           const { data: recentData } = await supabase
             .from('economic_indices')
-            .select('date')
+            .select('reference_date')
             .eq('index_type', rateType)
-            .gte('date', startDate.toISOString().split('T')[0])
-            .order('date', { ascending: false })
+            .gte('reference_date', startDate.toISOString().split('T')[0])
+            .order('reference_date', { ascending: false })
             .limit(1);
             
           if (recentData && recentData.length > 0) {
@@ -104,7 +118,7 @@ serve(async (req) => {
           index_type: rateType,
           date: item.data.split('/').reverse().join('-'), // Convert DD/MM/YYYY to YYYY-MM-DD
           value: parseFloat(item.valor)
-        })).filter(item => !isNaN(item.value));
+        })).filter(item => !isNaN(item.value) && item.value > 0);
 
         console.log(`Prepared ${indices.length} valid records for ${rateType}`);
 
@@ -117,7 +131,7 @@ serve(async (req) => {
         const { error: insertError } = await supabase
           .from('economic_indices')
           .upsert(indices, { 
-            onConflict: 'index_type,date',
+            onConflict: 'index_type,reference_date',
             ignoreDuplicates: false 
           });
 
@@ -143,9 +157,9 @@ serve(async (req) => {
     // Get current rates from database
     const { data: currentRates } = await supabase
       .from('economic_indices')
-      .select('index_type, value, date')
+      .select('index_type, rate, reference_date')
       .in('index_type', ['SELIC', 'CDI', 'IPCA'])
-      .order('date', { ascending: false });
+      .order('reference_date', { ascending: false });
 
     const latestRates: { [key: string]: { value: number; date: string } } = {};
     
@@ -153,8 +167,8 @@ serve(async (req) => {
       for (const rate of currentRates) {
         if (!latestRates[rate.index_type]) {
           latestRates[rate.index_type] = {
-            value: parseFloat(rate.value),
-            date: rate.date
+            value: parseFloat(rate.rate),
+            date: rate.reference_date
           };
         }
       }
