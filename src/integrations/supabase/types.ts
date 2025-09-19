@@ -284,6 +284,14 @@ export type Database = {
         Args: { _company_id: string }
         Returns: boolean
       }
+      user_belongs_to_company: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_can_access_company: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
