@@ -72,6 +72,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   const [financedAmountDisplay, setFinancedAmountDisplay] = useState("R$ 0,00");
   const [iofAmountDisplay, setIofAmountDisplay] = useState("R$ 0,00");
   const [tacAmountDisplay, setTacAmountDisplay] = useState("R$ 0,00");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasErrors = (
+    !formData.bank?.trim() ||
+    formData.financedAmount <= 0 ||
+    formData.interestRate <= 0 ||
+    (formData.calculationTable === 'SAC' && !formData.indexer.trim()) ||
+    formData.dueDate < formData.releaseDate
+  );
 
   // Update form data when debt prop changes
   useEffect(() => {
@@ -97,28 +105,43 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     }
   }, [debt]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validation for SAC requiring indexer
-    if (formData.calculationTable === 'SAC' && !formData.indexer.trim()) {
-      return; // Will be handled by required attribute
+
+    if (hasErrors) {
+      toast({
+        title: "Verifique os campos obrigatórios",
+        description: "Preencha os campos e valores válidos antes de salvar.",
+        variant: "destructive",
+      });
+      return;
     }
-    
-    onSave({
-      financedAmount: formData.financedAmount,
-      releaseDate: formData.releaseDate.toISOString().split('T')[0],
-      dueDate: formData.dueDate.toISOString().split('T')[0],
-      calculationTable: formData.calculationTable,
-      indexer: formData.calculationTable === 'SAC' ? formData.indexer : undefined,
-      interestRate: formData.interestRate,
-      interestType: formData.interestType,
-      iofAmount: formData.iofAmount || undefined,
-      tacAmount: formData.tacAmount || undefined,
-      bank: formData.bank,
-      contractNumber: formData.contractNumber || undefined
-    });
-    onClose();
+
+    setIsSubmitting(true);
+    try {
+      await Promise.resolve(onSave({
+        financedAmount: formData.financedAmount,
+        releaseDate: formData.releaseDate.toISOString().split('T')[0],
+        dueDate: formData.dueDate.toISOString().split('T')[0],
+        calculationTable: formData.calculationTable,
+        indexer: formData.calculationTable === 'SAC' ? formData.indexer : undefined,
+        interestRate: formData.interestRate,
+        interestType: formData.interestType,
+        iofAmount: formData.iofAmount || undefined,
+        tacAmount: formData.tacAmount || undefined,
+        bank: formData.bank,
+        contractNumber: formData.contractNumber || undefined
+      }));
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : 'Tente novamente',
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddNewBank = async () => {
@@ -465,8 +488,10 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
             <Button 
               type="submit" 
               className="flex-1 bg-gradient-primary hover:opacity-90"
+              disabled={isSubmitting || hasErrors}
+              aria-disabled={isSubmitting || hasErrors}
             >
-              {debt ? 'Atualizar' : 'Salvar'}
+              {isSubmitting ? 'Salvando...' : (debt ? 'Atualizar' : 'Salvar')}
             </Button>
           </div>
         </form>
