@@ -114,14 +114,16 @@ export const useCompanies = () => {
   };
 
   const addCompany = async (companyData: Omit<Company, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
-    if (!user) {
+    if (!user?.id) {
       toast({
         title: "Erro",
-        description: "Você precisa estar logado para adicionar uma empresa",
+        description: "Você precisa estar logado para adicionar uma empresa. Tente fazer logout e login novamente.",
         variant: "destructive",
       });
       return null;
     }
+
+    console.log('Adding company with user:', user.id, 'company data:', companyData);
 
     try {
       // Criar empresa no banco de dados

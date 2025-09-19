@@ -284,6 +284,10 @@ export type Database = {
         Args: { _name: string; _user_id: string }
         Returns: Json
       }
+      get_auth_debug_info: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       is_company_owner: {
         Args: { _company_id: string }
         Returns: boolean
