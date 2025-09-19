@@ -33,35 +33,53 @@ export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') 
 
   // Função para encontrar a taxa CET usando Newton-Raphson
   const findCETRate = (initialAmount: number, payments: number[]): number => {
-    let rate = 0.02; // Taxa inicial de 2% ao mês
-    const tolerance = 0.0001;
-    const maxIterations = 100;
+    // Use a taxa nominal como ponto de partida mais realista
+    const nominalMonthlyRate = debt.interestType === 'annual' 
+      ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+      : debt.interestRate / 100;
+    
+    let rate = nominalMonthlyRate; // Taxa inicial baseada na taxa nominal
+    const tolerance = 0.000001; // Tolerância mais rigorosa
+    const maxIterations = 1000; // Mais iterações
+    
+    console.log('CET Newton-Raphson starting:', {
+      nominalRate: debt.interestRate,
+      nominalMonthlyRate: nominalMonthlyRate * 100,
+      initialRate: rate * 100
+    });
     
     for (let i = 0; i < maxIterations; i++) {
       const cashFlows = [-initialAmount, ...payments];
       const npv = calculateNPV(cashFlows, rate);
       
       if (Math.abs(npv) < tolerance) {
+        console.log(`CET converged after ${i} iterations: ${rate * 100}%`);
         return rate;
       }
       
       // Derivada numérica para Newton-Raphson
-      const deltaRate = 0.0001;
-      const cashFlowsDerivative = [-initialAmount, ...payments];
-      const npvDerivative = calculateNPVDerivative(cashFlowsDerivative, rate, deltaRate);
+      const deltaRate = 0.000001;
+      const npvDerivative = calculateNPVDerivative(cashFlows, rate, deltaRate);
       
       if (Math.abs(npvDerivative) < tolerance) {
         break;
       }
       
-      rate = rate - npv / npvDerivative;
+      const newRate = rate - npv / npvDerivative;
       
-      // Garantir que a taxa seja positiva
-      if (rate < 0) {
-        rate = 0.001;
+      // Limitar a variação da taxa para evitar divergência
+      const maxChange = rate * 0.1; // Máximo 10% de mudança por iteração
+      if (Math.abs(newRate - rate) > maxChange) {
+        rate = rate + Math.sign(newRate - rate) * maxChange;
+      } else {
+        rate = newRate;
       }
+      
+      // Garantir que a taxa esteja em um range razoável (0.01% a 50% a.m.)
+      rate = Math.max(0.0001, Math.min(0.5, rate));
     }
     
+    console.log('CET did not converge, final rate:', rate * 100);
     return rate;
   };
 
