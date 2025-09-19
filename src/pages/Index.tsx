@@ -6,6 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { DebtCard } from "@/components/DebtCard";
 import { DebtForm } from "@/components/DebtForm";
+import { Debt, DebtInput } from "@/hooks/useDebts";
 import { DashboardStats } from "@/components/DashboardStats";
 import { DebtChart } from "@/components/DebtChart";
 import { OutstandingBalanceChart } from "@/components/OutstandingBalanceChart";
@@ -52,7 +53,7 @@ const Index = () => {
     }
   }, [selectedCompany, debts.length, migrateLegacyData]);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingDebt, setEditingDebt] = useState<LegacyDebt | undefined>(undefined);
+  const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
   const [selectedDebt, setSelectedDebt] = useState<LegacyDebt | null>(null);
   const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -67,7 +68,7 @@ const Index = () => {
   const filteredDebts = selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank);
   const { toast } = useToast();
   
-  const handleSaveDebt = (debtData: Omit<LegacyDebt, 'id'>) => {
+  const handleSaveDebt = (debtData: DebtInput) => {
     if (!selectedCompany) {
       toast({
         title: "Erro",
@@ -77,33 +78,22 @@ const Index = () => {
       return;
     }
 
-    // Convert legacy format to new format
-    const newDebtData = {
-      title: debtData.contractNumber || `Contrato ${debtData.bank}`,
-      description: `Contrato do ${debtData.bank}`,
-      financed_amount: debtData.financedAmount,
-      first_due_date: debtData.releaseDate,
-      last_due_date: debtData.dueDate,
-      calculation_table: debtData.calculationTable,
-      interest_base: debtData.indexer || 'Pré-fixado',
-      interest_rate: debtData.interestRate,
-      interest_type: debtData.interestType,
-      iof_rate: debtData.iofAmount || 0,
-      additional_fees: debtData.tacAmount || 0,
-    };
-
     if (editingDebt) {
-      updateDebt({ id: editingDebt.id, ...newDebtData });
+      updateDebt({ id: editingDebt.id, ...debtData });
     } else {
-      createDebt(newDebtData);
+      createDebt(debtData);
     }
     
     setEditingDebt(undefined);
     setIsFormOpen(false);
   };
-  const handleEditDebt = (debt: LegacyDebt) => {
-    setEditingDebt(debt);
-    setIsFormOpen(true);
+  const handleEditDebt = (legacyDebt: LegacyDebt) => {
+    // Convert from legacy to database format
+    const dbDebt = dbDebts.find(d => d.id === legacyDebt.id);
+    if (dbDebt) {
+      setEditingDebt(dbDebt);
+      setIsFormOpen(true);
+    }
   };
   
   const handleViewTable = (debt: LegacyDebt) => {

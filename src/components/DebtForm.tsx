@@ -9,26 +9,12 @@ import { Plus } from "lucide-react";
 import { format } from "date-fns";
 import { useBanks } from "@/hooks/useBanks";
 import { toast } from "@/hooks/use-toast";
-
-interface Debt {
-  id: string;
-  financedAmount: number;
-  releaseDate: string;
-  dueDate: string;
-  calculationTable: 'SAC' | 'PRICE';
-  indexer?: string;
-  interestRate: number;
-  interestType: 'monthly' | 'annual';
-  iofAmount?: number;
-  tacAmount?: number;
-  bank: string;
-  contractNumber?: string;
-}
+import { Debt, DebtInput } from "@/hooks/useDebts";
 
 interface DebtFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (debt: Omit<Debt, 'id'>) => void;
+  onSave: (debt: DebtInput) => void;
   debt?: Debt;
 }
 
@@ -85,21 +71,21 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   useEffect(() => {
     if (debt) {
       setFormData({
-        financedAmount: debt.financedAmount,
-        releaseDate: new Date(debt.releaseDate),
-        dueDate: new Date(debt.dueDate),
-        calculationTable: debt.calculationTable,
-        indexer: debt.indexer || "",
-        interestRate: debt.interestRate,
-        interestType: debt.interestType,
-        iofAmount: debt.iofAmount || 0,
-        tacAmount: debt.tacAmount || 0,
-        bank: debt.bank,
-        contractNumber: debt.contractNumber || ""
+        financedAmount: debt.financed_amount,
+        releaseDate: new Date(debt.first_due_date),
+        dueDate: new Date(debt.last_due_date),
+        calculationTable: debt.calculation_table,
+        indexer: debt.interest_base || "",
+        interestRate: debt.interest_rate,
+        interestType: debt.interest_type,
+        iofAmount: debt.iof_rate || 0,
+        tacAmount: debt.additional_fees || 0,
+        bank: debt.title || "Banco do Brasil",
+        contractNumber: debt.description || ""
       });
-      setFinancedAmountDisplay(formatCurrency(debt.financedAmount * 100));
-      setIofAmountDisplay(debt.iofAmount ? formatCurrency(debt.iofAmount * 100) : "R$ 0,00");
-      setTacAmountDisplay(debt.tacAmount ? formatCurrency(debt.tacAmount * 100) : "R$ 0,00");
+      setFinancedAmountDisplay(formatCurrency(debt.financed_amount * 100));
+      setIofAmountDisplay(debt.iof_rate ? formatCurrency(debt.iof_rate * 100) : "R$ 0,00");
+      setTacAmountDisplay(debt.additional_fees ? formatCurrency(debt.additional_fees * 100) : "R$ 0,00");
     } else {
       resetForm();
     }
@@ -120,17 +106,17 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     setIsSubmitting(true);
     try {
       await Promise.resolve(onSave({
-        financedAmount: formData.financedAmount,
-        releaseDate: formData.releaseDate.toISOString().split('T')[0],
-        dueDate: formData.dueDate.toISOString().split('T')[0],
-        calculationTable: formData.calculationTable,
-        indexer: formData.calculationTable === 'SAC' ? formData.indexer : undefined,
-        interestRate: formData.interestRate,
-        interestType: formData.interestType,
-        iofAmount: formData.iofAmount || undefined,
-        tacAmount: formData.tacAmount || undefined,
-        bank: formData.bank,
-        contractNumber: formData.contractNumber || undefined
+        title: formData.bank,
+        description: formData.contractNumber || undefined,
+        financed_amount: formData.financedAmount,
+        first_due_date: formData.releaseDate.toISOString().split('T')[0],
+        last_due_date: formData.dueDate.toISOString().split('T')[0],
+        calculation_table: formData.calculationTable,
+        interest_base: formData.calculationTable === 'SAC' ? formData.indexer : 'Pré-fixado',
+        interest_rate: formData.interestRate,
+        interest_type: formData.interestType,
+        iof_rate: formData.iofAmount || undefined,
+        additional_fees: formData.tacAmount || undefined
       }));
       onClose();
     } catch (error) {
