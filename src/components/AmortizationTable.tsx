@@ -287,7 +287,7 @@ export function AmortizationTable({ debt }: AmortizationTableProps) {
                         {formatDate(installment.due_date)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(installment.principal_balance)}
+                        {formatCurrency(Math.max(0, installment.principal_balance - installment.amortization))}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(installment.amortization)}
