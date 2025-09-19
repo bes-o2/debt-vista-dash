@@ -8,9 +8,10 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentScheduleTable } from '@/components/PaymentScheduleTable';
+import { useDebtInstallments } from '@/hooks/useDebtInstallments';
+import { normalizeDebtForCalculation } from '@/lib/debtUtils';
 
 interface Debt {
   id: string;
@@ -58,8 +59,11 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  // Use the shared hook to get real installment data
+  const normalizedDebts = debts.map(normalizeDebtForCalculation);
+  const { installmentsData, loading: installmentsLoading } = useDebtInstallments(normalizedDebts);
 
   // Effect to handle pre-selected debt
   useEffect(() => {
@@ -113,36 +117,26 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
       return;
     }
 
-    setLoading(true);
+    // Check if we have installment data for the selected debts
+    const missingData = finalDebts.filter(debt => !installmentsData[debt.id] || installmentsData[debt.id].length === 0);
+    if (missingData.length > 0) {
+      toast({
+        title: "Dados não disponíveis",
+        description: `Aguarde o cálculo das parcelas para ${missingData.length} dívida(s) ou recalcule no menu Tabela.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      const allInstallments: { [debtId: string]: Installment[] } = {};
-
-      // Calculate installments for each selected debt
-      for (const debt of finalDebts) {
-        const { data, error } = await supabase.functions.invoke('calculate-amortization', {
-          body: {
-            debtId: debt.id,
-            financedAmount: debt.financedAmount,
-            releaseDate: debt.releaseDate,
-            dueDate: debt.dueDate,
-            calculationTable: debt.calculationTable,
-            interestRate: debt.interestRate,
-            interestType: debt.interestType,
-            indexer: debt.indexer,
-            iofAmount: debt.iofAmount || 0,
-            tacAmount: debt.tacAmount || 0
-          }
-        });
-
-        if (error) throw error;
-        allInstallments[debt.id] = data.installments;
-      }
-
-      // Aggregate data by month
+      // Aggregate data by month using the same data source as the table
       const monthlyData: { [month: string]: ChartDataPoint } = {};
       
-      Object.values(allInstallments).forEach((installments) => {
-        installments.forEach((installment) => {
+      finalDebts.forEach((debt) => {
+        const debtInstallments = installmentsData[debt.id];
+        if (!debtInstallments) return;
+
+        debtInstallments.forEach((installment) => {
           const date = new Date(installment.due_date);
           const monthKey = date.toISOString().slice(0, 7); // YYYY-MM format
           const monthLabel = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
@@ -158,14 +152,11 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
             };
           }
 
-          // FIXED: Calculate remaining balance AFTER amortization payment
-          const remainingBalanceAfterPayment = installment.principal_balance - installment.amortization;
-          console.log(`Month ${monthKey}: Balance before: ${installment.principal_balance}, Amortization: ${installment.amortization}, Balance after: ${remainingBalanceAfterPayment}`);
-          
-          monthlyData[monthKey].totalBalance += Math.max(0, remainingBalanceAfterPayment);
-          monthlyData[monthKey].totalAmortization += installment.amortization;
+          // Use the remaining_balance directly from the database (which is correct)
+          monthlyData[monthKey].totalBalance += Math.max(0, installment.remaining_balance);
+          monthlyData[monthKey].totalAmortization += installment.principal_amount;
           monthlyData[monthKey].totalInterest += installment.interest_amount;
-          monthlyData[monthKey].totalPayment += installment.installment_amount;
+          monthlyData[monthKey].totalPayment += installment.total_amount;
         });
       });
 
@@ -231,8 +222,6 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
         description: "Não foi possível gerar a análise de fluxo de caixa.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -468,14 +457,14 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
             <Button 
               onClick={calculateCashFlow}
               className="w-full"
-              disabled={loading || finalDebts.length === 0}
+              disabled={installmentsLoading || finalDebts.length === 0}
             >
-              {loading ? (
+              {installmentsLoading ? (
                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <TrendingUp className="h-4 w-4 mr-2" />
               )}
-              {loading ? 'Calculando...' : 'Gerar Análise'}
+              {installmentsLoading ? 'Carregando...' : 'Gerar Análise'}
             </Button>
           </CardContent>
         </Card>
@@ -612,7 +601,7 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
         endDate={endDate}
       />
 
-      {chartData.length === 0 && !loading && (
+      {chartData.length === 0 && !installmentsLoading && (
         <Card className="border-2 border-dashed border-muted-foreground/25">
           <CardContent className="pt-6">
             <div className="text-center py-12">
