@@ -75,64 +75,13 @@ export function useEconomicIndices() {
   //   },
   // });
 
-  // Mutation to update rates from BCB
-  const updateRatesMutation = useMutation({
-    mutationFn: async (forceUpdate: boolean = false) => {
-      const response = await supabase.functions.invoke('fetch-bcb-rates', {
-        body: { forceUpdate }
-      });
+  // Mutation to update rates from BCB - removed for automatic system
+  // const updateRatesMutation = useMutation({...});
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to fetch rates');
-      }
-
-      return response.data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['economic-indices'] });
-      
-      const updatedCount = Object.keys(data.updatedRates || {}).length;
-      const errorCount = data.errors?.length || 0;
-      
-      if (updatedCount > 0) {
-        toast({
-          title: "Taxas atualizadas",
-          description: `${updatedCount} taxas foram atualizadas com sucesso.`,
-        });
-      } else if (errorCount === 0) {
-        toast({
-          title: "Taxas já atualizadas", 
-          description: "As taxas já estão atualizadas.",
-        });
-      }
-
-      if (errorCount > 0) {
-        toast({
-          title: "Alguns erros ocorreram",
-          description: `${errorCount} erros durante a atualização.`,
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro ao atualizar taxas",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      setIsUpdating(false);
-    }
-  });
-
-  // Projections functionality temporarily disabled
-  // const saveProjectionMutation = useMutation({...});
-
-  const updateRates = async (forceUpdate: boolean = false) => {
-    setIsUpdating(true);
-    updateRatesMutation.mutate(forceUpdate);
-  };
+  // const updateRates = async (forceUpdate: boolean = false) => {
+  //   setIsUpdating(true);
+  //   updateRatesMutation.mutate(forceUpdate);
+  // };
 
   // Temporarily disabled projection functionality
   // const saveProjection = (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
@@ -142,12 +91,9 @@ export function useEconomicIndices() {
   return {
     latestRates,
     isLoading: isLoadingRatesValue,
-    isUpdating: isUpdating || updateRatesMutation.isPending,
     error: ratesError,
-    updateRates,
-    // Temporarily disabled - will be re-enabled for system-wide projections
-    // projections,
-    // saveProjection,
-    // isSavingProjection: saveProjectionMutation.isPending,
+    // Temporarily disabled - manual updates removed in favor of automatic system
+    // isUpdating: isUpdating || updateRatesMutation.isPending,
+    // updateRates,
   };
 }
