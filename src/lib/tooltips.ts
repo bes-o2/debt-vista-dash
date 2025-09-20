@@ -10,6 +10,7 @@ export enum TooltipKeys {
   AVERAGE_RATE = "dashboard.stats.averageRate",
   UPCOMING_DUE = "dashboard.stats.upcomingDue",
   AVERAGE_SPREAD = "dashboard.stats.averageSpread",
+  CURRENT_OUTSTANDING_BALANCE = "dashboard.stats.currentOutstandingBalance",
   
   // Debt Management
   DEBT_ADD = "debt.actions.add",
@@ -40,6 +41,7 @@ export const TOOLTIP_REGISTRY: Record<TooltipKeys, string> = {
   [TooltipKeys.AVERAGE_RATE]: "Taxa de juros média mensal ponderada dos contratos selecionados",
   [TooltipKeys.UPCOMING_DUE]: "Quantidade de contratos com vencimento nos próximos 30 dias",
   [TooltipKeys.AVERAGE_SPREAD]: "Diferença média entre o CET dos contratos e a taxa CDI atual",
+  [TooltipKeys.CURRENT_OUTSTANDING_BALANCE]: "Saldo devedor total atual de todos os contratos selecionados",
   
   // Debt Management
   [TooltipKeys.DEBT_ADD]: "Adicionar novo contrato de dívida ao sistema",

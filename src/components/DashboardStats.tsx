@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Building, AlertTriangle, BarChart3, Filter } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, Building, AlertTriangle, BarChart3, Filter, Wallet } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -165,6 +165,46 @@ export const DashboardStats = ({
   const cdiSpread = averageCET - currentCDI;
   const selicSpread = averageCET - currentSELIC;
 
+  // Calculate current outstanding balance
+  const currentOutstandingBalance = useMemo(() => {
+    const today = new Date();
+    
+    return filteredDebts.reduce((totalBalance, debt) => {
+      const releaseDate = new Date(debt.releaseDate);
+      const dueDate = new Date(debt.dueDate);
+      const termInMonths = Math.ceil((dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      const monthsElapsed = Math.max(0, Math.ceil((today.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+      
+      if (termInMonths <= 0 || monthsElapsed >= termInMonths) return totalBalance;
+      
+      // Convert interest rate to monthly decimal
+      let monthlyRate = debt.interestType === 'annual' 
+        ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+        : debt.interestRate / 100;
+      
+      const principal = debt.financedAmount;
+      let currentBalance = 0;
+      
+      if (debt.calculationTable === 'SAC') {
+        // SAC: Decreasing balance
+        const amortization = principal / termInMonths;
+        currentBalance = principal - (amortization * monthsElapsed);
+      } else {
+        // PRICE: Calculate remaining balance
+        if (monthlyRate > 0) {
+          const pmt = principal * (monthlyRate * Math.pow(1 + monthlyRate, termInMonths)) / 
+                     (Math.pow(1 + monthlyRate, termInMonths) - 1);
+          currentBalance = principal * Math.pow(1 + monthlyRate, monthsElapsed) - 
+                          pmt * ((Math.pow(1 + monthlyRate, monthsElapsed) - 1) / monthlyRate);
+        } else {
+          currentBalance = principal - (principal / termInMonths * monthsElapsed);
+        }
+      }
+      
+      return totalBalance + Math.max(0, currentBalance);
+    }, 0);
+  }, [filteredDebts]);
+
   const stats = [
     {
       title: "Total Financiado",
@@ -224,18 +264,33 @@ export const DashboardStats = ({
     <div className="space-y-6">
       {/* Header with Material 3 styling */}
       <div className="rounded-3xl bg-card p-8 border border-border">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 rounded-2xl bg-primary/10">
-            <BarChart3 className="h-8 w-8 text-primary" />
-          </div>
-          <div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-primary/10">
+              <BarChart3 className="h-8 w-8 text-primary" />
+            </div>
             <h2 className="text-3xl font-bold text-foreground">
               Dashboard Financeiro
             </h2>
-            <p className="text-muted-foreground">
-              Visão geral e análise de suas dívidas e financiamentos
-            </p>
           </div>
+          <TooltipProvider>
+            {(() => {
+              const { TooltipWrapper } = useTooltip(TooltipKeys.CURRENT_OUTSTANDING_BALANCE);
+              return (
+                <TooltipWrapper>
+                  <div className="flex items-center gap-3 bg-primary/5 px-6 py-4 rounded-2xl border border-primary/20 hover:bg-primary/10 transition-colors cursor-help">
+                    <div className="p-2 rounded-xl bg-primary/10">
+                      <Wallet className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-muted-foreground">Saldo Devedor Atual</p>
+                      <p className="text-xl font-bold text-primary">{formatCurrency(currentOutstandingBalance)}</p>
+                    </div>
+                  </div>
+                </TooltipWrapper>
+              );
+            })()}
+          </TooltipProvider>
         </div>
       </div>
 
