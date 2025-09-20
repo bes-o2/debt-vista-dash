@@ -176,9 +176,6 @@ export const DashboardStats = ({
       value: filteredDebts.length > 0 && currentCDI > 0 ? 
         `CDI + ${cdiSpread.toFixed(1)}%` : 
         "Sem dados",
-      subtitle: filteredDebts.length > 0 && currentSELIC > 0 ? 
-        `SELIC + ${selicSpread.toFixed(1)}%` : 
-        undefined,
       icon: TrendingUp,
       trend: cdiSpread > 5 ? "high" : "normal",
       bgColor: "bg-card",
@@ -220,9 +217,6 @@ export const DashboardStats = ({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground mb-1">{stat.value}</div>
-              {stat.subtitle && (
-                <div className="text-sm text-muted-foreground mb-1">{stat.subtitle}</div>
-              )}
               {stat.trend === "high" && (
                 <p className="text-xs text-destructive flex items-center">
                   <TrendingUp className="mr-1 h-3 w-3" />
