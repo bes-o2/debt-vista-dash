@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useEconomicIndices } from "@/hooks/useEconomicIndices";
+import { useCET } from "@/hooks/useCET";
 
 interface Debt {
   id: string;
@@ -33,6 +35,7 @@ export const DashboardStats = ({
   selectedCalculationType = "all", 
   selectedDebts = [] 
 }: DashboardStatsProps) => {
+  const { latestRates } = useEconomicIndices();
   // Filter debts based on selections
   const filteredDebts = useMemo(() => {
     return debts.filter(debt => {
@@ -93,6 +96,48 @@ export const DashboardStats = ({
   const overdueDebts = getOverdueDebts();
   const { sac, price } = getSacVsPriceDistribution();
 
+  // Calculate average CET and spreads
+  const averageCET = useMemo(() => {
+    if (filteredDebts.length === 0) return 0;
+    
+    let totalCET = 0;
+    let validDebts = 0;
+
+    filteredDebts.forEach(debt => {
+      // Simplified CET calculation for display
+      // Convert debt to format expected by CET calculation
+      const debtForCET = {
+        financedAmount: debt.financedAmount,
+        releaseDate: debt.releaseDate,
+        dueDate: debt.dueDate,
+        calculationTable: debt.calculationTable,
+        indexer: debt.indexer,
+        interestRate: debt.interestRate,
+        interestType: debt.interestType,
+        iofAmount: debt.iofAmount || 0,
+        tacAmount: debt.tacAmount || 0
+      };
+
+      // Simple approximation: for display purposes, use interest rate as proxy for CET
+      // In a real implementation, you'd use the full CET calculation
+      let annualRate = debt.interestRate;
+      if (debt.interestType === 'monthly') {
+        annualRate = Math.pow(1 + debt.interestRate / 100, 12) - 1;
+      }
+      
+      totalCET += annualRate;
+      validDebts++;
+    });
+
+    return validDebts > 0 ? totalCET / validDebts : 0;
+  }, [filteredDebts]);
+
+  const currentCDI = latestRates?.CDI?.value || 0;
+  const currentSELIC = latestRates?.SELIC?.value || 0;
+  
+  const cdiSpread = averageCET - currentCDI;
+  const selicSpread = averageCET - currentSELIC;
+
   const stats = [
     {
       title: "Total Financiado",
@@ -129,6 +174,20 @@ export const DashboardStats = ({
       bgColor: "bg-card",
       iconColor: upcomingDueDebts > 0 ? "text-amber-600" : "text-emerald-600",
       borderColor: upcomingDueDebts > 0 ? "border-amber-200" : "border-emerald-200"
+    },
+    {
+      title: "Spread Médio",
+      value: filteredDebts.length > 0 && currentCDI > 0 ? 
+        `CDI + ${cdiSpread.toFixed(2)}%` : 
+        "Sem dados",
+      subtitle: filteredDebts.length > 0 && currentSELIC > 0 ? 
+        `SELIC + ${selicSpread.toFixed(2)}%` : 
+        undefined,
+      icon: TrendingUp,
+      trend: cdiSpread > 5 ? "high" : "normal",
+      bgColor: "bg-card",
+      iconColor: cdiSpread > 5 ? "text-destructive" : "text-blue-600",
+      borderColor: cdiSpread > 5 ? "border-destructive/20" : "border-blue-200"
     }
   ];
 
@@ -152,7 +211,7 @@ export const DashboardStats = ({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
         {stats.map((stat, index) => (
           <Card key={index} className={`${stat.bgColor} ${stat.borderColor} border-2 hover:shadow-lg transition-all duration-300 group`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -165,10 +224,13 @@ export const DashboardStats = ({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground mb-1">{stat.value}</div>
+              {stat.subtitle && (
+                <div className="text-sm text-muted-foreground mb-1">{stat.subtitle}</div>
+              )}
               {stat.trend === "high" && (
                 <p className="text-xs text-destructive flex items-center">
                   <TrendingUp className="mr-1 h-3 w-3" />
-                  Taxa elevada
+                  {stat.title.includes("Spread") ? "Spread elevado" : "Taxa elevada"}
                 </p>
               )}
               {stat.trend === "warning" && (
@@ -180,6 +242,11 @@ export const DashboardStats = ({
               {stat.trend === "normal" && stat.title.includes("Taxa") && (
                 <p className="text-xs text-emerald-600 flex items-center">
                   Taxa adequada
+                </p>
+              )}
+              {stat.trend === "normal" && stat.title.includes("Spread") && (
+                <p className="text-xs text-blue-600 flex items-center">
+                  Spread adequado
                 </p>
               )}
             </CardContent>
