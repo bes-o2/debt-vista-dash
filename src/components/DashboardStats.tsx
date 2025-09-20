@@ -159,7 +159,7 @@ export const DashboardStats = ({
     },
     {
       title: "Taxa Média (a.m.)",
-      value: `${averageInterestRate.toFixed(3)}%`,
+      value: `${averageInterestRate.toFixed(0)}%`,
       icon: TrendingUp,
       trend: averageInterestRate > 1.5 ? "high" : "normal",
       bgColor: "bg-card",
@@ -178,10 +178,10 @@ export const DashboardStats = ({
     {
       title: "Spread Médio",
       value: filteredDebts.length > 0 && currentCDI > 0 ? 
-        `CDI + ${cdiSpread.toFixed(2)}%` : 
+        `CDI + ${cdiSpread.toFixed(0)}%` : 
         "Sem dados",
       subtitle: filteredDebts.length > 0 && currentSELIC > 0 ? 
-        `SELIC + ${selicSpread.toFixed(2)}%` : 
+        `SELIC + ${selicSpread.toFixed(0)}%` : 
         undefined,
       icon: TrendingUp,
       trend: cdiSpread > 5 ? "high" : "normal",
@@ -215,7 +215,7 @@ export const DashboardStats = ({
         {stats.map((stat, index) => (
           <Card key={index} className={`${stat.bgColor} ${stat.borderColor} border-2 hover:shadow-lg transition-all duration-300 group`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-base font-bold text-foreground">
                 {stat.title}
               </CardTitle>
               <div className={`p-3 rounded-xl bg-background/50 ${stat.iconColor} group-hover:scale-110 transition-transform duration-200`}>
