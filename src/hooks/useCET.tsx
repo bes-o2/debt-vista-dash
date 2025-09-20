@@ -99,8 +99,8 @@ export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') 
         body: {
           debtId: debt.id,
           financedAmount: debt.financedAmount,
-          releaseDate: debt.releaseDate,
-          dueDate: debt.dueDate,
+          firstDueDate: debt.releaseDate,
+          lastDueDate: debt.dueDate,
           calculationTable: debt.calculationTable,
           interestRate: debt.interestRate,
           interestType: debt.interestType,
