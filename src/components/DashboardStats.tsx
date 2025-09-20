@@ -170,12 +170,19 @@ export const DashboardStats = ({
     const today = new Date();
     
     return filteredDebts.reduce((totalBalance, debt) => {
-      const releaseDate = new Date(debt.releaseDate);
-      const dueDate = new Date(debt.dueDate);
-      const termInMonths = Math.ceil((dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
-      const monthsElapsed = Math.max(0, Math.ceil((today.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+      const contractDate = new Date(debt.releaseDate);
+      const firstDueDate = new Date(debt.releaseDate);
+      firstDueDate.setMonth(firstDueDate.getMonth() + 1); // First payment is 1 month after contract
+      const lastDueDate = new Date(debt.dueDate);
       
-      if (termInMonths <= 0 || monthsElapsed >= termInMonths) return totalBalance;
+      // Calculate term and elapsed periods correctly
+      const termInMonths = Math.round((lastDueDate.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+      const monthsElapsed = Math.max(0, Math.round((today.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
+      
+      // If contract hasn't started yet or is fully paid, skip
+      if (monthsElapsed <= 0 || monthsElapsed >= termInMonths) {
+        return totalBalance + (monthsElapsed <= 0 ? debt.financedAmount : 0);
+      }
       
       // Convert interest rate to monthly decimal
       let monthlyRate = debt.interestType === 'annual' 
@@ -186,9 +193,9 @@ export const DashboardStats = ({
       let currentBalance = 0;
       
       if (debt.calculationTable === 'SAC') {
-        // SAC: Decreasing balance
-        const amortization = principal / termInMonths;
-        currentBalance = principal - (amortization * monthsElapsed);
+        // SAC: Amortization is constant, calculate remaining balance
+        const monthlyAmortization = principal / termInMonths;
+        currentBalance = principal - (monthlyAmortization * monthsElapsed);
       } else {
         // PRICE: Calculate remaining balance
         if (monthlyRate > 0) {

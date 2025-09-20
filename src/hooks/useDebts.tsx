@@ -191,10 +191,15 @@ export function useDebts() {
 
   // Convert new debt format to legacy format for backward compatibility
   const convertToLegacyFormat = (debt: Debt): LegacyDebt => {
+    // Calculate the contract start date by going back from first due date
+    const firstDueDate = new Date(debt.first_due_date);
+    const contractStartDate = new Date(firstDueDate);
+    contractStartDate.setMonth(contractStartDate.getMonth() - 1); // Contract starts 1 month before first due
+    
     return {
       id: debt.id,
       financedAmount: debt.financed_amount,
-      releaseDate: debt.first_due_date,
+      releaseDate: contractStartDate.toISOString(),
       dueDate: debt.last_due_date,
       calculationTable: debt.calculation_table,
       indexer: debt.interest_base,
