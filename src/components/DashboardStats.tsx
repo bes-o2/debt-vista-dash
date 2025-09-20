@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, Building, AlertTriangle, BarChart3, Filter, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Clock, Building, AlertTriangle, BarChart3, Filter, Wallet } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -212,6 +212,31 @@ export const DashboardStats = ({
     }, 0);
   }, [filteredDebts]);
 
+  // Calculate average remaining term
+  const averageRemainingTerm = useMemo(() => {
+    if (filteredDebts.length === 0) return 0;
+    
+    const today = new Date();
+    let totalWeightedTerms = 0;
+    let totalWeight = 0;
+    
+    filteredDebts.forEach(debt => {
+      const contractDate = new Date(debt.releaseDate);
+      const lastDueDate = new Date(debt.dueDate);
+      
+      const totalTermMonths = Math.round((lastDueDate.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+      const elapsedMonths = Math.max(0, Math.round((today.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
+      const remainingMonths = Math.max(0, totalTermMonths - elapsedMonths);
+      
+      // Weight by outstanding balance
+      const weight = debt.financedAmount;
+      totalWeightedTerms += remainingMonths * weight;
+      totalWeight += weight;
+    });
+    
+    return totalWeight > 0 ? totalWeightedTerms / totalWeight : 0;
+  }, [filteredDebts]);
+
   const stats = [
     {
       title: "Total Financiado",
@@ -234,6 +259,18 @@ export const DashboardStats = ({
       tooltipKey: TooltipKeys.CURRENT_PAYMENT
     },
     {
+      title: "Prazo Médio Restante",
+      value: averageRemainingTerm > 0 ? 
+        `${Math.round(averageRemainingTerm)} ${Math.round(averageRemainingTerm) === 1 ? 'mês' : 'meses'}` : 
+        "Quitado",
+      icon: Clock,
+      trend: averageRemainingTerm > 36 ? "high" : averageRemainingTerm > 12 ? "warning" : "normal",
+      bgColor: "bg-card",
+      iconColor: averageRemainingTerm > 36 ? "text-destructive" : averageRemainingTerm > 12 ? "text-amber-600" : "text-emerald-600",
+      borderColor: averageRemainingTerm > 36 ? "border-destructive/20" : averageRemainingTerm > 12 ? "border-amber-200" : "border-emerald-200",
+      tooltipKey: TooltipKeys.AVERAGE_REMAINING_TERM
+    },
+    {
       title: "Taxa Média (a.m.)",
       value: `${averageInterestRate.toFixed(1)}%`,
       icon: TrendingUp,
@@ -242,16 +279,6 @@ export const DashboardStats = ({
       iconColor: averageInterestRate > 1.5 ? "text-destructive" : "text-emerald-600",
       borderColor: averageInterestRate > 1.5 ? "border-destructive/20" : "border-emerald-200",
       tooltipKey: TooltipKeys.AVERAGE_RATE
-    },
-    {
-      title: "Vencimentos (30 dias)",
-      value: `${upcomingDueDebts} contrato${upcomingDueDebts !== 1 ? 's' : ''}`,
-      icon: Calendar,
-      trend: upcomingDueDebts > 0 ? "warning" : "normal",
-      bgColor: "bg-card",
-      iconColor: upcomingDueDebts > 0 ? "text-amber-600" : "text-emerald-600",
-      borderColor: upcomingDueDebts > 0 ? "border-amber-200" : "border-emerald-200",
-      tooltipKey: TooltipKeys.UPCOMING_DUE
     },
     {
       title: "Spread Médio",
