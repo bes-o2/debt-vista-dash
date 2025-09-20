@@ -89,7 +89,9 @@ export const DashboardStats = ({
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
       style: 'currency', 
-      currency: 'BRL' 
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
 
   const upcomingDueDebts = getDebtsWithUpcomingDueDate();
@@ -159,7 +161,7 @@ export const DashboardStats = ({
     },
     {
       title: "Taxa Média (a.m.)",
-      value: `${averageInterestRate.toFixed(0)}%`,
+      value: `${averageInterestRate.toFixed(1)}%`,
       icon: TrendingUp,
       trend: averageInterestRate > 1.5 ? "high" : "normal",
       bgColor: "bg-card",
@@ -178,10 +180,10 @@ export const DashboardStats = ({
     {
       title: "Spread Médio",
       value: filteredDebts.length > 0 && currentCDI > 0 ? 
-        `CDI + ${cdiSpread.toFixed(0)}%` : 
+        `CDI + ${cdiSpread.toFixed(1)}%` : 
         "Sem dados",
       subtitle: filteredDebts.length > 0 && currentSELIC > 0 ? 
-        `SELIC + ${selicSpread.toFixed(0)}%` : 
+        `SELIC + ${selicSpread.toFixed(1)}%` : 
         undefined,
       icon: TrendingUp,
       trend: cdiSpread > 5 ? "high" : "normal",
