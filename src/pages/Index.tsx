@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut, Building, Filter, X, CalendarIcon } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut, Building, Filter, X, CalendarIcon, Upload } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { CompactDebtCard } from "@/components/CompactDebtCard";
 import { DebtForm } from "@/components/DebtForm";
+import { CSVUpload } from "@/components/CSVUpload";
 import { Debt, DebtInput } from "@/hooks/useDebts";
 import { DashboardStats } from "@/components/DashboardStats";
 import { DebtChart } from "@/components/DebtChart";
@@ -59,6 +61,7 @@ const Index = () => {
     }
   }, [selectedCompany, debts.length, migrateLegacyData]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isCSVUploadOpen, setIsCSVUploadOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
   const [selectedDebt, setSelectedDebt] = useState<LegacyDebt | null>(null);
   const [selectedDebtsForTable, setSelectedDebtsForTable] = useState<string[]>([]);
@@ -116,6 +119,46 @@ const Index = () => {
     setEditingDebt(undefined);
     setIsFormOpen(false);
   };
+
+  const handleCSVUpload = async (debts: DebtInput[]) => {
+    if (!selectedCompany) {
+      toast({
+        title: "Empresa não selecionada",
+        description: "Selecione uma empresa antes de importar contratos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const debt of debts) {
+        try {
+          await createDebt(debt);
+          successCount++;
+        } catch (error) {
+          errorCount++;
+          console.error('Error creating debt:', error);
+        }
+      }
+
+      toast({
+        title: "Importação concluída",
+        description: `${successCount} contratos importados com sucesso${errorCount > 0 ? `, ${errorCount} erros` : ''}`,
+        variant: successCount > 0 ? "default" : "destructive",
+      });
+
+      setIsCSVUploadOpen(false);
+    } catch (error) {
+      toast({
+        title: "Erro na importação",
+        description: "Erro ao processar os contratos",
+        variant: "destructive",
+      });
+    }
+  };
   const handleEditDebt = (legacyDebt: LegacyDebt) => {
     // Convert from legacy to database format
     const dbDebt = dbDebts.find(d => d.id === legacyDebt.id);
@@ -137,6 +180,10 @@ const Index = () => {
   const handleNewDebt = () => {
     setEditingDebt(undefined);
     setIsFormOpen(true);
+  };
+
+  const handleNewCSVUpload = () => {
+    setIsCSVUploadOpen(true);
   };
   const handleClearGlobalFilters = () => {
     setGlobalSelectedBank("all");
@@ -259,10 +306,24 @@ const Index = () => {
                   {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90 shadow-elegant">
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Dívida
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="bg-gradient-primary hover:opacity-90 shadow-elegant">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Dívida
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleNewDebt}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nova Dívida
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleNewCSVUpload}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload CSV
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {isLoadingDebts ? (
@@ -510,6 +571,12 @@ const Index = () => {
       </main>
 
       <DebtForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} onSave={handleSaveDebt} debt={editingDebt} />
+      
+      <CSVUpload
+        isOpen={isCSVUploadOpen}
+        onClose={() => setIsCSVUploadOpen(false)}
+        onUpload={handleCSVUpload}
+      />
     </div>;
 };
 export default Index;
