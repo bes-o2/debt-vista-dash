@@ -47,11 +47,39 @@ export const DashboardStats = ({
   }, [debts, selectedBank, selectedCalculationType, selectedDebts]);
 
   const totalFinanced = filteredDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
-  const totalCosts = filteredDebts.reduce((sum, debt) => {
-    let cost = debt.financedAmount;
-    if (debt.iofAmount) cost += debt.iofAmount;
-    if (debt.tacAmount) cost += debt.tacAmount;
-    return sum + cost;
+  
+  // Calculate current total PMT
+  const totalCurrentPMT = filteredDebts.reduce((sum, debt) => {
+    const releaseDate = new Date(debt.releaseDate);
+    const dueDate = new Date(debt.dueDate);
+    const termInMonths = Math.ceil((dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+    
+    if (termInMonths <= 0) return sum;
+    
+    // Convert interest rate to monthly decimal
+    let monthlyRate = debt.interestType === 'annual' 
+      ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+      : debt.interestRate / 100;
+    
+    const principal = debt.financedAmount;
+    let pmt = 0;
+    
+    if (debt.calculationTable === 'PRICE') {
+      // PRICE: Fixed installments
+      if (monthlyRate > 0) {
+        pmt = principal * (monthlyRate * Math.pow(1 + monthlyRate, termInMonths)) / 
+              (Math.pow(1 + monthlyRate, termInMonths) - 1);
+      } else {
+        pmt = principal / termInMonths;
+      }
+    } else {
+      // SAC: Current installment (assuming we want current month's installment)
+      const amortization = principal / termInMonths;
+      const currentInterest = principal * monthlyRate; // First installment interest
+      pmt = amortization + currentInterest;
+    }
+    
+    return sum + pmt;
   }, 0);
 
   // Convert annual rates to monthly for comparison
@@ -145,8 +173,8 @@ export const DashboardStats = ({
       borderColor: "border-primary/20"
     },
     {
-      title: "Custo Total (c/ taxas)",
-      value: formatCurrency(totalCosts),
+      title: "Parcela Corrente",
+      value: formatCurrency(totalCurrentPMT),
       icon: Building,
       trend: null,
       bgColor: "bg-card",
@@ -287,9 +315,9 @@ export const DashboardStats = ({
                 <Badge variant="outline">{filteredDebts.length}</Badge>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                <span className="text-sm font-medium text-foreground">Impacto de taxas</span>
+                <span className="text-sm font-medium text-foreground">PMT mensal total</span>
                 <span className="font-bold text-orange-600">
-                  {formatCurrency(totalCosts - totalFinanced)}
+                  {formatCurrency(totalCurrentPMT)}
                 </span>
               </div>
             </CardContent>
