@@ -24,16 +24,10 @@ interface Debt {
 interface ConsolidatedInstallment {
   installment_number: number;
   due_date: string;
-  total_installment_amount: number;
-  debts: Array<{
-    debt_id: string;
-    bank: string;
-    contract: string;
-    principal_balance: number;
-    amortization: number;
-    interest_amount: number;
-    installment_amount: number;
-  }>;
+  principal_balance: number;
+  amortization: number;
+  interest_amount: number;
+  installment_amount: number;
 }
 
 interface ConsolidatedAmortizationTableProps {
@@ -114,8 +108,6 @@ export function ConsolidatedAmortizationTable({
       const consolidatedMap: { [key: string]: ConsolidatedInstallment } = {};
 
       Object.entries(allInstallments).forEach(([debtId, installments]) => {
-        const debt = debts.find(d => d.id === debtId)!;
-        
         installments.forEach((installment) => {
           const dueDate = installment.due_date;
           
@@ -128,22 +120,18 @@ export function ConsolidatedAmortizationTable({
             consolidatedMap[dueDate] = {
               installment_number: installment.installment_number,
               due_date: dueDate,
-              total_installment_amount: 0,
-              debts: []
+              principal_balance: 0,
+              amortization: 0,
+              interest_amount: 0,
+              installment_amount: 0
             };
           }
 
-          consolidatedMap[dueDate].debts.push({
-            debt_id: debtId,
-            bank: debt.bank,
-            contract: debt.contractNumber || `CT${debt.id.slice(0, 8)}`,
-            principal_balance: installment.principal_balance,
-            amortization: installment.amortization,
-            interest_amount: installment.interest_amount,
-            installment_amount: installment.installment_amount
-          });
-
-          consolidatedMap[dueDate].total_installment_amount += installment.installment_amount;
+          // Sum values from all contracts for this period
+          consolidatedMap[dueDate].principal_balance += installment.principal_balance;
+          consolidatedMap[dueDate].amortization += installment.amortization;
+          consolidatedMap[dueDate].interest_amount += installment.interest_amount;
+          consolidatedMap[dueDate].installment_amount += installment.installment_amount;
         });
       });
 
@@ -154,8 +142,8 @@ export function ConsolidatedAmortizationTable({
       setConsolidatedInstallments(consolidatedArray);
 
       // Calculate summary
-      const totalPaid = consolidatedArray.reduce((sum, inst) => sum + inst.total_installment_amount, 0);
-      const totalCurrentInstallment = consolidatedArray.length > 0 ? consolidatedArray[0].total_installment_amount : 0;
+      const totalPaid = consolidatedArray.reduce((sum, inst) => sum + inst.installment_amount, 0);
+      const totalCurrentInstallment = consolidatedArray.length > 0 ? consolidatedArray[0].installment_amount : 0;
 
       setSummary({
         totalContracts: debts.length,
@@ -183,22 +171,18 @@ export function ConsolidatedAmortizationTable({
   };
 
   const exportToCSV = () => {
-    const headers = ['Data Vencimento', 'Valor Total', 'Banco', 'Contrato', 'Saldo Devedor', 'Amortização', 'Juros', 'Valor Parcela'];
+    const headers = ['#', 'Data Vcto', 'Saldo Devedor', 'Amortização', 'Juros', 'Valor Parcela'];
     const rows: string[] = [headers.join(',')];
 
     consolidatedInstallments.forEach(period => {
-      period.debts.forEach(debt => {
-        rows.push([
-          period.due_date,
-          period.total_installment_amount.toFixed(2),
-          debt.bank,
-          debt.contract,
-          debt.principal_balance.toFixed(2),
-          debt.amortization.toFixed(2),
-          debt.interest_amount.toFixed(2),
-          debt.installment_amount.toFixed(2)
-        ].join(','));
-      });
+      rows.push([
+        period.installment_number.toString(),
+        formatDate(period.due_date),
+        period.principal_balance.toFixed(2),
+        period.amortization.toFixed(2),
+        period.interest_amount.toFixed(2),
+        period.installment_amount.toFixed(2)
+      ].join(','));
     });
 
     const csvContent = rows.join('\n');
@@ -319,38 +303,34 @@ export function ConsolidatedAmortizationTable({
                   <TableRow>
                     <TableHead className="w-20 font-bold">#</TableHead>
                     <TableHead className="font-bold">Data Vcto</TableHead>
-                    <TableHead className="text-right font-bold">Total do Período</TableHead>
-                    <TableHead className="font-bold">Banco</TableHead>
-                    <TableHead className="font-bold">Contrato</TableHead>
+                    <TableHead className="text-right font-bold">Saldo Devedor</TableHead>
+                    <TableHead className="text-right font-bold">Amortização</TableHead>
+                    <TableHead className="text-right font-bold">Juros</TableHead>
                     <TableHead className="text-right font-bold">Valor Parcela</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {consolidatedInstallments.map((period, index) => (
-                    <React.Fragment key={period.due_date}>
-                      {period.debts.map((debt, debtIndex) => (
-                        <TableRow key={`${period.due_date}-${debt.debt_id}`}>
-                          {debtIndex === 0 && (
-                            <>
-                              <TableCell rowSpan={period.debts.length} className="font-medium border-r">
-                                {period.installment_number}
-                              </TableCell>
-                              <TableCell rowSpan={period.debts.length} className="border-r">
-                                {formatDate(period.due_date)}
-                              </TableCell>
-                              <TableCell rowSpan={period.debts.length} className="text-right font-bold text-primary border-r">
-                                {formatCurrency(period.total_installment_amount)}
-                              </TableCell>
-                            </>
-                          )}
-                          <TableCell>{debt.bank}</TableCell>
-                          <TableCell className="font-mono text-sm">{debt.contract}</TableCell>
-                          <TableCell className="text-right font-mono">
-                            {formatCurrency(debt.installment_amount)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </React.Fragment>
+                    <TableRow key={period.due_date}>
+                      <TableCell className="font-medium">
+                        {period.installment_number}
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(period.due_date)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(period.principal_balance)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(period.amortization)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(period.interest_amount)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-primary">
+                        {formatCurrency(period.installment_amount)}
+                      </TableCell>
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>
