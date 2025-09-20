@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, Clock, Building, AlertTriangle, BarChart3, Filter, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Clock, Building, AlertTriangle, BarChart3, Filter, Wallet, HelpCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -241,7 +241,7 @@ export const DashboardStats = ({
     {
       title: "Total Financiado",
       value: formatCurrency(totalFinanced),
-      icon: DollarSign,
+      icon: HelpCircle,
       trend: null,
       bgColor: "bg-card",
       iconColor: "text-primary",
@@ -251,7 +251,7 @@ export const DashboardStats = ({
     {
       title: "Parcela Corrente",
       value: formatCurrency(totalCurrentPMT),
-      icon: Building,
+      icon: HelpCircle,
       trend: null,
       bgColor: "bg-card",
       iconColor: "text-orange-600",
@@ -263,7 +263,7 @@ export const DashboardStats = ({
       value: averageRemainingTerm > 0 ? 
         `${Math.round(averageRemainingTerm)} ${Math.round(averageRemainingTerm) === 1 ? 'mês' : 'meses'}` : 
         "Quitado",
-      icon: Clock,
+      icon: HelpCircle,
       trend: averageRemainingTerm > 36 ? "high" : averageRemainingTerm > 12 ? "warning" : "normal",
       bgColor: "bg-card",
       iconColor: averageRemainingTerm > 36 ? "text-destructive" : averageRemainingTerm > 12 ? "text-amber-600" : "text-emerald-600",
@@ -273,7 +273,7 @@ export const DashboardStats = ({
     {
       title: "Taxa Média (a.m.)",
       value: `${averageInterestRate.toFixed(1)}%`,
-      icon: TrendingUp,
+      icon: HelpCircle,
       trend: averageInterestRate > 1.5 ? "high" : "normal",
       bgColor: "bg-card",
       iconColor: averageInterestRate > 1.5 ? "text-destructive" : "text-emerald-600",
@@ -285,7 +285,7 @@ export const DashboardStats = ({
       value: filteredDebts.length > 0 && currentCDI > 0 ? 
         `CDI + ${cdiSpread.toFixed(1)}%` : 
         "Sem dados",
-      icon: TrendingUp,
+      icon: HelpCircle,
       trend: cdiSpread > 5 ? "high" : "normal",
       bgColor: "bg-card",
       iconColor: cdiSpread > 5 ? "text-destructive" : "text-blue-600",
@@ -340,11 +340,11 @@ export const DashboardStats = ({
                 {(() => {
                   const { TooltipWrapper } = useTooltip(stat.tooltipKey);
                   return (
-                    <TooltipWrapper>
-                      <div className={`p-3 rounded-xl bg-background/50 ${stat.iconColor} group-hover:scale-110 transition-transform duration-200 ring-2 ring-white/20 hover:ring-white/40 cursor-help`}>
-                        <stat.icon className="h-5 w-5" />
-                      </div>
-                    </TooltipWrapper>
+                     <TooltipWrapper>
+                       <div className="ml-auto">
+                         <stat.icon className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-help" />
+                       </div>
+                     </TooltipWrapper>
                   );
                 })()}
               </CardHeader>
