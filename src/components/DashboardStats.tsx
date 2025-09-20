@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
 import { useCET } from "@/hooks/useCET";
 
@@ -170,7 +171,8 @@ export const DashboardStats = ({
       trend: null,
       bgColor: "bg-card",
       iconColor: "text-primary",
-      borderColor: "border-primary/20"
+      borderColor: "border-primary/20",
+      tooltip: "Soma de todos os valores financiados dos contratos selecionados"
     },
     {
       title: "Parcela Corrente",
@@ -179,7 +181,8 @@ export const DashboardStats = ({
       trend: null,
       bgColor: "bg-card",
       iconColor: "text-orange-600",
-      borderColor: "border-orange-200"
+      borderColor: "border-orange-200",
+      tooltip: "Valor total das parcelas mensais (PMT) dos contratos ativos no período atual"
     },
     {
       title: "Taxa Média (a.m.)",
@@ -188,7 +191,8 @@ export const DashboardStats = ({
       trend: averageInterestRate > 1.5 ? "high" : "normal",
       bgColor: "bg-card",
       iconColor: averageInterestRate > 1.5 ? "text-destructive" : "text-emerald-600",
-      borderColor: averageInterestRate > 1.5 ? "border-destructive/20" : "border-emerald-200"
+      borderColor: averageInterestRate > 1.5 ? "border-destructive/20" : "border-emerald-200",
+      tooltip: "Taxa de juros média mensal ponderada dos contratos selecionados"
     },
     {
       title: "Vencimentos (30 dias)",
@@ -197,7 +201,8 @@ export const DashboardStats = ({
       trend: upcomingDueDebts > 0 ? "warning" : "normal",
       bgColor: "bg-card",
       iconColor: upcomingDueDebts > 0 ? "text-amber-600" : "text-emerald-600",
-      borderColor: upcomingDueDebts > 0 ? "border-amber-200" : "border-emerald-200"
+      borderColor: upcomingDueDebts > 0 ? "border-amber-200" : "border-emerald-200",
+      tooltip: "Quantidade de contratos com vencimento nos próximos 30 dias"
     },
     {
       title: "Spread Médio",
@@ -208,7 +213,8 @@ export const DashboardStats = ({
       trend: cdiSpread > 5 ? "high" : "normal",
       bgColor: "bg-card",
       iconColor: cdiSpread > 5 ? "text-destructive" : "text-blue-600",
-      borderColor: cdiSpread > 5 ? "border-destructive/20" : "border-blue-200"
+      borderColor: cdiSpread > 5 ? "border-destructive/20" : "border-blue-200",
+      tooltip: "Diferença média entre o CET dos contratos e a taxa CDI atual"
     }
   ];
 
@@ -232,17 +238,25 @@ export const DashboardStats = ({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
-        {stats.map((stat, index) => (
-          <Card key={index} className={`${stat.bgColor} ${stat.borderColor} border-2 hover:shadow-lg transition-all duration-300 group`}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-base font-bold text-foreground">
-                {stat.title}
-              </CardTitle>
-              <div className={`p-3 rounded-xl bg-background/50 ${stat.iconColor} group-hover:scale-110 transition-transform duration-200`}>
-                <stat.icon className="h-5 w-5" />
-              </div>
-            </CardHeader>
+      <TooltipProvider>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+          {stats.map((stat, index) => (
+            <Card key={index} className={`${stat.bgColor} ${stat.borderColor} border-2 hover:shadow-lg transition-all duration-300 group`}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-base font-bold text-foreground">
+                  {stat.title}
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={`p-3 rounded-xl bg-background/50 ${stat.iconColor} group-hover:scale-110 transition-transform duration-200 ring-2 ring-white/20 hover:ring-white/40 cursor-help`}>
+                      <stat.icon className="h-5 w-5" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <p className="text-sm">{stat.tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground mb-1">{stat.value}</div>
               {stat.trend === "high" && (
@@ -270,7 +284,8 @@ export const DashboardStats = ({
             </CardContent>
           </Card>
         ))}
-      </div>
+        </div>
+      </TooltipProvider>
 
       {/* Sistema de Amortização */}
       {filteredDebts.length > 0 && (
