@@ -106,28 +106,22 @@ export const DashboardStats = ({
     let validDebts = 0;
 
     filteredDebts.forEach(debt => {
-      // Simplified CET calculation for display
-      // Convert debt to format expected by CET calculation
-      const debtForCET = {
-        financedAmount: debt.financedAmount,
-        releaseDate: debt.releaseDate,
-        dueDate: debt.dueDate,
-        calculationTable: debt.calculationTable,
-        indexer: debt.indexer,
-        interestRate: debt.interestRate,
-        interestType: debt.interestType,
-        iofAmount: debt.iofAmount || 0,
-        tacAmount: debt.tacAmount || 0
-      };
-
-      // Simple approximation: for display purposes, use interest rate as proxy for CET
-      // In a real implementation, you'd use the full CET calculation
+      // Convert interest rate to annual percentage for CET calculation
       let annualRate = debt.interestRate;
       if (debt.interestType === 'monthly') {
-        annualRate = Math.pow(1 + debt.interestRate / 100, 12) - 1;
+        // Convert monthly to annual: (1 + monthly)^12 - 1
+        annualRate = (Math.pow(1 + debt.interestRate / 100, 12) - 1) * 100;
       }
       
-      totalCET += annualRate;
+      // Add impact of fees to get CET approximation
+      const totalAmount = debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
+      const feeImpact = totalAmount > debt.financedAmount 
+        ? ((totalAmount / debt.financedAmount - 1) * 100) 
+        : 0;
+      
+      const approximateCET = annualRate + feeImpact;
+      
+      totalCET += approximateCET;
       validDebts++;
     });
 
