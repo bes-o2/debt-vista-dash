@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from '@/components/ui/use-toast';
+import { useCompany } from './useCompany';
 
 export interface Company {
   id: string;
@@ -19,6 +20,7 @@ export const useCompanies = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { updateSelectedCompany } = useCompany();
 
   const fetchCompanies = async () => {
     if (!user) {
@@ -60,6 +62,7 @@ export const useCompanies = () => {
           .filter(Boolean) as Company[];
         
         setCompanies(companiesList);
+        updateSelectedCompany(companiesList);
       } else {
         // Se não há empresas, buscar se existe alguma empresa criada pelo usuário
         const { data: ownedCompanies, error: ownedError } = await supabase
@@ -73,6 +76,7 @@ export const useCompanies = () => {
 
         if (ownedCompanies && ownedCompanies.length > 0) {
           setCompanies(ownedCompanies);
+          updateSelectedCompany(ownedCompanies);
         } else {
           // Criar empresa padrão
           const { data: newCompany, error: createError } = await supabase
@@ -102,6 +106,7 @@ export const useCompanies = () => {
           }
 
           setCompanies([newCompany]);
+          updateSelectedCompany([newCompany]);
         }
       }
     } catch (err) {
@@ -154,7 +159,9 @@ export const useCompanies = () => {
       }
 
       // Atualizar estado local
-      setCompanies([...companies, newCompany]);
+      const updatedCompanies = [...companies, newCompany];
+      setCompanies(updatedCompanies);
+      updateSelectedCompany(updatedCompanies);
       
       toast({
         title: "Sucesso",
