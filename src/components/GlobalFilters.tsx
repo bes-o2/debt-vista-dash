@@ -209,70 +209,40 @@ export const GlobalFilters = ({
         {/* Start Date Filter */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Data Inicial</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !startDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {startDate ? format(startDate, "dd/MM/yyyy") : <span>Selecionar data</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-background border border-border shadow-lg z-50" align="start">
-              <Calendar
-                mode="single"
-                selected={startDate}
-                onSelect={onStartDateChange}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
+          <input
+            type="date"
+            value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
+            onChange={(e) => onStartDateChange(e.target.value ? new Date(e.target.value) : undefined)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="dd/mm/aaaa"
+          />
         </div>
 
         {/* End Date Filter */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Data Final</label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !endDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {endDate ? format(endDate, "dd/MM/yyyy") : <span>Selecionar data</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-background border border-border shadow-lg z-50" align="start">
-              <Calendar
-                mode="single"
-                selected={endDate}
-                onSelect={onEndDateChange}
-                disabled={(date) => startDate ? date < startDate : false}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
+          <input
+            type="date"
+            value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
+            onChange={(e) => onEndDateChange(e.target.value ? new Date(e.target.value) : undefined)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="dd/mm/aaaa"
+          />
         </div>
 
-        {/* Clear Filters Button */}
+        {/* Clear Dates Button */}
         <div className="flex items-end">
           <Button 
             variant="outline" 
-            onClick={onClearFilters}
+            onClick={() => {
+              onStartDateChange(undefined);
+              onEndDateChange(undefined);
+            }}
             className="w-full"
-            disabled={!hasActiveFilters}
+            disabled={!startDate && !endDate}
           >
             <X className="h-4 w-4 mr-2" />
-            Limpar Filtros
+            Zerar Datas
           </Button>
         </div>
       </div>

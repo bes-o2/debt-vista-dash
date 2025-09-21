@@ -370,51 +370,25 @@ const Index = () => {
                 {/* Start Date Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Data Inicial</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {globalStartDate ? format(globalStartDate, "dd/MM/yyyy") : "Selecionar data"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={globalStartDate}
-                        onSelect={setGlobalStartDate}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <input
+                    type="date"
+                    value={globalStartDate ? format(globalStartDate, "yyyy-MM-dd") : ""}
+                    onChange={(e) => setGlobalStartDate(e.target.value ? new Date(e.target.value) : undefined)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="dd/mm/aaaa"
+                  />
                 </div>
                 
                 {/* End Date Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Data Final</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {globalEndDate ? format(globalEndDate, "dd/MM/yyyy") : "Selecionar data"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={globalEndDate}
-                        onSelect={setGlobalEndDate}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <input
+                    type="date"
+                    value={globalEndDate ? format(globalEndDate, "yyyy-MM-dd") : ""}
+                    onChange={(e) => setGlobalEndDate(e.target.value ? new Date(e.target.value) : undefined)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="dd/mm/aaaa"
+                  />
                 </div>
 
                 {/* Debt Filter */}
@@ -483,6 +457,22 @@ const Index = () => {
                       </Command>
                     </PopoverContent>
                   </Popover>
+                </div>
+
+                {/* Clear Dates Button */}
+                <div className="flex items-end">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setGlobalStartDate(undefined);
+                      setGlobalEndDate(undefined);
+                    }}
+                    className="w-full"
+                    disabled={!globalStartDate && !globalEndDate}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Zerar Datas
+                  </Button>
                 </div>
               </div>
             </div>
