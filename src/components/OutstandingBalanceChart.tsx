@@ -82,7 +82,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
         displayMonth: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '')
       };
       
-      // Calculate total PMT for this month
+      // Calculate total PMT for this month (sum of all active contracts' payments)
       let totalPMT = 0;
       
       banks.forEach(bank => {
@@ -93,15 +93,23 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             return sum;
           }
 
-          // Find the installment for this specific month
-          const monthInstallment = debtInstallments.find(inst => 
-            inst.due_date.substring(0, 7) === monthData.month
-          );
+          // Check if this debt is still active in this month
+          const firstInstallmentDate = new Date(debtInstallments[0].due_date);
+          const lastInstallmentDate = new Date(debtInstallments[debtInstallments.length - 1].due_date);
           
-          if (monthInstallment) {
-            totalPMT += monthInstallment.total_amount;
+          // If the current month is within the debt's payment period
+          if (date >= firstInstallmentDate && date <= lastInstallmentDate) {
+            // Find the installment for this specific month
+            const monthInstallment = debtInstallments.find(inst => 
+              inst.due_date.substring(0, 7) === monthData.month
+            );
+            
+            if (monthInstallment) {
+              totalPMT += monthInstallment.total_amount;
+            }
           }
 
+          // Calculate remaining balance for this month
           // Find the installment that would be due just after our target date
           // or the last installment if all are before the target date
           const installmentsBeforeTarget = debtInstallments.filter(inst => 
