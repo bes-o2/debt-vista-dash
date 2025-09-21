@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from "recharts";
+import { Button } from "@/components/ui/button";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, LineChart, Line, ComposedChart } from "recharts";
 import { useState, useMemo } from "react";
 import { Building, Calendar, Loader2 } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
@@ -29,8 +28,7 @@ interface OutstandingBalanceChartProps {
 }
 
 export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps) => {
-  const [dateType, setDateType] = useState<'today' | 'custom'>('today');
-  const [customDate, setCustomDate] = useState<string>(new Date().getFullYear().toString());
+  const [viewType, setViewType] = useState<'annual' | 'total'>('annual');
   
   // Use the hook to get real installment data
   const normalizedDebts = debts.map(normalizeDebtForCalculation);
@@ -59,20 +57,34 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
 
     // Find the earliest release date and latest due date
     const earliestDate = new Date(Math.min(...debts.map(d => new Date(d.releaseDate).getTime())));
+    const latestDate = new Date(Math.max(...debts.map(d => new Date(d.dueDate).getTime())));
     
-    // Determine end date based on selection
-    const endDate = dateType === 'today' ? new Date() : new Date(`${customDate}-12-31`);
-    const startDate = earliestDate;
+    // Determine end date based on view type
+    const today = new Date();
+    const endDate = viewType === 'annual' 
+      ? new Date(today.getFullYear() + 1, today.getMonth(), today.getDate())
+      : latestDate;
+    const startDate = viewType === 'annual' ? today : earliestDate;
     
-    // Generate yearly data from start to end
-    const startYear = startDate.getFullYear();
-    const endYear = endDate.getFullYear();
-    const years = Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i);
+    // Generate monthly data from start to end for better granularity
+    const months = [];
+    const currentDate = new Date(startDate);
+    currentDate.setDate(1); // Start from first day of month
     
-    return years.map(year => {
-      const yearData: any = { year: year.toString() };
-      const targetDate = new Date(year, 11, 31); // December 31st of the year
-
+    while (currentDate <= endDate) {
+      months.push(new Date(currentDate));
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    
+    return months.map(date => {
+      const monthData: any = { 
+        month: date.toISOString().substring(0, 7), // YYYY-MM format
+        displayMonth: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '')
+      };
+      
+      // Calculate total PMT for this month
+      let totalPMT = 0;
+      
       banks.forEach(bank => {
         const bankDebts = debts.filter(d => d.bank === bank.name);
         const bankBalance = bankDebts.reduce((sum, debt) => {
@@ -81,10 +93,19 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             return sum;
           }
 
+          // Find the installment for this specific month
+          const monthInstallment = debtInstallments.find(inst => 
+            inst.due_date.substring(0, 7) === monthData.month
+          );
+          
+          if (monthInstallment) {
+            totalPMT += monthInstallment.total_amount;
+          }
+
           // Find the installment that would be due just after our target date
           // or the last installment if all are before the target date
           const installmentsBeforeTarget = debtInstallments.filter(inst => 
-            new Date(inst.due_date) <= targetDate
+            new Date(inst.due_date) <= date
           );
 
           if (installmentsBeforeTarget.length === 0) {
@@ -99,23 +120,33 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
           return sum + Math.max(0, lastInstallment.remaining_balance);
         }, 0);
         
-        yearData[bank.name] = bankBalance;
+        monthData[bank.name] = bankBalance;
       });
       
-      return yearData;
+      monthData.totalPMT = totalPMT;
+      
+      return monthData;
     });
-  }, [debts, banks, dateType, customDate, installmentsData]);
+  }, [debts, banks, viewType, installmentsData]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const pmtData = payload.find((p: any) => p.dataKey === 'totalPMT');
+      const balanceData = payload.filter((p: any) => p.dataKey !== 'totalPMT');
+      
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="font-semibold text-foreground mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {balanceData.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.dataKey}: {formatCurrency(entry.value)}
             </p>
           ))}
+          {pmtData && (
+            <p className="text-sm text-destructive font-medium border-t pt-1 mt-1">
+              PMT Total: {formatCurrency(pmtData.value)}
+            </p>
+          )}
         </div>
       );
     }
@@ -161,48 +192,21 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             </div>
             Saldo Devedor por Banco
           </CardTitle>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4">
-              <Label className="text-sm font-medium">Data Base:</Label>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dateType"
-                    value="today"
-                    checked={dateType === 'today'}
-                    onChange={(e) => setDateType(e.target.value as 'today' | 'custom')}
-                    className="text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">Hoje</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dateType"
-                    value="custom"
-                    checked={dateType === 'custom'}
-                    onChange={(e) => setDateType(e.target.value as 'today' | 'custom')}
-                    className="text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm">Personalizado</span>
-                </label>
-              </div>
-            </div>
-            {dateType === 'custom' && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="number"
-                  min="2000"
-                  max="2050"
-                  value={customDate}
-                  onChange={(e) => setCustomDate(e.target.value)}
-                  placeholder="Ano"
-                  className="w-24"
-                />
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewType === 'annual' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewType('annual')}
+            >
+              Anual
+            </Button>
+            <Button
+              variant={viewType === 'total' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewType('total')}
+            >
+              Total
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -214,34 +218,58 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis 
-              dataKey="year" 
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-            />
-            <YAxis 
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            
-            {banks.map((bank, index) => (
-              <Bar
-                key={bank.name}
-                dataKey={bank.name}
-                stackId="debt"
-                fill={bank.color}
-                name={bank.name}
-              >
-                <LabelList content={renderCustomLabel} />
-              </Bar>
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+            <ComposedChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis 
+                dataKey="displayMonth" 
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+                interval={viewType === 'annual' ? 0 : Math.ceil(chartData.length / 12)}
+              />
+              <YAxis 
+                yAxisId="balance"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+              />
+              <YAxis 
+                yAxisId="pmt"
+                orientation="right"
+                stroke="hsl(var(--destructive))"
+                fontSize={12}
+                tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend />
+              
+              {banks.map((bank, index) => (
+                <Bar
+                  key={bank.name}
+                  yAxisId="balance"
+                  dataKey={bank.name}
+                  stackId="debt"
+                  fill={bank.color}
+                  name={bank.name}
+                >
+                  <LabelList content={renderCustomLabel} />
+                </Bar>
+              ))}
+              
+              <Line
+                yAxisId="pmt"
+                type="monotone"
+                dataKey="totalPMT"
+                stroke="hsl(var(--destructive))"
+                strokeWidth={3}
+                dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2, r: 4 }}
+                name="PMT Total Mensal"
+                connectNulls={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
         )}
       </CardContent>
     </Card>
