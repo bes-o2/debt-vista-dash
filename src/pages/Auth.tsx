@@ -51,10 +51,8 @@ export default function Auth() {
           <div className="flex items-center justify-center gap-2 mb-4">
             <img src={O2Logo} alt="O2 Logo" className="h-16 w-auto" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Gestor de Dívidas – O2</h1>
-          <p className="text-muted-foreground mt-2">
-            Ferramenta corporativa para análise de dívidas
-          </p>
+          
+          
         </div>
 
         <Card className="border border-border/50 shadow-lg">
