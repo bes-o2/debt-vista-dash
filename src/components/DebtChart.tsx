@@ -98,18 +98,39 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
   const bankComparisonData = useMemo(() => {
     return availableBanks.map(bank => {
       const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
-      const totalFinanced = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
-      const totalFees = bankDebts.reduce((sum, debt) => {
-        return sum + (debt.iofAmount || 0) + (debt.tacAmount || 0);
+      
+      // Valor principal é o financed_amount (valor total a ser amortizado)
+      const principalAmount = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
+      
+      // Para juros financiados, precisamos calcular o total de juros projetados
+      // Por enquanto, vamos usar uma aproximação baseada nas taxas e prazos
+      const financedInterest = bankDebts.reduce((sum, debt) => {
+        // Cálculo aproximado de juros totais baseado na taxa e prazo
+        const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+        const monthlyRate = debt.interestType === 'annual' 
+          ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+          : debt.interestRate / 100;
+        
+        // Aproximação do total de juros (simplificada)
+        const totalInterest = debt.financedAmount * monthlyRate * months * 0.5; // Aproximação média
+        return sum + totalInterest;
       }, 0);
-      const principalAmount = totalFinanced - totalFees;
-      const financedInterest = totalFees;
+
+      // CET médio (usando as taxas existentes como proxy)
+      const avgCET = bankDebts.length > 0 
+        ? bankDebts.reduce((sum, debt) => {
+            const monthlyRate = debt.interestType === 'annual' 
+              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+              : debt.interestRate / 100;
+            return sum + monthlyRate;
+          }, 0) / bankDebts.length * 100
+        : 0;
 
       return {
         name: bank,
         principalAmount: principalAmount,
         financedInterest: financedInterest,
-        financedAmount: totalFinanced,
+        avgCET: avgCET,
         count: bankDebts.length
       };
     }).filter(item => item.count > 0);
@@ -144,8 +165,12 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
             <p key={index} className="text-sm" style={{ color: entry.color }}>
               {entry.dataKey === 'principalAmount' && 'Valor Principal: '}
               {entry.dataKey === 'financedInterest' && 'Juros Financiados: '}
+              {entry.dataKey === 'avgCET' && 'CET Médio: '}
               {entry.dataKey === 'value' && 'Valor: '}
-              {formatCurrency(entry.value)}
+              {entry.dataKey === 'avgCET' 
+                ? `${entry.value.toFixed(2)}%`
+                : formatCurrency(entry.value)
+              }
             </p>
           ))}
         </div>
@@ -522,7 +547,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={bankComparisonData}>
+                <ComposedChart data={bankComparisonData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis 
                     dataKey="name" 
@@ -530,13 +555,22 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     stroke="hsl(var(--muted-foreground))"
                   />
                   <YAxis 
+                    yAxisId="left"
                     tickFormatter={(value) => formatCurrency(value)}
+                    fontSize={12}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis 
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={(value) => `${value.toFixed(2)}%`}
                     fontSize={12}
                     stroke="hsl(var(--muted-foreground))"
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Bar 
+                    yAxisId="left"
                     dataKey="principalAmount" 
                     stackId="a"
                     fill="hsl(var(--chart-1))" 
@@ -544,13 +578,23 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     radius={[0, 0, 0, 0]}
                   />
                   <Bar 
+                    yAxisId="left"
                     dataKey="financedInterest" 
                     stackId="a"
                     fill="hsl(var(--chart-3))" 
                     name="Juros Financiados"
                     radius={[4, 4, 0, 0]}
                   />
-                </BarChart>
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="avgCET" 
+                    stroke="hsl(var(--chart-5))" 
+                    strokeWidth={3}
+                    name="CET Médio (%)"
+                    dot={{ fill: "hsl(var(--chart-5))", strokeWidth: 2, r: 4 }}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
