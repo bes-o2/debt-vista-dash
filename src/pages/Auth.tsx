@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calculator, Building2 } from 'lucide-react';
+import { Building2 } from 'lucide-react';
+import O2Logo from '@/assets/o2-logo.svg';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -50,11 +51,9 @@ export default function Auth() {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <Calculator className="h-8 w-8 text-primary" />
-            </div>
+            <img src={O2Logo} alt="O2 Logo" className="h-16 w-auto" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">CET Calculator</h1>
+          <h1 className="text-3xl font-bold text-foreground">Gestor de Dívidas – O2</h1>
           <p className="text-muted-foreground mt-2">
             Ferramenta corporativa para análise de dívidas
           </p>
