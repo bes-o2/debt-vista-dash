@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ComposedChart } from "recharts";
 import { useState, useMemo } from "react";
+import React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
+import { useCET } from "@/hooks/useCET";
 
 interface Debt {
   id: string;
@@ -116,25 +118,72 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
         return sum + totalInterest;
       }, 0);
 
-      // CET médio (usando as taxas existentes como proxy)
-      const avgCET = bankDebts.length > 0 
-        ? bankDebts.reduce((sum, debt) => {
-            const monthlyRate = debt.interestType === 'annual' 
-              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-              : debt.interestRate / 100;
-            return sum + monthlyRate;
-          }, 0) / bankDebts.length * 100
-        : 0;
-
       return {
         name: bank,
         principalAmount: principalAmount,
         financedInterest: financedInterest,
-        avgCET: avgCET,
-        count: bankDebts.length
+        count: bankDebts.length,
+        bankDebts: bankDebts // Adicionar as dívidas para cálculo do CET
       };
     }).filter(item => item.count > 0);
   }, [availableBanks, filteredDebts]);
+
+  // Hook para calcular CETs de cada dívida
+  const cetResults = useMemo(() => {
+    const results: { [key: string]: number } = {};
+    filteredDebts.forEach(debt => {
+      // Para cada dívida, vamos usar o hook useCET individualmente
+      // Como não podemos usar hooks condicionalmente, vamos calcular o CET de forma síncrona
+      results[debt.id] = 0; // Placeholder - será preenchido pelo componente CETCalculator
+    });
+    return results;
+  }, [filteredDebts]);
+
+  // Componente para calcular CET de uma dívida específica
+  const CETCalculator = ({ debt, onCETCalculated }: { debt: Debt, onCETCalculated: (id: string, cet: number) => void }) => {
+    const { cet } = useCET(debt, 'annual');
+    
+    React.useEffect(() => {
+      if (cet !== null) {
+        onCETCalculated(debt.id, cet);
+      }
+    }, [cet, debt.id, onCETCalculated]);
+
+    return null;
+  };
+
+  // Estado para armazenar os CETs calculados
+  const [calculatedCETs, setCalculatedCETs] = useState<{ [key: string]: number }>({});
+
+  const handleCETCalculated = (debtId: string, cet: number) => {
+    setCalculatedCETs(prev => ({ ...prev, [debtId]: cet }));
+  };
+
+  // Calcular CET médio ponderado por banco
+  const bankComparisonDataWithCET = useMemo(() => {
+    return bankComparisonData.map(item => {
+      let totalWeightedCET = 0;
+      let totalPrincipal = 0;
+
+      item.bankDebts.forEach(debt => {
+        const cet = calculatedCETs[debt.id];
+        if (cet !== undefined && cet > 0) {
+          totalWeightedCET += cet * debt.financedAmount;
+          totalPrincipal += debt.financedAmount;
+        }
+      });
+
+      const avgCET = totalPrincipal > 0 ? totalWeightedCET / totalPrincipal : 0;
+
+      return {
+        name: item.name,
+        principalAmount: item.principalAmount,
+        financedInterest: item.financedInterest,
+        avgCET: avgCET,
+        count: item.count
+      };
+    });
+  }, [bankComparisonData, calculatedCETs]);
 
   // Dados de indexadores
   const indexerData = useMemo(() => {
@@ -536,68 +585,75 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
         )}
 
         {chartType === "comparison" && (
-          <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
-            <CardHeader>
-              <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/20">
-                  <TrendingUp className="h-5 w-5 text-purple-600" />
-                </div>
-                Comparativo de Bancos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <ComposedChart data={bankComparisonData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="name" 
-                    fontSize={12}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    tickFormatter={(value) => formatCurrency(value)}
-                    fontSize={12}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis 
-                    yAxisId="right"
-                    orientation="right"
-                    tickFormatter={(value) => `${value.toFixed(2)}%`}
-                    fontSize={12}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Bar 
-                    yAxisId="left"
-                    dataKey="principalAmount" 
-                    stackId="a"
-                    fill="hsl(var(--chart-1))" 
-                    name="Valor Principal"
-                    radius={[0, 0, 0, 0]}
-                  />
-                  <Bar 
-                    yAxisId="left"
-                    dataKey="financedInterest" 
-                    stackId="a"
-                    fill="hsl(var(--chart-3))" 
-                    name="Juros Financiados"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Line 
-                    yAxisId="right"
-                    type="monotone" 
-                    dataKey="avgCET" 
-                    stroke="hsl(var(--chart-5))" 
-                    strokeWidth={3}
-                    name="CET Médio (%)"
-                    dot={{ fill: "hsl(var(--chart-5))", strokeWidth: 2, r: 4 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+          <>
+            {/* CET Calculators - componentes invisíveis para calcular os CETs */}
+            {filteredDebts.map(debt => (
+              <CETCalculator key={debt.id} debt={debt} onCETCalculated={handleCETCalculated} />
+            ))}
+            
+            <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/20">
+                    <TrendingUp className="h-5 w-5 text-purple-600" />
+                  </div>
+                  Comparativo de Bancos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <ComposedChart data={bankComparisonDataWithCET}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="name" 
+                      fontSize={12}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
+                    <YAxis 
+                      yAxisId="left"
+                      tickFormatter={(value) => formatCurrency(value)}
+                      fontSize={12}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
+                    <YAxis 
+                      yAxisId="right"
+                      orientation="right"
+                      tickFormatter={(value) => `${value.toFixed(2)}%`}
+                      fontSize={12}
+                      stroke="hsl(var(--muted-foreground))"
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar 
+                      yAxisId="left"
+                      dataKey="principalAmount" 
+                      stackId="a"
+                      fill="hsl(var(--chart-1))" 
+                      name="Valor Principal"
+                      radius={[0, 0, 0, 0]}
+                    />
+                    <Bar 
+                      yAxisId="left"
+                      dataKey="financedInterest" 
+                      stackId="a"
+                      fill="hsl(var(--chart-3))" 
+                      name="Juros Financiados"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Line 
+                      yAxisId="right"
+                      type="monotone" 
+                      dataKey="avgCET" 
+                      stroke="hsl(var(--chart-5))" 
+                      strokeWidth={3}
+                      name="CET Médio (%)"
+                      dot={{ fill: "hsl(var(--chart-5))", strokeWidth: 2, r: 4 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         {chartType === "indexer" && indexerData.length > 0 && (
