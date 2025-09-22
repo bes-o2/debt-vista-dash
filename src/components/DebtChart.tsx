@@ -94,28 +94,22 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     }, [] as { name: string; value: number; count: number }[]);
   }, [filteredDebts]);
 
-  // Dados comparativos de bancos (valor financiado vs custo total)
+  // Dados comparativos de bancos (valor principal vs juros financiados)
   const bankComparisonData = useMemo(() => {
     return availableBanks.map(bank => {
       const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
       const totalFinanced = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
-      const totalCost = bankDebts.reduce((sum, debt) => {
-        return sum + debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
+      const totalFees = bankDebts.reduce((sum, debt) => {
+        return sum + (debt.iofAmount || 0) + (debt.tacAmount || 0);
       }, 0);
-      const avgRate = bankDebts.length > 0 
-        ? bankDebts.reduce((sum, debt) => {
-            return sum + (debt.interestType === 'annual' 
-              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-              : debt.interestRate / 100);
-          }, 0) / bankDebts.length * 100
-        : 0;
+      const principalAmount = totalFinanced - totalFees;
+      const financedInterest = totalFees;
 
       return {
         name: bank,
+        principalAmount: principalAmount,
+        financedInterest: financedInterest,
         financedAmount: totalFinanced,
-        totalCost: totalCost,
-        fees: totalCost - totalFinanced,
-        avgRate: avgRate,
         count: bankDebts.length
       };
     }).filter(item => item.count > 0);
@@ -148,15 +142,10 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
           <p className="font-semibold text-foreground">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.dataKey === 'financedAmount' && 'Valor Financiado: '}
-              {entry.dataKey === 'totalCost' && 'Custo Total: '}
-              {entry.dataKey === 'fees' && 'Taxas: '}
-              {entry.dataKey === 'avgRate' && 'Taxa Média: '}
+              {entry.dataKey === 'principalAmount' && 'Valor Principal: '}
+              {entry.dataKey === 'financedInterest' && 'Juros Financiados: '}
               {entry.dataKey === 'value' && 'Valor: '}
-              {entry.dataKey === 'avgRate' 
-                ? `${entry.value.toFixed(3)}%`
-                : formatCurrency(entry.value)
-              }
+              {formatCurrency(entry.value)}
             </p>
           ))}
         </div>
@@ -533,7 +522,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={400}>
-                <ComposedChart data={bankComparisonData}>
+                <BarChart data={bankComparisonData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis 
                     dataKey="name" 
@@ -541,44 +530,27 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     stroke="hsl(var(--muted-foreground))"
                   />
                   <YAxis 
-                    yAxisId="left"
                     tickFormatter={(value) => formatCurrency(value)}
-                    fontSize={12}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis 
-                    yAxisId="right"
-                    orientation="right"
-                    tickFormatter={(value) => `${value.toFixed(1)}%`}
                     fontSize={12}
                     stroke="hsl(var(--muted-foreground))"
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Bar 
-                    yAxisId="left"
-                    dataKey="financedAmount" 
+                    dataKey="principalAmount" 
+                    stackId="a"
                     fill="hsl(var(--chart-1))" 
-                    name="Valor Financiado"
-                    radius={[4, 4, 0, 0]}
+                    name="Valor Principal"
+                    radius={[0, 0, 0, 0]}
                   />
                   <Bar 
-                    yAxisId="left"
-                    dataKey="fees" 
+                    dataKey="financedInterest" 
+                    stackId="a"
                     fill="hsl(var(--chart-3))" 
-                    name="Taxas"
+                    name="Juros Financiados"
                     radius={[4, 4, 0, 0]}
                   />
-                  <Line 
-                    yAxisId="right"
-                    type="monotone" 
-                    dataKey="avgRate" 
-                    stroke="hsl(var(--chart-5))" 
-                    strokeWidth={3}
-                    name="Taxa Média (%)"
-                    dot={{ fill: "hsl(var(--chart-5))", strokeWidth: 2, r: 4 }}
-                  />
-                </ComposedChart>
+                </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
