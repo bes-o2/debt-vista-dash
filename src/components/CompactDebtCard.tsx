@@ -207,10 +207,12 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
               <span className="text-xs">CET</span>
             </div>
             <span className="text-sm font-medium text-primary">
-              {cetMonthly !== undefined && cetAnnual !== undefined ? (
+              {(cetMonthly !== null && cetMonthly !== undefined && 
+                cetAnnual !== null && cetAnnual !== undefined &&
+                !isNaN(cetMonthly) && !isNaN(cetAnnual)) ? (
                 `${cetMonthly.toFixed(2)}% a.m | ${cetAnnual.toFixed(2)}% a.a`
               ) : (
-                <span className="text-xs text-muted-foreground">N/A</span>
+                <span className="text-xs text-muted-foreground">Calcular</span>
               )}
             </span>
           </div>

@@ -10,7 +10,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown, Calendar, Receipt } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
-import { useCETManager } from "@/hooks/useCETManager";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 
 interface Debt {
@@ -26,6 +25,8 @@ interface Debt {
   iofAmount?: number;
   tacAmount?: number;
   contractNumber?: string;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
 }
 
 interface DebtChartProps {
@@ -60,8 +61,9 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     });
   }, [debts, selectedBanks, selectedIndexerType]);
 
-  // Centralized CET calculation manager (for filtered debts)
-  const cetManager = useCETManager(filteredDebts);
+  // Note: CET is now stored in database, no dynamic calculation needed
+  // For backward compatibility with charts that may still reference cetManager,
+  // we'll use stored values directly from debt objects
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -183,22 +185,30 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     }).filter(item => item.count > 0);
   }, [availableBanks, filteredDebts, viewType, installmentsData]);
 
-  // Calculate bank comparison data with CET from centralized manager
+  // Calculate bank comparison data with CET from stored values
   const bankComparisonDataWithCET = useMemo(() => {
-    const cetByBank = cetManager.getCETByBank();
-    
     return bankComparisonData.map(item => {
-      const bankCET = cetByBank[item.name];
+      // Calculate average CET for this bank from stored debt values
+      const bankDebts = filteredDebts.filter(d => d.bank === item.name);
+      const debtsWithCET = bankDebts.filter(d => 
+        d.cet_annual_rate !== null && 
+        d.cet_annual_rate !== undefined && 
+        !isNaN(d.cet_annual_rate)
+      );
+      
+      const avgCET = debtsWithCET.length > 0
+        ? debtsWithCET.reduce((sum, d) => sum + (d.cet_annual_rate || 0), 0) / debtsWithCET.length
+        : 0;
       
       return {
         name: item.name,
         principalAmount: item.principalAmount,
         financedInterest: item.financedInterest,
-        avgCET: bankCET ? bankCET.annualRate * 100 : 0, // Convert to percentage
+        avgCET: avgCET,
         count: item.count
       };
     });
-  }, [bankComparisonData, cetManager]);
+  }, [bankComparisonData, filteredDebts]);
 
   // Dados de indexadores
   const indexerData = useMemo(() => {
@@ -601,7 +611,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
 
         {chartType === "comparison" && (
           <>
-            {/* CET calculations are now handled centrally by useCETManager */}
+            {/* CET values are now stored in database and retrieved from debt objects */}
             
             <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
               <CardHeader>
