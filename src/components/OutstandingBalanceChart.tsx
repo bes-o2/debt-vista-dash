@@ -93,6 +93,13 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             return sum;
           }
 
+          // Check if the debt has been released yet
+          const releaseDate = new Date(debt.releaseDate);
+          if (date < releaseDate) {
+            // Contract not released yet, no balance
+            return sum;
+          }
+
           // Check if this debt is still active in this month
           const firstInstallmentDate = new Date(debtInstallments[0].due_date);
           const lastInstallmentDate = new Date(debtInstallments[debtInstallments.length - 1].due_date);
@@ -117,7 +124,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
           );
 
           if (installmentsBeforeTarget.length === 0) {
-            // If no installments are due yet, return the full financed amount
+            // If no installments are due yet but contract is released, return the full financed amount
             return sum + debt.financedAmount;
           }
 
