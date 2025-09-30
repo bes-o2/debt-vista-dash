@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Building2 } from 'lucide-react';
-import O2Logo from '@/assets/o2-logo.svg';
+import { Logo } from '@/components/Logo';
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,10 +49,8 @@ export default function Auth() {
         {/* Logo/Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <img src={O2Logo} alt="O2 Logo" className="h-16 w-auto" />
+            <Logo size="xl" />
           </div>
-          
-          
         </div>
 
         <Card className="border border-border/50 shadow-lg">
