@@ -165,6 +165,9 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
   const renderCustomLabel = (props: any) => {
     const { x, y, width, height, value } = props;
     
+    // Hide labels in "Total" view
+    if (viewType === 'total') return null;
+    
     // Only show label if value is significant and bar is tall enough
     if (value < 10000 || height < 30) return null;
     
