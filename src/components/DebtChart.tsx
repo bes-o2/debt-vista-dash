@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown } from "lucide-react";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown, Calendar, Receipt } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
 import { useCET } from "@/hooks/useCET";
+import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 
 interface Debt {
   id: string;
@@ -35,6 +37,10 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedIndexerType, setSelectedIndexerType] = useState<string>("all");
   const [chartType, setChartType] = useState<string>("comparison");
+  const [viewType, setViewType] = useState<'atual' | 'total'>('total');
+
+  // Fetch installments data for calculating current remaining values
+  const { installmentsData, loading: installmentsLoading } = useDebtInstallments(debts);
 
   // Get unique banks
   const availableBanks = useMemo(() => {
@@ -98,25 +104,71 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
 
   // Dados comparativos de bancos (valor principal vs juros financiados)
   const bankComparisonData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     return availableBanks.map(bank => {
       const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
       
-      // Valor principal é o financed_amount (valor total a ser amortizado)
-      const principalAmount = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
-      
-      // Para juros financiados, precisamos calcular o total de juros projetados
-      // Por enquanto, vamos usar uma aproximação baseada nas taxas e prazos
-      const financedInterest = bankDebts.reduce((sum, debt) => {
-        // Cálculo aproximado de juros totais baseado na taxa e prazo
-        const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
-        const monthlyRate = debt.interestType === 'annual' 
-          ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-          : debt.interestRate / 100;
+      let principalAmount = 0;
+      let financedInterest = 0;
+
+      if (viewType === 'total') {
+        // TOTAL: Valor financiado original e juros totais do contrato
+        principalAmount = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
         
-        // Aproximação do total de juros (simplificada)
-        const totalInterest = debt.financedAmount * monthlyRate * months * 0.5; // Aproximação média
-        return sum + totalInterest;
-      }, 0);
+        // Calcular juros totais do contrato inteiro
+        financedInterest = bankDebts.reduce((sum, debt) => {
+          const installments = installmentsData[debt.id];
+          if (installments && installments.length > 0) {
+            // Somar todos os juros de todas as parcelas
+            const totalInterest = installments.reduce((interestSum, inst) => 
+              interestSum + inst.interest_amount, 0
+            );
+            return sum + totalInterest;
+          } else {
+            // Fallback: aproximação
+            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+            const monthlyRate = debt.interestType === 'annual' 
+              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+              : debt.interestRate / 100;
+            const totalInterest = debt.financedAmount * monthlyRate * months * 0.5;
+            return sum + totalInterest;
+          }
+        }, 0);
+      } else {
+        // ATUAL: Saldo devedor atual e juros futuros remanescentes
+        bankDebts.forEach(debt => {
+          const installments = installmentsData[debt.id];
+          if (installments && installments.length > 0) {
+            // Filtrar parcelas futuras (a partir de hoje)
+            const futureInstallments = installments.filter(inst => {
+              const dueDate = new Date(inst.due_date);
+              dueDate.setHours(0, 0, 0, 0);
+              return dueDate >= today;
+            });
+
+            if (futureInstallments.length > 0) {
+              // Saldo devedor = remaining_balance da primeira parcela futura
+              principalAmount += futureInstallments[0].remaining_balance;
+              
+              // Juros futuros = soma dos juros de todas as parcelas futuras
+              const futureInterest = futureInstallments.reduce((sum, inst) => 
+                sum + inst.interest_amount, 0
+              );
+              financedInterest += futureInterest;
+            }
+          } else {
+            // Fallback se não tiver installments calculados ainda
+            principalAmount += debt.financedAmount;
+            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+            const monthlyRate = debt.interestType === 'annual' 
+              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+              : debt.interestRate / 100;
+            financedInterest += debt.financedAmount * monthlyRate * months * 0.5;
+          }
+        });
+      }
 
       return {
         name: bank,
@@ -126,7 +178,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
         bankDebts: bankDebts // Adicionar as dívidas para cálculo do CET
       };
     }).filter(item => item.count > 0);
-  }, [availableBanks, filteredDebts]);
+  }, [availableBanks, filteredDebts, viewType, installmentsData]);
 
   // Hook para calcular CETs de cada dívida
   const cetResults = useMemo(() => {
@@ -593,12 +645,64 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
             
             <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/20">
-                    <TrendingUp className="h-5 w-5 text-purple-600" />
-                  </div>
-                  Comparativo de Bancos
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg text-foreground flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/20">
+                      <TrendingUp className="h-5 w-5 text-purple-600" />
+                    </div>
+                    Comparativo de Bancos
+                  </CardTitle>
+                  
+                  <TooltipProvider>
+                    <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={viewType === 'atual' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewType('atual')}
+                            className="gap-2"
+                          >
+                            <Calendar className="h-4 w-4" />
+                            Atual
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">Visão Atual</p>
+                          <p className="text-sm">
+                            <strong>Valor Principal:</strong> Saldo devedor remanescente considerando a data de hoje
+                          </p>
+                          <p className="text-sm mt-1">
+                            <strong>Juros Financiados:</strong> Total de juros a pagar nas parcelas futuras
+                          </p>
+                        </TooltipContent>
+                      </UITooltip>
+                      
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={viewType === 'total' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewType('total')}
+                            className="gap-2"
+                          >
+                            <Receipt className="h-4 w-4" />
+                            Total
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">Visão Total do Contrato</p>
+                          <p className="text-sm">
+                            <strong>Valor Principal:</strong> Valor total financiado no início do contrato
+                          </p>
+                          <p className="text-sm mt-1">
+                            <strong>Juros Financiados:</strong> Total de juros pagos durante toda a vigência do contrato
+                          </p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </div>
+                  </TooltipProvider>
+                </div>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={400}>
