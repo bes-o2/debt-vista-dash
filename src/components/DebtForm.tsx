@@ -57,7 +57,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     rateType: 'pre' as 'pre' | 'post',
     indexer: "",
     spreadRate: 0,
-    indexerStartDate: new Date(),
+    spreadType: 'annual' as 'annual' | 'monthly',
     interestRate: 0,
     interestType: 'monthly' as 'monthly' | 'annual',
     iofAmount: 0,
@@ -83,8 +83,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   const calculateTotalRate = () => {
     if (formData.rateType !== 'post' || !formData.indexer) return null;
     const indexRate = latestRates?.[formData.indexer as keyof typeof latestRates]?.value || 0;
-    const totalRate = indexRate + formData.spreadRate;
-    return { indexRate, spreadRate: formData.spreadRate, totalRate };
+    
+    // Convert spread to annual if it's monthly
+    const annualSpread = formData.spreadType === 'monthly' 
+      ? (Math.pow(1 + formData.spreadRate / 100, 12) - 1) * 100
+      : formData.spreadRate;
+    
+    const totalRate = indexRate + annualSpread;
+    return { indexRate, spreadRate: annualSpread, totalRate };
   };
 
   // Update form data when debt prop changes
@@ -98,7 +104,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         rateType: debt.interest_base === 'Pré-fixado' ? 'pre' : 'post',
         indexer: debt.interest_base === 'Pré-fixado' ? "" : debt.interest_base || "",
         spreadRate: debt.spread_rate || 0,
-        indexerStartDate: debt.indexer_start_date ? new Date(debt.indexer_start_date) : new Date(),
+        spreadType: 'annual',
         interestRate: debt.interest_rate,
         interestType: debt.interest_type,
         iofAmount: debt.iof_rate || 0,
@@ -131,6 +137,13 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       // Calculate CET by calling the amortization edge function
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Convert spread to annual for storage (always store as annual)
+      const annualSpreadRate = formData.rateType === 'post' 
+        ? (formData.spreadType === 'monthly' 
+          ? (Math.pow(1 + formData.spreadRate / 100, 12) - 1) * 100
+          : formData.spreadRate)
+        : undefined;
+
       const calculationResponse = await supabase.functions.invoke('calculate-amortization', {
         body: {
           debtId: debt?.id || 'temp-id',
@@ -141,8 +154,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
           interestRate: formData.interestRate,
           interestType: formData.interestType,
           indexer: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
-          spreadRate: formData.rateType === 'post' ? formData.spreadRate : undefined,
-          indexerStartDate: formData.rateType === 'post' ? formData.indexerStartDate.toISOString().split('T')[0] : undefined,
+          spreadRate: annualSpreadRate,
           iofAmount: formData.iofAmount || 0,
           tacAmount: formData.tacAmount || 0
         }
@@ -220,7 +232,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       rateType: 'pre',
       indexer: "",
       spreadRate: 0,
-      indexerStartDate: new Date(),
+      spreadType: 'annual',
       interestRate: 0,
       interestType: 'monthly',
       iofAmount: 0,
@@ -506,11 +518,13 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
                       <span className="text-sm">Carregando taxa atual...</span>
                     ) : (
                       <div className="text-sm space-y-1">
-                        <div className="font-medium">Taxa Atual {formData.indexer}: {latestRates?.[formData.indexer as keyof typeof latestRates]?.value.toFixed(4)}%</div>
+                        <div className="font-medium">Taxa Atual {formData.indexer} (a.a.): {latestRates?.[formData.indexer as keyof typeof latestRates]?.value.toFixed(2)}%</div>
                         <div className="flex items-center gap-2">
-                          <span>Spread: {formData.spreadRate.toFixed(4)}%</span>
+                          <span>Spread ({formData.spreadType === 'annual' ? 'a.a.' : 'a.m.'}): {formData.spreadRate.toFixed(4)}%</span>
                           <span className="text-muted-foreground">→</span>
-                          <span className="font-semibold text-primary">Total: {((latestRates?.[formData.indexer as keyof typeof latestRates]?.value || 0) + formData.spreadRate).toFixed(4)}%</span>
+                          <span className="font-semibold text-primary">
+                            Total (a.a.): {calculateTotalRate()?.totalRate.toFixed(2)}%
+                          </span>
                         </div>
                       </div>
                     )}
@@ -518,10 +532,33 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
                 </Alert>
               )}
 
+              {/* Spread Type Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Tipo de Spread <span className="text-red-500">*</span>
+                </Label>
+                <RadioGroup 
+                  value={formData.spreadType} 
+                  onValueChange={(value: 'monthly' | 'annual') => 
+                    setFormData(prev => ({ ...prev, spreadType: value }))
+                  }
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="monthly" id="spread-monthly" />
+                    <Label htmlFor="spread-monthly">Spread a.m (%)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="annual" id="spread-annual" />
+                    <Label htmlFor="spread-annual">Spread a.a (%)</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
               {/* Spread Rate */}
               <div className="space-y-2">
                 <Label htmlFor="spreadRate" className="text-sm font-medium">
-                  Spread (%) <span className="text-red-500">*</span>
+                  Spread ({formData.spreadType === 'annual' ? '% a.a.' : '% a.m.'}) <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="spreadRate"
@@ -534,48 +571,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Spread sobre a taxa do indexador (em pontos percentuais)
-                </p>
-              </div>
-
-              {/* Indexer Start Date */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
-                  Data Início Indexador
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.indexerStartDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.indexerStartDate ? (
-                        format(formData.indexerStartDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-                      ) : (
-                        <span>Selecione a data</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={formData.indexerStartDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          setFormData(prev => ({ ...prev, indexerStartDate: date }));
-                        }
-                      }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <p className="text-xs text-muted-foreground">
-                  Data de início da aplicação do indexador (deixe igual à liberação se aplicar desde o início)
+                  Spread sobre a taxa do indexador ({formData.spreadType === 'annual' ? 'anual' : 'mensal'})
                 </p>
               </div>
             </div>
