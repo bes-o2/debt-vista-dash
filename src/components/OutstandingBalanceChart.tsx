@@ -165,6 +165,9 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
   const renderCustomLabel = (props: any) => {
     const { x, y, width, height, value } = props;
     
+    // Don't show labels in "Total" view
+    if (viewType === 'total') return null;
+    
     // Only show label if value is significant and bar is tall enough
     if (value < 10000 || height < 30) return null;
     
@@ -189,6 +192,20 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
       </text>
     );
   };
+
+  // Calculate max values for Y axes
+  const maxBalance = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.max(...chartData.map(d => {
+      const total = banks.reduce((sum, bank) => sum + (d[bank.name] || 0), 0);
+      return total;
+    }));
+  }, [chartData, banks]);
+
+  const maxPMT = useMemo(() => {
+    if (chartData.length === 0) return 0;
+    return Math.max(...chartData.map(d => d.totalPMT || 0));
+  }, [chartData]);
 
   return (
     <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
@@ -242,6 +259,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
                 tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+                domain={[0, maxBalance * 1.3]}
               />
               <YAxis 
                 yAxisId="pmt"
@@ -249,6 +267,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
                 stroke="hsl(var(--destructive))"
                 fontSize={12}
                 tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                domain={[0, maxPMT * 1.6]}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
