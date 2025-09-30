@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calculator, Download } from 'lucide-react';
+import { Loader2, Calculator, Download, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCET } from '@/hooks/useCET';
+import { calculateIRRFromCashFlows } from '@/lib/irrCalculator';
 interface Debt {
   id: string;
   bank: string;
@@ -40,6 +41,11 @@ export function AmortizationTable({
 }: AmortizationTableProps) {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [calculatedIRR, setCalculatedIRR] = useState<{
+    monthlyRate: number;
+    annualRate: number;
+    converged: boolean;
+  } | null>(null);
   const [summary, setSummary] = useState({
     totalPaid: 0,
     totalInterest: 0,
@@ -101,6 +107,18 @@ export function AmortizationTable({
       }
       const calculatedInstallments = data.installments;
       setInstallments(calculatedInstallments);
+
+      // Calculate IRR from actual cash flows
+      const netAmountReceived = debt.financedAmount - (debt.iofAmount || 0) - (debt.tacAmount || 0);
+      const irr = calculateIRRFromCashFlows(
+        netAmountReceived,
+        calculatedInstallments.map(inst => ({
+          date: inst.due_date,
+          amount: inst.installment_amount
+        })),
+        debt.releaseDate
+      );
+      setCalculatedIRR(irr);
 
       // Calculate summary
       const totalPaid = calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.installment_amount, 0);
@@ -198,23 +216,31 @@ export function AmortizationTable({
 
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-muted-foreground font-medium text-center">Custo Efetivo Total</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground font-medium text-center flex items-center justify-center gap-1">
+              <TrendingUp className="h-4 w-4" />
+              IRR (TIR) - Fluxo de Caixa Real
+            </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <div className="text-xs text-muted-foreground mb-1">a.m</div>
                 <div className="text-xl font-bold text-accent">
-                  {cetMonthlyLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : `${cetMonthly?.toFixed(2)}%`}
+                  {calculatedIRR ? `${calculatedIRR.monthlyRate.toFixed(4)}%` : '--'}
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-muted-foreground mb-1">a.a</div>
                 <div className="text-xl font-bold text-accent">
-                  {cetAnnualLoading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : `${cetAnnual?.toFixed(2)}%`}
+                  {calculatedIRR ? `${calculatedIRR.annualRate.toFixed(4)}%` : '--'}
                 </div>
               </div>
             </div>
+            {calculatedIRR && !calculatedIRR.converged && (
+              <div className="text-xs text-warning text-center mt-2">
+                ⚠️ Não convergiu
+              </div>
+            )}
           </CardContent>
         </Card>
 
