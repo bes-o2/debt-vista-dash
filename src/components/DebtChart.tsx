@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown, Calendar, Receipt } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
-import { useCET } from "@/hooks/useCET";
+import { useCETManager } from "@/hooks/useCETManager";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 
 interface Debt {
@@ -41,6 +41,9 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
 
   // Fetch installments data for calculating current remaining values
   const { installmentsData, loading: installmentsLoading } = useDebtInstallments(debts);
+
+  // Centralized CET calculation manager
+  const cetManager = useCETManager(debts);
 
   // Get unique banks
   const availableBanks = useMemo(() => {
@@ -180,62 +183,22 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     }).filter(item => item.count > 0);
   }, [availableBanks, filteredDebts, viewType, installmentsData]);
 
-  // Hook para calcular CETs de cada dívida
-  const cetResults = useMemo(() => {
-    const results: { [key: string]: number } = {};
-    filteredDebts.forEach(debt => {
-      // Para cada dívida, vamos usar o hook useCET individualmente
-      // Como não podemos usar hooks condicionalmente, vamos calcular o CET de forma síncrona
-      results[debt.id] = 0; // Placeholder - será preenchido pelo componente CETCalculator
-    });
-    return results;
-  }, [filteredDebts]);
-
-  // Componente para calcular CET de uma dívida específica
-  const CETCalculator = ({ debt, onCETCalculated }: { debt: Debt, onCETCalculated: (id: string, cet: number) => void }) => {
-    const { cet } = useCET(debt, 'annual');
-    
-    React.useEffect(() => {
-      if (cet !== null) {
-        onCETCalculated(debt.id, cet);
-      }
-    }, [cet, debt.id, onCETCalculated]);
-
-    return null;
-  };
-
-  // Estado para armazenar os CETs calculados
-  const [calculatedCETs, setCalculatedCETs] = useState<{ [key: string]: number }>({});
-
-  const handleCETCalculated = (debtId: string, cet: number) => {
-    setCalculatedCETs(prev => ({ ...prev, [debtId]: cet }));
-  };
-
-  // Calcular CET médio ponderado por banco
+  // Calculate bank comparison data with CET from centralized manager
   const bankComparisonDataWithCET = useMemo(() => {
+    const cetByBank = cetManager.getCETByBank();
+    
     return bankComparisonData.map(item => {
-      let totalWeightedCET = 0;
-      let totalPrincipal = 0;
-
-      item.bankDebts.forEach(debt => {
-        const cet = calculatedCETs[debt.id];
-        if (cet !== undefined && cet > 0) {
-          totalWeightedCET += cet * debt.financedAmount;
-          totalPrincipal += debt.financedAmount;
-        }
-      });
-
-      const avgCET = totalPrincipal > 0 ? totalWeightedCET / totalPrincipal : 0;
-
+      const bankCET = cetByBank[item.name];
+      
       return {
         name: item.name,
         principalAmount: item.principalAmount,
         financedInterest: item.financedInterest,
-        avgCET: avgCET,
+        avgCET: bankCET ? bankCET.annualRate * 100 : 0, // Convert to percentage
         count: item.count
       };
     });
-  }, [bankComparisonData, calculatedCETs]);
+  }, [bankComparisonData, cetManager]);
 
   // Dados de indexadores
   const indexerData = useMemo(() => {
@@ -638,10 +601,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
 
         {chartType === "comparison" && (
           <>
-            {/* CET Calculators - componentes invisíveis para calcular os CETs */}
-            {filteredDebts.map(debt => (
-              <CETCalculator key={debt.id} debt={debt} onCETCalculated={handleCETCalculated} />
-            ))}
+            {/* CET calculations are now handled centrally by useCETManager */}
             
             <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
               <CardHeader>
