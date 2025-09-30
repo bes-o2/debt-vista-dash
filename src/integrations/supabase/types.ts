@@ -140,11 +140,15 @@ export type Database = {
           financed_amount: number
           first_due_date: string
           id: string
+          indexer: string | null
+          indexer_start_date: string | null
           interest_base: string
           interest_rate: number
           interest_type: string
           iof_rate: number | null
           last_due_date: string
+          reprogramming_rules: Json | null
+          spread_rate: number | null
           title: string | null
           updated_at: string
         }
@@ -160,11 +164,15 @@ export type Database = {
           financed_amount: number
           first_due_date: string
           id?: string
+          indexer?: string | null
+          indexer_start_date?: string | null
           interest_base: string
           interest_rate: number
           interest_type: string
           iof_rate?: number | null
           last_due_date: string
+          reprogramming_rules?: Json | null
+          spread_rate?: number | null
           title?: string | null
           updated_at?: string
         }
@@ -180,11 +188,15 @@ export type Database = {
           financed_amount?: number
           first_due_date?: string
           id?: string
+          indexer?: string | null
+          indexer_start_date?: string | null
           interest_base?: string
           interest_rate?: number
           interest_type?: string
           iof_rate?: number | null
           last_due_date?: string
+          reprogramming_rules?: Json | null
+          spread_rate?: number | null
           title?: string | null
           updated_at?: string
         }
@@ -230,31 +242,37 @@ export type Database = {
       }
       index_projections: {
         Row: {
+          annual_projection: number | null
           created_at: string
           created_by: string
           horizon_months: number
           id: string
           index_type: string
+          monthly_projection: number | null
           projected_rate: number
           projection_date: string
           updated_at: string
         }
         Insert: {
+          annual_projection?: number | null
           created_at?: string
           created_by: string
           horizon_months: number
           id?: string
           index_type: string
+          monthly_projection?: number | null
           projected_rate: number
           projection_date: string
           updated_at?: string
         }
         Update: {
+          annual_projection?: number | null
           created_at?: string
           created_by?: string
           horizon_months?: number
           id?: string
           index_type?: string
+          monthly_projection?: number | null
           projected_rate?: number
           projection_date?: string
           updated_at?: string
@@ -329,6 +347,14 @@ export type Database = {
         Args: { company_id: string }
         Returns: undefined
       }
+      calculate_annual_from_monthly: {
+        Args: { monthly_rate: number }
+        Returns: number
+      }
+      calculate_monthly_from_annual: {
+        Args: { annual_rate: number }
+        Returns: number
+      }
       cleanup_old_archived_companies: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -340,6 +366,14 @@ export type Database = {
       get_auth_debug_info: {
         Args: Record<PropertyKey, never>
         Returns: Json
+      }
+      get_indexer_rate_for_date: {
+        Args: { indexer_type: string; target_date: string }
+        Returns: number
+      }
+      get_latest_indexer_rate: {
+        Args: { indexer_type: string }
+        Returns: number
       }
       is_company_owner: {
         Args: { _company_id: string }

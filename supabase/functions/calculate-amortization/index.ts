@@ -17,6 +17,9 @@ interface DebtData {
   interestType: 'monthly' | 'annual';
   indexer?: string;
   indexerRate?: number;
+  spreadRate?: number;
+  indexerStartDate?: string;
+  reprogrammingRules?: Record<string, any>;
   iofAmount?: number;
   tacAmount?: number;
 }
@@ -57,17 +60,26 @@ serve(async (req) => {
       interestRate, 
       interestType = 'monthly',
       indexer,
+      spreadRate = 0,
+      indexerStartDate,
+      reprogrammingRules = {},
       iofAmount = 0,
       tacAmount = 0
     }: DebtData = await req.json();
 
     console.log('Calculating amortization for debt:', debtId);
+    console.log('Debt parameters:', { 
+      indexer, 
+      spreadRate, 
+      indexerStartDate,
+      hasReprogrammingRules: Object.keys(reprogrammingRules).length > 0
+    });
 
     // Get indexer rate if applicable
-    const indexerRate = await getIndexerRate(supabaseClient, indexer);
-    console.log('Indexer rate found:', { indexer, indexerRate });
+    const indexerRate = await getIndexerRate(supabaseClient, indexer, indexerStartDate);
+    console.log('Indexer rate found:', { indexer, indexerRate, spreadRate });
 
-    // Calculate installments using JavaScript (fallback when DB function isn't available)
+    // Calculate installments using JavaScript
     const installments = calculateAmortizationJS({
       financedAmount,
       firstDueDate,
@@ -77,6 +89,9 @@ serve(async (req) => {
       interestType,
       indexer,
       indexerRate,
+      spreadRate,
+      indexerStartDate,
+      reprogrammingRules,
       iofAmount,
       tacAmount
     });
@@ -160,7 +175,11 @@ function mapIndexerName(indexer?: string): string | null {
   return indexerMap[indexer] || null;
 }
 
-async function getIndexerRate(supabaseClient: any, indexer?: string): Promise<number> {
+async function getIndexerRate(
+  supabaseClient: any, 
+  indexer?: string,
+  targetDate?: string
+): Promise<number> {
   try {
     const mappedIndexer = mapIndexerName(indexer);
     
@@ -169,16 +188,25 @@ async function getIndexerRate(supabaseClient: any, indexer?: string): Promise<nu
       return 0;
     }
 
-    console.log('Fetching latest rate for indexer:', mappedIndexer);
+    console.log('Fetching indexer rate:', { indexer: mappedIndexer, targetDate });
 
-    // Get the latest rate for this indexer
-    const { data, error } = await supabaseClient
+    // Build query based on whether we have a target date
+    let query = supabaseClient
       .from('economic_indices')
       .select('rate, reference_date')
-      .eq('index_type', mappedIndexer)
-      .order('reference_date', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq('index_type', mappedIndexer);
+
+    if (targetDate) {
+      // Get the rate for the closest date before or on target date
+      query = query
+        .lte('reference_date', targetDate)
+        .order('reference_date', { ascending: false });
+    } else {
+      // Get the latest rate
+      query = query.order('reference_date', { ascending: false });
+    }
+
+    const { data, error } = await query.limit(1).maybeSingle();
 
     if (error) {
       console.error('Error fetching indexer rate:', error);
@@ -190,7 +218,12 @@ async function getIndexerRate(supabaseClient: any, indexer?: string): Promise<nu
       return 0;
     }
 
-    console.log('Indexer rate found:', { rate: data.rate, date: data.reference_date });
+    console.log('Indexer rate found:', { 
+      rate: data.rate, 
+      date: data.reference_date,
+      forDate: targetDate || 'latest'
+    });
+    
     return data.rate || 0;
 
   } catch (error) {
@@ -208,12 +241,17 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     interestRate,
     interestType,
     indexerRate = 0,
+    spreadRate = 0,
+    indexerStartDate,
+    reprogrammingRules = {},
     iofAmount = 0,
     tacAmount = 0
   } = params;
 
-  // Calculate final rate: indexer + nominal interest rate
-  const finalRate = indexerRate + interestRate;
+  // Calculate final rate: indexer + spread rate + nominal interest rate
+  // For Post Fixed: total rate = indexer + spread
+  // For Pre Fixed: just the nominal interest rate
+  const finalRate = indexerRate + spreadRate + interestRate;
   console.log('Rate composition:', { 
     indexerRate, 
     nominalRate: interestRate, 

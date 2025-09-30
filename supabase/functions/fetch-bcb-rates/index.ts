@@ -14,8 +14,9 @@ interface BCBRate {
 
 interface EconomicIndex {
   index_type: string;
-  date: string;
-  value: number;
+  reference_date: string;
+  rate: number;
+  source: string;
 }
 
 const RATE_MAPPINGS = {
@@ -31,32 +32,72 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting BCB rates fetch...');
+    console.log('📊 BCB Rates Fetch Function called');
     
+    // Parse request body for parameters
+    const { 
+      forceUpdate = false,
+      startDate = null,
+      endDate = null,
+      daysBack = 30
+    } = await req.json().catch(() => ({ forceUpdate: false, daysBack: 30 }));
+    
+    console.log(`Force update: ${forceUpdate}, Days back: ${daysBack}, Date range: ${startDate} to ${endDate}`);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { forceUpdate = false } = await req.json().catch(() => ({}));
+    // Determine the date range to fetch
+    let fetchStartDate: Date;
+    let fetchEndDate: Date;
     
-    const results: { [key: string]: number } = {};
-    const errors: string[] = [];
+    if (startDate && endDate) {
+      // Use provided date range
+      fetchStartDate = new Date(startDate);
+      fetchEndDate = new Date(endDate);
+      console.log(`Using custom date range: ${startDate} to ${endDate}`);
+    } else {
+      // Use days back parameter, but not in the future
+      const now = new Date();
+      fetchEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      fetchStartDate = new Date(fetchEndDate);
+      fetchStartDate.setDate(fetchStartDate.getDate() - daysBack);
+      console.log(`Using ${daysBack} days back from yesterday`);
+    }
 
-    // Calculate date range - use current actual date, not future date
-    // BCB API requires dd/mm/yyyy format and doesn't accept future dates
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const currentDate = now.getDate();
-    
-    // Set end date to today or yesterday to avoid future date issues
-    const endDate = new Date(currentYear, currentMonth, currentDate - 1);
-    
-    // Start date: 30 days ago from end date
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - 30);
-    
+    // Check for recent data unless force update is requested (only for default 30-day fetch)
+    if (!forceUpdate && daysBack === 30 && !startDate && !endDate) {
+      const { data: recentData, error: checkError } = await supabase
+        .from('economic_indices')
+        .select('reference_date, index_type')
+        .gte('reference_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .order('reference_date', { ascending: false });
+
+      if (checkError) {
+        console.error('Error checking recent data:', checkError);
+      } else if (recentData && recentData.length >= 3) {
+        console.log('Recent data found, skipping BCB fetch');
+        
+        // Get current rates to return
+        const { data: currentRates } = await supabase
+          .from('economic_indices')
+          .select('*')
+          .order('reference_date', { ascending: false })
+          .limit(3);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Using recent data from database',
+            rates: currentRates,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const formatDateForBCB = (date: Date): string => {
       const day = date.getDate().toString().padStart(2, '0');
       const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -64,35 +105,36 @@ serve(async (req) => {
       return `${day}/${month}/${year}`;
     };
 
-    const startDateStr = formatDateForBCB(startDate);
-    const endDateStr = formatDateForBCB(endDate);
+    const startDateStr = formatDateForBCB(fetchStartDate);
+    const endDateStr = formatDateForBCB(fetchEndDate);
 
     console.log(`Date range: ${startDateStr} to ${endDateStr}`);
 
+    // Check for gaps in existing data for this date range
+    if (!forceUpdate) {
+      const { data: existingData } = await supabase
+        .from('economic_indices')
+        .select('reference_date, index_type')
+        .gte('reference_date', fetchStartDate.toISOString().split('T')[0])
+        .lte('reference_date', fetchEndDate.toISOString().split('T')[0])
+        .order('reference_date', { ascending: true });
+      
+      if (existingData && existingData.length > 0) {
+        console.log(`Found ${existingData.length} existing records in date range`);
+      }
+    }
+
+    const results: { [key: string]: number } = {};
+    const errors: string[] = [];
+
+    // Fetch data from BCB API for each rate
+    const allIndices: EconomicIndex[] = [];
+
     for (const [rateType, config] of Object.entries(RATE_MAPPINGS)) {
       try {
-        console.log(`Fetching ${rateType} rates...`);
+        console.log(`Fetching ${rateType} from BCB (${startDateStr} to ${endDateStr})...`);
         
-        // Check if we need to update (only if forceUpdate or no recent data)
-        if (!forceUpdate) {
-          const { data: recentData } = await supabase
-            .from('economic_indices')
-            .select('reference_date')
-            .eq('index_type', rateType)
-            .gte('reference_date', startDate.toISOString().split('T')[0])
-            .order('reference_date', { ascending: false })
-            .limit(1);
-            
-          if (recentData && recentData.length > 0) {
-            console.log(`Recent ${rateType} data found, skipping...`);
-            continue;
-          }
-        }
-
-        // Fetch from BCB API
         const bcbUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${config.code}/dados?formato=json&dataInicial=${startDateStr}&dataFinal=${endDateStr}`;
-        
-        console.log(`Fetching from: ${bcbUrl}`);
         
         const response = await fetch(bcbUrl, {
           headers: {
@@ -108,49 +150,60 @@ serve(async (req) => {
         const bcbData: BCBRate[] = await response.json();
         console.log(`Received ${bcbData.length} records for ${rateType}`);
 
-        if (!bcbData || bcbData.length === 0) {
-          console.log(`No data received for ${rateType}`);
-          continue;
+        // Transform and validate data
+        const indices: EconomicIndex[] = bcbData
+          .filter((item: BCBRate) => {
+            const value = parseFloat(item.valor);
+            return item.valor && !isNaN(value) && isFinite(value);
+          })
+          .map((item: BCBRate) => {
+            // Parse the date from DD/MM/YYYY to YYYY-MM-DD
+            const [day, month, year] = item.data.split('/');
+            const referenceDate = `${year}-${month}-${day}`;
+
+            return {
+              index_type: rateType,
+              reference_date: referenceDate,
+              rate: parseFloat(item.valor),
+              source: 'BCB'
+            };
+          });
+
+        allIndices.push(...indices);
+        
+        if (indices.length > 0) {
+          const latestRate = indices[indices.length - 1];
+          results[rateType] = latestRate.rate;
         }
+        
+        console.log(`✅ Successfully fetched and validated ${indices.length} records for ${rateType}`);
+      } catch (error) {
+        console.error(`Error fetching ${rateType}:`, error);
+        errors.push(`${rateType}: ${error.message}`);
+      }
+    }
 
-        // Transform and prepare data for insertion
-        const indices: EconomicIndex[] = bcbData.map(item => ({
-          index_type: rateType,
-          date: item.data.split('/').reverse().join('-'), // Convert DD/MM/YYYY to YYYY-MM-DD
-          value: parseFloat(item.valor)
-        })).filter(item => !isNaN(item.value) && item.value > 0);
-
-        console.log(`Prepared ${indices.length} valid records for ${rateType}`);
-
-        if (indices.length === 0) {
-          console.log(`No valid records for ${rateType}`);
-          continue;
-        }
-
-        // Insert data with upsert (ON CONFLICT DO UPDATE)
-        const { error: insertError } = await supabase
+    // Insert or update data in the database in batches
+    if (allIndices.length > 0) {
+      console.log(`Upserting ${allIndices.length} records to database...`);
+      
+      const BATCH_SIZE = 1000;
+      for (let i = 0; i < allIndices.length; i += BATCH_SIZE) {
+        const batch = allIndices.slice(i, i + BATCH_SIZE);
+        
+        const { error: upsertError } = await supabase
           .from('economic_indices')
-          .upsert(indices, { 
+          .upsert(batch, { 
             onConflict: 'index_type,reference_date',
             ignoreDuplicates: false 
           });
 
-        if (insertError) {
-          console.error(`Error inserting ${rateType} data:`, insertError);
-          errors.push(`Failed to save ${rateType}: ${insertError.message}`);
+        if (upsertError) {
+          console.error(`Error upserting batch ${Math.floor(i / BATCH_SIZE) + 1}:`, upsertError);
+          errors.push(`Database upsert batch ${Math.floor(i / BATCH_SIZE) + 1}: ${upsertError.message}`);
         } else {
-          // Get the latest rate for this index
-          const latestRate = indices.reduce((latest, current) => 
-            current.date > latest.date ? current : latest
-          );
-          
-          results[rateType] = latestRate.value;
-          console.log(`Successfully saved ${indices.length} records for ${rateType}. Latest: ${latestRate.value}%`);
+          console.log(`✅ Successfully upserted batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} records)`);
         }
-
-      } catch (error) {
-        console.error(`Error processing ${rateType}:`, error);
-        errors.push(`Failed to fetch ${rateType}: ${error.message}`);
       }
     }
 
@@ -176,10 +229,12 @@ serve(async (req) => {
 
     const response = {
       success: true,
-      message: `Successfully processed rates. Updated: ${Object.keys(results).join(', ')}`,
+      message: `Successfully processed rates. Updated: ${Object.keys(results).join(', ') || 'none'}`,
       updatedRates: results,
       currentRates: latestRates,
+      recordsProcessed: allIndices.length,
       errors: errors.length > 0 ? errors : null,
+      dateRange: { start: fetchStartDate.toISOString().split('T')[0], end: fetchEndDate.toISOString().split('T')[0] },
       timestamp: new Date().toISOString()
     };
 

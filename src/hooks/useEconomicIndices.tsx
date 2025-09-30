@@ -61,39 +61,103 @@ export function useEconomicIndices() {
   const latestRates = latestRatesData || {};
   const isLoadingRatesValue = isLoadingRates;
 
-  // Projections temporarily disabled - will be re-enabled for system-wide projections
-  // const { data: projections = [], isLoading: isLoadingProjections } = useQuery({
-  //   queryKey: ['index-projections'],
-  //   queryFn: async () => {
-  //     const { data, error } = await supabase
-  //       .from('index_projections')
-  //       .select('*')
-  //       .order('projection_date', { ascending: false });
+  // Fetch projections
+  const { data: projections = [], isLoading: isLoadingProjections } = useQuery({
+    queryKey: ['index-projections'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('index_projections')
+        .select('*')
+        .order('projection_date', { ascending: false });
 
-  //     if (error) throw error;
-  //     return data as IndexProjection[];
-  //   },
-  // });
+      if (error) throw error;
+      return data as IndexProjection[];
+    },
+    staleTime: 1000 * 60 * 30, // 30 minutes
+  });
 
-  // Mutation to update rates from BCB - removed for automatic system
-  // const updateRatesMutation = useMutation({...});
+  // Mutation to create/update projections
+  const saveProjectionMutation = useMutation({
+    mutationFn: async (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-  // const updateRates = async (forceUpdate: boolean = false) => {
-  //   setIsUpdating(true);
-  //   updateRatesMutation.mutate(forceUpdate);
-  // };
+      const { data, error } = await supabase
+        .from('index_projections')
+        .upsert({
+          ...projection,
+          created_by: user.id,
+        })
+        .select()
+        .single();
 
-  // Temporarily disabled projection functionality
-  // const saveProjection = (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
-  //   saveProjectionMutation.mutate(projection);
-  // };
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['index-projections'] });
+      toast({
+        title: 'Projeção salva',
+        description: 'A projeção foi salva com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao salvar projeção',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Mutation to fetch historical data
+  const fetchHistoricalDataMutation = useMutation({
+    mutationFn: async ({ startDate, endDate, daysBack }: { startDate?: string; endDate?: string; daysBack?: number }) => {
+      const { data, error } = await supabase.functions.invoke('fetch-bcb-rates', {
+        body: { 
+          forceUpdate: true,
+          startDate,
+          endDate,
+          daysBack: daysBack || 365, // Default to 1 year
+        },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['economic-indices'] });
+      toast({
+        title: 'Dados históricos atualizados',
+        description: 'Os dados históricos foram importados com sucesso.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao buscar dados históricos',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const saveProjection = (projection: Omit<IndexProjection, 'id' | 'created_by' | 'created_at' | 'updated_at'>) => {
+    saveProjectionMutation.mutate(projection);
+  };
+
+  const fetchHistoricalData = (params: { startDate?: string; endDate?: string; daysBack?: number }) => {
+    fetchHistoricalDataMutation.mutate(params);
+  };
 
   return {
     latestRates,
+    projections,
     isLoading: isLoadingRatesValue,
+    isLoadingProjections,
     error: ratesError,
-    // Temporarily disabled - manual updates removed in favor of automatic system
-    // isUpdating: isUpdating || updateRatesMutation.isPending,
-    // updateRates,
+    saveProjection,
+    isSavingProjection: saveProjectionMutation.isPending,
+    fetchHistoricalData,
+    isFetchingHistorical: fetchHistoricalDataMutation.isPending,
   };
 }
