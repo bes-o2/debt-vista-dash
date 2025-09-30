@@ -42,18 +42,38 @@ export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') 
     const tolerance = 0.000001; // Tolerância mais rigorosa
     const maxIterations = 1000; // Mais iterações
     
-    console.log('CET Newton-Raphson starting:', {
-      nominalRate: debt.interestRate,
-      nominalMonthlyRate: nominalMonthlyRate * 100,
-      initialRate: rate * 100
+    const cashFlows = [-initialAmount, ...payments];
+    
+    console.log('🔍 CET IRR Calculation Starting:', {
+      debtId: debt.id,
+      nominalRate: debt.interestRate + '% ' + debt.interestType,
+      nominalMonthlyRate: (nominalMonthlyRate * 100).toFixed(4) + '%',
+      initialAmount: initialAmount.toFixed(2),
+      totalPayments: payments.reduce((sum, p) => sum + p, 0).toFixed(2),
+      numberOfPayments: payments.length,
+      cashFlowsPreview: {
+        t0: cashFlows[0].toFixed(2),
+        t1: cashFlows[1]?.toFixed(2),
+        t2: cashFlows[2]?.toFixed(2),
+        tLast: cashFlows[cashFlows.length - 1]?.toFixed(2)
+      },
+      startingRate: (rate * 100).toFixed(4) + '%'
     });
     
     for (let i = 0; i < maxIterations; i++) {
-      const cashFlows = [-initialAmount, ...payments];
       const npv = calculateNPV(cashFlows, rate);
       
+      if (i < 5 || i % 100 === 0) {
+        console.log(`  Iteration ${i}: rate=${(rate * 100).toFixed(6)}%, NPV=${npv.toFixed(2)}`);
+      }
+      
       if (Math.abs(npv) < tolerance) {
-        console.log(`CET converged after ${i} iterations: ${rate * 100}%`);
+        console.log('✅ CET converged successfully:', {
+          iterations: i,
+          monthlyRate: (rate * 100).toFixed(6) + '%',
+          annualRate: ((Math.pow(1 + rate, 12) - 1) * 100).toFixed(4) + '%',
+          finalNPV: npv.toFixed(8)
+        });
         return rate;
       }
       
@@ -62,6 +82,7 @@ export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') 
       const npvDerivative = calculateNPVDerivative(cashFlows, rate, deltaRate);
       
       if (Math.abs(npvDerivative) < tolerance) {
+        console.warn('⚠️ NPV derivative too small, stopping iteration');
         break;
       }
       
@@ -79,7 +100,11 @@ export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') 
       rate = Math.max(0.0001, Math.min(0.5, rate));
     }
     
-    console.log('CET did not converge, final rate:', rate * 100);
+    console.error('❌ CET did not converge:', {
+      finalRate: (rate * 100).toFixed(6) + '%',
+      finalNPV: calculateNPV(cashFlows, rate).toFixed(2),
+      maxIterations
+    });
     return rate;
   };
 
