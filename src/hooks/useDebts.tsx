@@ -18,6 +18,8 @@ export interface Debt {
   interest_base: string;
   interest_rate: number;
   interest_type: 'monthly' | 'annual';
+  spread_rate?: number;
+  indexer_start_date?: string;
   iof_rate?: number;
   additional_fees?: number;
   cet_monthly_rate?: number;

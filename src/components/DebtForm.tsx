@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, CalendarIcon } from "lucide-react";
+import { Plus, CalendarIcon, Info } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useBanks } from "@/hooks/useBanks";
@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useEconomicIndices } from "@/hooks/useEconomicIndices";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface DebtFormProps {
   isOpen: boolean;
@@ -43,6 +45,7 @@ const formatCurrencyInput = (value: string): string => {
 
 export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   const { banks, addBank } = useBanks();
+  const { latestRates, isLoading: isLoadingRates } = useEconomicIndices();
   const [newBankName, setNewBankName] = useState("");
   const [showNewBankInput, setShowNewBankInput] = useState(false);
   
@@ -53,6 +56,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     calculationTable: 'SAC' as 'SAC' | 'PRICE',
     rateType: 'pre' as 'pre' | 'post',
     indexer: "",
+    spreadRate: 0,
+    indexerStartDate: new Date(),
     interestRate: 0,
     interestType: 'monthly' as 'monthly' | 'annual',
     iofAmount: 0,
@@ -70,8 +75,17 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     formData.financedAmount <= 0 ||
     formData.interestRate <= 0 ||
     (formData.rateType === 'post' && !formData.indexer.trim()) ||
+    (formData.rateType === 'post' && formData.spreadRate < 0) ||
     formData.dueDate < formData.releaseDate
   );
+
+  // Calculate total rate for post-fixed contracts
+  const calculateTotalRate = () => {
+    if (formData.rateType !== 'post' || !formData.indexer) return null;
+    const indexRate = latestRates?.[formData.indexer as keyof typeof latestRates]?.value || 0;
+    const totalRate = indexRate + formData.spreadRate;
+    return { indexRate, spreadRate: formData.spreadRate, totalRate };
+  };
 
   // Update form data when debt prop changes
   useEffect(() => {
@@ -83,6 +97,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         calculationTable: debt.calculation_table,
         rateType: debt.interest_base === 'Pré-fixado' ? 'pre' : 'post',
         indexer: debt.interest_base === 'Pré-fixado' ? "" : debt.interest_base || "",
+        spreadRate: debt.spread_rate || 0,
+        indexerStartDate: debt.indexer_start_date ? new Date(debt.indexer_start_date) : new Date(),
         interestRate: debt.interest_rate,
         interestType: debt.interest_type,
         iofAmount: debt.iof_rate || 0,
@@ -117,7 +133,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       
       const calculationResponse = await supabase.functions.invoke('calculate-amortization', {
         body: {
-          debtId: debt?.id || 'temp-id', // Use temp id for new debts
+          debtId: debt?.id || 'temp-id',
           financedAmount: formData.financedAmount,
           firstDueDate: formData.releaseDate.toISOString().split('T')[0],
           lastDueDate: formData.dueDate.toISOString().split('T')[0],
@@ -125,6 +141,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
           interestRate: formData.interestRate,
           interestType: formData.interestType,
           indexer: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
+          spreadRate: formData.rateType === 'post' ? formData.spreadRate : undefined,
+          indexerStartDate: formData.rateType === 'post' ? formData.indexerStartDate.toISOString().split('T')[0] : undefined,
           iofAmount: formData.iofAmount || 0,
           tacAmount: formData.tacAmount || 0
         }
@@ -201,6 +219,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       calculationTable: 'SAC',
       rateType: 'pre',
       indexer: "",
+      spreadRate: 0,
+      indexerStartDate: new Date(),
       interestRate: 0,
       interestType: 'monthly',
       iofAmount: 0,
@@ -456,26 +476,108 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
 
           {/* Indexador - Só aparece se Pós Fixada */}
           {formData.rateType === 'post' && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Indexador <span className="text-red-500">*</span>
-              </Label>
-              <Select 
-                value={formData.indexer} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, indexer: value }))}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o indexador" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CDI">CDI</SelectItem>
-                  <SelectItem value="IPCA">IPCA</SelectItem>
-                  <SelectItem value="SELIC">SELIC</SelectItem>
-                  <SelectItem value="TR">TR</SelectItem>
-                  <SelectItem value="IGPM">IGP-M</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Indexador <span className="text-red-500">*</span>
+                </Label>
+                <Select 
+                  value={formData.indexer} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, indexer: value }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o indexador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CDI">CDI</SelectItem>
+                    <SelectItem value="SELIC">SELIC</SelectItem>
+                    <SelectItem value="IPCA">IPCA</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Real-time Rate Display */}
+              {formData.indexer && (
+                <Alert className="bg-primary/5 border-primary/20">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    {isLoadingRates ? (
+                      <span className="text-sm">Carregando taxa atual...</span>
+                    ) : (
+                      <div className="text-sm space-y-1">
+                        <div className="font-medium">Taxa Atual {formData.indexer}: {latestRates?.[formData.indexer as keyof typeof latestRates]?.value.toFixed(4)}%</div>
+                        <div className="flex items-center gap-2">
+                          <span>Spread: {formData.spreadRate.toFixed(4)}%</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-semibold text-primary">Total: {((latestRates?.[formData.indexer as keyof typeof latestRates]?.value || 0) + formData.spreadRate).toFixed(4)}%</span>
+                        </div>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Spread Rate */}
+              <div className="space-y-2">
+                <Label htmlFor="spreadRate" className="text-sm font-medium">
+                  Spread (%) <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="spreadRate"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={formData.spreadRate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, spreadRate: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0,000"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Spread sobre a taxa do indexador (em pontos percentuais)
+                </p>
+              </div>
+
+              {/* Indexer Start Date */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Data Início Indexador
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formData.indexerStartDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {formData.indexerStartDate ? (
+                        format(formData.indexerStartDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                      ) : (
+                        <span>Selecione a data</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.indexerStartDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          setFormData(prev => ({ ...prev, indexerStartDate: date }));
+                        }
+                      }}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-muted-foreground">
+                  Data de início da aplicação do indexador (deixe igual à liberação se aplicar desde o início)
+                </p>
+              </div>
             </div>
           )}
 

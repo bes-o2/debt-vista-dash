@@ -30,6 +30,8 @@ import { CompanySelector } from "@/components/CompanySelector";
 import { useCompany } from "@/hooks/useCompany";
 import { useDebts, type LegacyDebt } from "@/hooks/useDebts";
 import { Logo } from "@/components/Logo";
+import { useDataInitialization } from "@/hooks/useDataInitialization";
+
 const Index = () => {
   const {
     signOut
@@ -46,6 +48,20 @@ const Index = () => {
     convertToLegacyFormat,
     migrateLegacyData
   } = useDebts();
+  
+  const {
+    isInitialized,
+    initializeHistoricalData,
+    initializeProjections
+  } = useDataInitialization();
+  
+  // Initialize economic data and projections once
+  useEffect(() => {
+    if (!isInitialized) {
+      initializeHistoricalData();
+      initializeProjections();
+    }
+  }, [isInitialized, initializeHistoricalData, initializeProjections]);
 
   // Convert database debts to legacy format for backward compatibility - memoized to prevent infinite recalculation
   const debts: LegacyDebt[] = useMemo(() => dbDebts.map(convertToLegacyFormat), [dbDebts, convertToLegacyFormat]);
