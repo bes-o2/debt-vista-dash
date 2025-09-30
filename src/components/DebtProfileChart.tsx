@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useState, useMemo } from "react";
 import { PieChart as PieChartIcon, Calendar } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
+import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 
 interface Debt {
   id: string;
@@ -31,9 +32,14 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
   const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Calculate short-term vs long-term debt profile by bank based on PMTs
+  // Get installments data
+  const { installmentsData, loading } = useDebtInstallments(debts);
+
+  // Calculate short-term vs long-term debt profile by bank based on actual amortization
   const chartData = useMemo(() => {
     const baseDate = dateType === 'today' ? new Date() : new Date(customDate);
+    const twelveMonthsFromBase = new Date(baseDate);
+    twelveMonthsFromBase.setMonth(twelveMonthsFromBase.getMonth() + 12);
     
     // Group debts by bank
     const bankGroups = debts.reduce((acc, debt) => {
@@ -44,67 +50,44 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
       return acc;
     }, {} as Record<string, Debt[]>);
     
-    // Calculate PMTs for each bank
+    // Calculate amortization for each bank
     return Object.entries(bankGroups).map(([bankName, bankDebts]) => {
-      let shortTermPMTs = 0;
-      let longTermPMTs = 0;
+      let shortTermAmortization = 0;
+      let longTermAmortization = 0;
 
       bankDebts.forEach(debt => {
-        const releaseDate = new Date(debt.releaseDate);
-        const dueDate = new Date(debt.dueDate);
+        const debtInstallments = installmentsData[debt.id] || [];
         
-        // Check if debt is still active
-        if (baseDate > dueDate || baseDate < releaseDate) return;
-        
-        // Calculate monthly payment based on calculation table
-        const totalMonths = Math.round((dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
-        let monthlyPayment = 0;
-        
-        if (debt.calculationTable === 'PRICE') {
-          // PRICE - Fixed installments
-          const monthlyRate = debt.interestType === 'annual' 
-            ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-            : debt.interestRate / 100;
-          if (monthlyRate > 0) {
-            monthlyPayment = debt.financedAmount * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / (Math.pow(1 + monthlyRate, totalMonths) - 1);
-          } else {
-            monthlyPayment = debt.financedAmount / totalMonths;
+        debtInstallments.forEach(installment => {
+          const dueDate = new Date(installment.due_date);
+          
+          // Only consider future installments from base date
+          if (dueDate >= baseDate) {
+            const principalAmount = Number(installment.principal_amount);
+            
+            if (dueDate < twelveMonthsFromBase) {
+              // Short-term: amortization in next 12 months
+              shortTermAmortization += principalAmount;
+            } else {
+              // Long-term: amortization beyond 12 months
+              longTermAmortization += principalAmount;
+            }
           }
-        } else {
-          // SAC - Decreasing installments (use average for simplification)
-          const monthlyRate = debt.interestType === 'annual' 
-            ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-            : debt.interestRate / 100;
-          const amortization = debt.financedAmount / totalMonths;
-          const avgInterest = debt.financedAmount * monthlyRate * 0.5; // Average interest
-          monthlyPayment = amortization + avgInterest;
-        }
-        
-        // Calculate months to maturity from base date
-        const monthsToMaturity = Math.round((dueDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
-        
-        if (monthsToMaturity <= 12) {
-          // Short-term: PMTs for the remaining months (up to 12)
-          shortTermPMTs += monthlyPayment * Math.min(monthsToMaturity, 12);
-        } else {
-          // Long-term: PMTs for months 13+ and short-term for next 12 months
-          shortTermPMTs += monthlyPayment * 12; // Next 12 months
-          longTermPMTs += monthlyPayment * (monthsToMaturity - 12); // Beyond 12 months
-        }
+        });
       });
 
-      const totalPMTs = shortTermPMTs + longTermPMTs;
+      const totalAmortization = shortTermAmortization + longTermAmortization;
       
       return {
         bank: bankName,
-        shortTerm: totalPMTs > 0 ? (shortTermPMTs / totalPMTs) * 100 : 0,
-        longTerm: totalPMTs > 0 ? (longTermPMTs / totalPMTs) * 100 : 0,
-        shortTermAmount: shortTermPMTs,
-        longTermAmount: longTermPMTs,
-        totalAmount: totalPMTs
+        shortTerm: totalAmortization > 0 ? (shortTermAmortization / totalAmortization) * 100 : 0,
+        longTerm: totalAmortization > 0 ? (longTermAmortization / totalAmortization) * 100 : 0,
+        shortTermAmount: shortTermAmortization,
+        longTermAmount: longTermAmortization,
+        totalAmount: totalAmortization
       };
     });
-  }, [debts, dateType, customDate]);
+  }, [debts, dateType, customDate, installmentsData]);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
