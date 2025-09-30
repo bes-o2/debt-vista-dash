@@ -27,7 +27,8 @@ interface CompactDebtCardProps {
 }
 
 export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: CompactDebtCardProps) => {
-  const { cet, loading: cetLoading } = useCET(debt);
+  const { cet: cetAnnual, loading: cetAnnualLoading } = useCET(debt, 'annual');
+  const { cet: cetMonthly, loading: cetMonthlyLoading } = useCET(debt, 'monthly');
   
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -51,6 +52,26 @@ export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: C
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
+
+  // Convert interest rate to show both monthly and annual
+  const getMonthlyRate = () => {
+    if (debt.interestType === 'monthly') {
+      return debt.interestRate;
+    }
+    // Convert annual to monthly: (1 + annual)^(1/12) - 1
+    return (Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1) * 100;
+  };
+
+  const getAnnualRate = () => {
+    if (debt.interestType === 'annual') {
+      return debt.interestRate;
+    }
+    // Convert monthly to annual: (1 + monthly)^12 - 1
+    return (Math.pow(1 + debt.interestRate / 100, 12) - 1) * 100;
+  };
+
+  const monthlyRate = getMonthlyRate();
+  const annualRate = getAnnualRate();
 
   const daysUntilDue = getDaysUntilDue(debt.dueDate);
   const isOverdue = daysUntilDue < 0;
@@ -128,10 +149,7 @@ export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: C
           <div className="flex flex-col">
             <span className="text-xs text-muted-foreground mb-1">Taxa</span>
             <span className="text-sm font-medium text-foreground">
-              {debt.interestType === 'monthly' 
-                ? `${debt.interestRate.toFixed(2)}% a.m.`
-                : `${debt.interestRate.toFixed(2)}% a.a.`
-              }
+              {monthlyRate.toFixed(2)}% a.m | {annualRate.toFixed(2)}% a.a
             </span>
           </div>
 
@@ -142,10 +160,10 @@ export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: C
               <span className="text-xs">CET</span>
             </div>
             <span className="text-sm font-medium text-primary">
-              {cetLoading ? (
+              {cetMonthlyLoading || cetAnnualLoading ? (
                 <span className="text-xs">...</span>
-              ) : cet ? (
-                `${cet.toFixed(2)}%`
+              ) : cetMonthly && cetAnnual ? (
+                `${cetMonthly.toFixed(2)}% a.m | ${cetAnnual.toFixed(2)}% a.a`
               ) : (
                 <span className="text-xs text-muted-foreground">N/A</span>
               )}
