@@ -31,13 +31,17 @@ import { useCompany } from "@/hooks/useCompany";
 import { useDebts, type LegacyDebt } from "@/hooks/useDebts";
 import { Logo } from "@/components/Logo";
 const Index = () => {
-  const { signOut } = useAuth();
-  const { selectedCompany } = useCompany();
-  const { 
-    debts: dbDebts, 
-    isLoading: isLoadingDebts, 
-    createDebt, 
-    updateDebt, 
+  const {
+    signOut
+  } = useAuth();
+  const {
+    selectedCompany
+  } = useCompany();
+  const {
+    debts: dbDebts,
+    isLoading: isLoadingDebts,
+    createDebt,
+    updateDebt,
     deleteDebt,
     convertToLegacyFormat,
     migrateLegacyData
@@ -51,9 +55,7 @@ const Index = () => {
     const legacyData = localStorage.getItem('debts');
     if (legacyData && selectedCompany && debts.length === 0) {
       // Show migration prompt
-      const shouldMigrate = window.confirm(
-        'Detectamos dados de dívidas salvos localmente. Deseja migrar estes dados para o banco de dados da empresa selecionada?'
-      );
+      const shouldMigrate = window.confirm('Detectamos dados de dívidas salvos localmente. Deseja migrar estes dados para o banco de dados da empresa selecionada?');
       if (shouldMigrate) {
         migrateLegacyData();
       }
@@ -75,10 +77,8 @@ const Index = () => {
   const [globalEndDate, setGlobalEndDate] = useState<Date | undefined>(undefined);
 
   // Filter debts by selected bank
-  const filteredDebts = useMemo(() => (
-    selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank)
-  ), [debts, selectedBank]);
-  
+  const filteredDebts = useMemo(() => selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank), [debts, selectedBank]);
+
   // Group filtered debts by bank for the multi-select
   const debtsByBank = useMemo(() => {
     return filteredDebts.reduce((acc, debt) => {
@@ -89,31 +89,27 @@ const Index = () => {
       return acc;
     }, {} as Record<string, LegacyDebt[]>);
   }, [filteredDebts]);
-  
-  const selectedDebtsObjects = useMemo(() => (
-    selectedDebtsForTable
-      .map(debtId => filteredDebts.find(d => d.id === debtId))
-      .filter(Boolean) as LegacyDebt[]
-  ), [selectedDebtsForTable, filteredDebts]);
-  
-  const { toast } = useToast();
-  
+  const selectedDebtsObjects = useMemo(() => selectedDebtsForTable.map(debtId => filteredDebts.find(d => d.id === debtId)).filter(Boolean) as LegacyDebt[], [selectedDebtsForTable, filteredDebts]);
+  const {
+    toast
+  } = useToast();
   const handleSaveDebt = (debtData: DebtInput) => {
     if (!selectedCompany) {
       toast({
         title: "Erro",
         description: "Selecione uma empresa antes de cadastrar dívidas.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     if (editingDebt) {
-      updateDebt({ id: editingDebt.id, ...debtData });
+      updateDebt({
+        id: editingDebt.id,
+        ...debtData
+      });
     } else {
       createDebt(debtData);
     }
-    
     setEditingDebt(undefined);
     setIsFormOpen(false);
   };
@@ -125,12 +121,10 @@ const Index = () => {
       setIsFormOpen(true);
     }
   };
-  
   const handleViewTable = (debt: LegacyDebt) => {
     setSelectedDebt(debt);
     setActiveTab("table");
   };
-  
   const handleViewAnalysis = (debt: LegacyDebt) => {
     setPreSelectedDebtForAnalysis(debt);
     setActiveTab("analysis");
@@ -146,13 +140,10 @@ const Index = () => {
     setGlobalStartDate(undefined);
     setGlobalEndDate(undefined);
   };
-
-  const formatCurrency = (value: number) => 
-    new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(value);
-
+  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
   const handleDebtToggleForTable = (debtId: string, checked: boolean) => {
     if (checked) {
       setSelectedDebtsForTable([...selectedDebtsForTable, debtId]);
@@ -160,7 +151,6 @@ const Index = () => {
       setSelectedDebtsForTable(selectedDebtsForTable.filter(id => id !== debtId));
     }
   };
-
   const handleSelectAllDebtsForTable = () => {
     if (selectedDebtsForTable.length === filteredDebts.length) {
       setSelectedDebtsForTable([]);
@@ -176,9 +166,7 @@ const Index = () => {
             <div className="flex items-center gap-4">
               <Logo size="md" />
               <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-gradient-primary text-primary-foreground">
-                  <Calculator className="h-6 w-6" />
-                </div>
+                
                 Análise de Endividamento
               </h1>
             </div>
@@ -223,20 +211,7 @@ const Index = () => {
 
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
-              <GlobalFilters 
-                debts={debts} 
-                selectedBank={globalSelectedBank} 
-                selectedCalculationType={globalSelectedCalculationType} 
-                selectedDebts={globalSelectedDebts}
-                startDate={globalStartDate}
-                endDate={globalEndDate}
-                onBankChange={setGlobalSelectedBank} 
-                onCalculationTypeChange={setGlobalSelectedCalculationType} 
-                onDebtsChange={setGlobalSelectedDebts}
-                onStartDateChange={setGlobalStartDate}
-                onEndDateChange={setGlobalEndDate}
-                onClearFilters={handleClearGlobalFilters} 
-              />
+              <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} startDate={globalStartDate} endDate={globalEndDate} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onStartDateChange={setGlobalStartDate} onEndDateChange={setGlobalEndDate} onClearFilters={handleClearGlobalFilters} />
               
               <DashboardStats debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} />
               
@@ -266,8 +241,7 @@ const Index = () => {
               </Button>
             </div>
 
-            {isLoadingDebts ? (
-              <div className="text-center py-12">
+            {isLoadingDebts ? <div className="text-center py-12">
                 <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-between mb-4">
                   <Calculator className="h-12 w-12 text-muted-foreground animate-pulse" />
                 </div>
@@ -277,9 +251,7 @@ const Index = () => {
                 <p className="text-muted-foreground">
                   Aguarde enquanto buscamos suas dívidas cadastradas
                 </p>
-              </div>
-            ) : debts.length === 0 ? (
-              <div className="text-center py-12">
+              </div> : debts.length === 0 ? <div className="text-center py-12">
                 <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
                   <Calculator className="h-12 w-12 text-muted-foreground" />
                 </div>
@@ -287,63 +259,39 @@ const Index = () => {
                   Nenhuma dívida cadastrada
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  {selectedCompany 
-                    ? "Comece adicionando suas primeiras dívidas para análise"
-                    : "Selecione uma empresa e comece adicionando dívidas"
-                  }
+                  {selectedCompany ? "Comece adicionando suas primeiras dívidas para análise" : "Selecione uma empresa e comece adicionando dívidas"}
                 </p>
-                {selectedCompany && (
-                  <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90">
+                {selectedCompany && <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90">
                     <Plus className="mr-2 h-4 w-4" />
                     Adicionar Primeira Dívida
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-6">
+                  </Button>}
+              </div> : <div className="space-y-6">
                 {/* Group debts by bank */}
-                {Object.entries(
-                  debts.reduce((groups, debt) => {
-                    const bankName = debt.bank || 'Sem Banco';
-                    if (!groups[bankName]) {
-                      groups[bankName] = [];
-                    }
-                    groups[bankName].push(debt);
-                    return groups;
-                  }, {} as Record<string, typeof debts>)
-                ).map(([bankName, bankDebts]) => (
-                  <div key={bankName} className="space-y-3">
+                {Object.entries(debts.reduce((groups, debt) => {
+              const bankName = debt.bank || 'Sem Banco';
+              if (!groups[bankName]) {
+                groups[bankName] = [];
+              }
+              groups[bankName].push(debt);
+              return groups;
+            }, {} as Record<string, typeof debts>)).map(([bankName, bankDebts]) => <div key={bankName} className="space-y-3">
                     <div className="pb-2 border-b border-border/50">
                       <h3 className="text-lg font-semibold text-foreground">
                         {bankName} <span className="text-sm text-muted-foreground font-normal">
-                          {bankDebts.length} dívida{bankDebts.length !== 1 ? 's' : ''} • Total: {
-                            new Intl.NumberFormat('pt-BR', { 
-                              style: 'currency', 
-                              currency: 'BRL',
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0
-                            }).format(
-                              bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0)
-                            )
-                          }
+                          {bankDebts.length} dívida{bankDebts.length !== 1 ? 's' : ''} • Total: {new Intl.NumberFormat('pt-BR', {
+                      style: 'currency',
+                      currency: 'BRL',
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    }).format(bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0))}
                         </span>
                       </h3>
                     </div>
                     <div className="grid gap-3">
-                      {bankDebts.map(debt => (
-                        <CompactDebtCard 
-                          key={debt.id} 
-                          debt={debt}
-                          onEdit={(debtData) => handleEditDebt(debt)}
-                          onViewTable={(debtData) => handleViewTable(debt)}
-                          onViewAnalysis={(debtData) => handleViewAnalysis(debt)}
-                        />
-                      ))}
+                      {bankDebts.map(debt => <CompactDebtCard key={debt.id} debt={debt} onEdit={debtData => handleEditDebt(debt)} onViewTable={debtData => handleViewTable(debt)} onViewAnalysis={debtData => handleViewAnalysis(debt)} />)}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  </div>)}
+              </div>}
           </TabsContent>
 
           <TabsContent value="table" className="space-y-6">
@@ -373,17 +321,8 @@ const Index = () => {
                   <Label className="text-sm font-medium">Selecionar Dívidas</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between"
-                        disabled={filteredDebts.length === 0}
-                      >
-                        {selectedDebtsForTable.length === 0
-                          ? filteredDebts.length > 0 ? "Selecione dívidas..." : "Nenhuma dívida disponível"
-                          : selectedDebtsForTable.length === filteredDebts.length
-                          ? "Todas selecionadas"
-                          : `${selectedDebtsForTable.length} selecionada${selectedDebtsForTable.length !== 1 ? 's' : ''}`}
+                      <Button variant="outline" role="combobox" className="w-full justify-between" disabled={filteredDebts.length === 0}>
+                        {selectedDebtsForTable.length === 0 ? filteredDebts.length > 0 ? "Selecione dívidas..." : "Nenhuma dívida disponível" : selectedDebtsForTable.length === filteredDebts.length ? "Todas selecionadas" : `${selectedDebtsForTable.length} selecionada${selectedDebtsForTable.length !== 1 ? 's' : ''}`}
                         <Filter className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -393,31 +332,19 @@ const Index = () => {
                         <CommandEmpty>Nenhuma dívida encontrada.</CommandEmpty>
                         <CommandGroup>
                           <CommandItem onSelect={handleSelectAllDebtsForTable}>
-                            <Checkbox 
-                              checked={selectedDebtsForTable.length === filteredDebts.length}
-                              className="mr-2"
-                            />
+                            <Checkbox checked={selectedDebtsForTable.length === filteredDebts.length} className="mr-2" />
                             <span className="font-medium">
                               {selectedDebtsForTable.length === filteredDebts.length ? "Desmarcar todas" : "Selecionar todas"}
                             </span>
                           </CommandItem>
                         </CommandGroup>
-                        {Object.entries(debtsByBank).map(([bankName, bankDebts]) => (
-                          <CommandGroup key={bankName} heading={bankName}>
-                            {bankDebts.map((debt) => {
-                              const contractDisplay = debt.contractNumber || `CT${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-                              const monthlyRate = debt.interestType === 'monthly' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1) * 100;
-                              const annualRate = debt.interestType === 'annual' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 12) - 1) * 100;
-                              
-                              return (
-                                <CommandItem
-                                  key={debt.id}
-                                  onSelect={() => handleDebtToggleForTable(debt.id, !selectedDebtsForTable.includes(debt.id))}
-                                >
-                                  <Checkbox 
-                                    checked={selectedDebtsForTable.includes(debt.id)}
-                                    className="mr-2"
-                                  />
+                        {Object.entries(debtsByBank).map(([bankName, bankDebts]) => <CommandGroup key={bankName} heading={bankName}>
+                            {bankDebts.map(debt => {
+                          const contractDisplay = debt.contractNumber || `CT${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+                          const monthlyRate = debt.interestType === 'monthly' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1) * 100;
+                          const annualRate = debt.interestType === 'annual' ? debt.interestRate : (Math.pow(1 + debt.interestRate / 100, 12) - 1) * 100;
+                          return <CommandItem key={debt.id} onSelect={() => handleDebtToggleForTable(debt.id, !selectedDebtsForTable.includes(debt.id))}>
+                                  <Checkbox checked={selectedDebtsForTable.includes(debt.id)} className="mr-2" />
                                   <div className="flex flex-col">
                                     <span className="font-medium">
                                       Contrato {contractDisplay}
@@ -426,11 +353,9 @@ const Index = () => {
                                       {formatCurrency(debt.financedAmount)} • {monthlyRate.toFixed(3)}% a.m
                                     </span>
                                   </div>
-                                </CommandItem>
-                              );
-                            })}
-                          </CommandGroup>
-                        ))}
+                                </CommandItem>;
+                        })}
+                          </CommandGroup>)}
                       </Command>
                     </PopoverContent>
                   </Popover>
@@ -438,28 +363,17 @@ const Index = () => {
 
                 {/* Clear Dates Button */}
                 <div className="flex items-end">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setGlobalStartDate(undefined);
-                      setGlobalEndDate(undefined);
-                    }}
-                    className="w-full"
-                    disabled={!globalStartDate && !globalEndDate}
-                  >
+                  <Button variant="outline" onClick={() => {
+                  setGlobalStartDate(undefined);
+                  setGlobalEndDate(undefined);
+                }} className="w-full" disabled={!globalStartDate && !globalEndDate}>
                     <X className="h-4 w-4 mr-2" />
                     Zerar Datas
                   </Button>
                 </div>
               </div>
             </div>
-            {selectedDebtsForTable.length > 0 ? 
-              <ConsolidatedAmortizationTable 
-                debts={selectedDebtsObjects}
-                startDate={globalStartDate}
-                endDate={globalEndDate}
-              />
-              : <Card>
+            {selectedDebtsForTable.length > 0 ? <ConsolidatedAmortizationTable debts={selectedDebtsObjects} startDate={globalStartDate} endDate={globalEndDate} /> : <Card>
                 <CardContent className="pt-6">
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">
