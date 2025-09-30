@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { useBanks } from "@/hooks/useBanks";
 import { toast } from "@/hooks/use-toast";
 import { Debt, DebtInput } from "@/hooks/useDebts";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DebtFormProps {
   isOpen: boolean;
@@ -107,6 +108,39 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
 
     setIsSubmitting(true);
     try {
+      // Calculate CET by calling the amortization edge function
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const calculationResponse = await supabase.functions.invoke('calculate-amortization', {
+        body: {
+          debtId: debt?.id || 'temp-id', // Use temp id for new debts
+          financedAmount: formData.financedAmount,
+          firstDueDate: formData.releaseDate.toISOString().split('T')[0],
+          lastDueDate: formData.dueDate.toISOString().split('T')[0],
+          calculationTable: formData.calculationTable,
+          interestRate: formData.interestRate,
+          interestType: formData.interestType,
+          indexer: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
+          iofAmount: formData.iofAmount || 0,
+          tacAmount: formData.tacAmount || 0
+        }
+      });
+
+      let cetMonthlyRate: number | undefined;
+      let cetAnnualRate: number | undefined;
+
+      if (calculationResponse.data?.cet) {
+        cetMonthlyRate = calculationResponse.data.cet.monthlyRate;
+        cetAnnualRate = calculationResponse.data.cet.annualRate;
+        
+        console.log('CET calculated:', {
+          monthly: cetMonthlyRate?.toFixed(4) + '%',
+          annual: cetAnnualRate?.toFixed(4) + '%'
+        });
+      } else {
+        console.warn('CET calculation failed or not available');
+      }
+
       await Promise.resolve(onSave({
         title: formData.bank,
         description: formData.contractNumber || undefined,
@@ -118,7 +152,9 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         interest_rate: formData.interestRate,
         interest_type: formData.interestType,
         iof_rate: formData.iofAmount || undefined,
-        additional_fees: formData.tacAmount || undefined
+        additional_fees: formData.tacAmount || undefined,
+        cet_monthly_rate: cetMonthlyRate,
+        cet_annual_rate: cetAnnualRate
       }));
       onClose();
     } catch (error) {

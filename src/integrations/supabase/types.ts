@@ -131,6 +131,8 @@ export type Database = {
         Row: {
           additional_fees: number | null
           calculation_table: string
+          cet_annual_rate: number | null
+          cet_monthly_rate: number | null
           company_id: string
           created_at: string
           created_by: string
@@ -149,6 +151,8 @@ export type Database = {
         Insert: {
           additional_fees?: number | null
           calculation_table: string
+          cet_annual_rate?: number | null
+          cet_monthly_rate?: number | null
           company_id: string
           created_at?: string
           created_by: string
@@ -167,6 +171,8 @@ export type Database = {
         Update: {
           additional_fees?: number | null
           calculation_table?: string
+          cet_annual_rate?: number | null
+          cet_monthly_rate?: number | null
           company_id?: string
           created_at?: string
           created_by?: string

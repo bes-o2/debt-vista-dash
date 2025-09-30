@@ -113,9 +113,19 @@ serve(async (req) => {
       // Continue with calculated data
     }
 
+    // Calculate CET (Custo Efetivo Total)
+    const cet = calculateCET({
+      initialAmount: financedAmount,
+      iofAmount,
+      tacAmount,
+      installments,
+      startDate: firstDueDate
+    });
+
     return new Response(JSON.stringify({ 
       success: true, 
-      installments 
+      installments,
+      cet
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -323,4 +333,110 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
   });
 
   return installments;
+}
+
+/**
+ * Calculate CET (Custo Efetivo Total) using IRR method
+ * CET = Internal Rate of Return considering all costs
+ */
+function calculateCET(params: {
+  initialAmount: number;
+  iofAmount: number;
+  tacAmount: number;
+  installments: Installment[];
+  startDate: string;
+}): { monthlyRate: number; annualRate: number; converged: boolean } {
+  const { initialAmount, iofAmount, tacAmount, installments, startDate } = params;
+  
+  // Net amount received by the borrower (after IOF and TAC)
+  const netAmount = initialAmount - iofAmount - tacAmount;
+  
+  // Build cash flows: initial inflow (negative) + installment outflows (positive)
+  const cashFlows = [
+    { date: new Date(startDate), amount: -netAmount }, // What the borrower actually receives
+    ...installments.map(inst => ({
+      date: new Date(inst.due_date),
+      amount: inst.installment_amount // Total payment including interest
+    }))
+  ];
+  
+  console.log('🔍 CET Calculation:', {
+    initialAmount: initialAmount.toFixed(2),
+    iofAmount: iofAmount.toFixed(2),
+    tacAmount: tacAmount.toFixed(2),
+    netAmount: netAmount.toFixed(2),
+    totalPayments: installments.reduce((sum, inst) => sum + inst.installment_amount, 0).toFixed(2),
+    installmentsCount: installments.length
+  });
+  
+  // Calculate IRR using Newton-Raphson method
+  const start = new Date(startDate);
+  let annualRate = 0.10; // Initial guess: 10% annual
+  const tolerance = 0.000001;
+  const maxIterations = 1000;
+  
+  for (let i = 0; i < maxIterations; i++) {
+    let npv = 0;
+    let npvDerivative = 0;
+    
+    // Calculate NPV and its derivative
+    cashFlows.forEach(cf => {
+      const days = (cf.date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+      const years = days / 365.25;
+      const discountFactor = Math.pow(1 + annualRate, years);
+      
+      npv += cf.amount / discountFactor;
+      npvDerivative -= cf.amount * years / (discountFactor * (1 + annualRate));
+    });
+    
+    // Check for convergence
+    if (Math.abs(npv) < tolerance) {
+      const monthlyRate = Math.pow(1 + annualRate, 1/12) - 1;
+      
+      console.log('✅ CET Converged:', {
+        iterations: i,
+        annualRate: (annualRate * 100).toFixed(4) + '%',
+        monthlyRate: (monthlyRate * 100).toFixed(4) + '%',
+        finalNPV: npv.toFixed(8)
+      });
+      
+      return {
+        monthlyRate: monthlyRate * 100,
+        annualRate: annualRate * 100,
+        converged: true
+      };
+    }
+    
+    // Newton-Raphson update
+    if (Math.abs(npvDerivative) < tolerance) {
+      console.warn('⚠️ CET calculation: derivative too small');
+      break;
+    }
+    
+    const newRate = annualRate - npv / npvDerivative;
+    
+    // Limit rate change to prevent divergence
+    const maxChange = Math.abs(annualRate) * 0.1 + 0.01;
+    if (Math.abs(newRate - annualRate) > maxChange) {
+      annualRate = annualRate + Math.sign(newRate - annualRate) * maxChange;
+    } else {
+      annualRate = newRate;
+    }
+    
+    // Keep rate in reasonable range
+    annualRate = Math.max(-0.5, Math.min(5.0, annualRate));
+  }
+  
+  const monthlyRate = Math.pow(1 + annualRate, 1/12) - 1;
+  
+  console.error('❌ CET did not converge:', {
+    finalAnnualRate: (annualRate * 100).toFixed(4) + '%',
+    finalMonthlyRate: (monthlyRate * 100).toFixed(4) + '%'
+  });
+  
+  return {
+    monthlyRate: monthlyRate * 100,
+    annualRate: annualRate * 100,
+    converged: false
+  };
 }

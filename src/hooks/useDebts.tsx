@@ -20,6 +20,8 @@ export interface Debt {
   interest_type: 'monthly' | 'annual';
   iof_rate?: number;
   additional_fees?: number;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +38,8 @@ export interface DebtInput {
   interest_type: 'monthly' | 'annual';
   iof_rate?: number;
   additional_fees?: number;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
 }
 
 // Legacy interface for backward compatibility

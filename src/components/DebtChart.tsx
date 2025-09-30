@@ -42,9 +42,6 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
   // Fetch installments data for calculating current remaining values
   const { installmentsData, loading: installmentsLoading } = useDebtInstallments(debts);
 
-  // Centralized CET calculation manager
-  const cetManager = useCETManager(debts);
-
   // Get unique banks
   const availableBanks = useMemo(() => {
     return [...new Set(debts.map(debt => debt.bank))];
@@ -62,6 +59,9 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
       return bankMatch && indexerTypeMatch;
     });
   }, [debts, selectedBanks, selectedIndexerType]);
+
+  // Centralized CET calculation manager (for filtered debts)
+  const cetManager = useCETManager(filteredDebts);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
