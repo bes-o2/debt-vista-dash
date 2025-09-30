@@ -685,7 +685,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     />
                     <YAxis 
                       yAxisId="left"
-                      tickFormatter={(value) => formatCurrency(value)}
+                      tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`}
                       fontSize={12}
                       stroke="hsl(var(--muted-foreground))"
                     />
