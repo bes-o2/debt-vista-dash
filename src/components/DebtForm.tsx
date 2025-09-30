@@ -5,12 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus } from "lucide-react";
+import { Plus, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useBanks } from "@/hooks/useBanks";
 import { toast } from "@/hooks/use-toast";
 import { Debt, DebtInput } from "@/hooks/useDebts";
 import { supabase } from "@/integrations/supabase/client";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface DebtFormProps {
   isOpen: boolean;
@@ -326,39 +330,75 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
               <Label className="text-sm font-medium">
                 Data Liberação <span className="text-red-500">*</span>
               </Label>
-              <div className="relative">
-                <Input
-                  type="date"
-                  value={format(formData.releaseDate, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const date = new Date(e.target.value);
-                    if (!isNaN(date.getTime())) {
-                      setFormData(prev => ({ ...prev, releaseDate: date }));
-                    }
-                  }}
-                  className="w-full"
-                />
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.releaseDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.releaseDate ? (
+                      format(formData.releaseDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                    ) : (
+                      <span>Selecione a data</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.releaseDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setFormData(prev => ({ ...prev, releaseDate: date }));
+                      }
+                    }}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 Vencimento <span className="text-red-500">*</span>
               </Label>
-              <div className="relative">
-                <Input
-                  type="date"
-                  value={format(formData.dueDate, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const date = new Date(e.target.value);
-                    if (!isNaN(date.getTime()) && date >= formData.releaseDate) {
-                      setFormData(prev => ({ ...prev, dueDate: date }));
-                    }
-                  }}
-                  min={format(formData.releaseDate, "yyyy-MM-dd")}
-                  className="w-full"
-                />
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.dueDate ? (
+                      format(formData.dueDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                    ) : (
+                      <span>Selecione a data</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.dueDate}
+                    onSelect={(date) => {
+                      if (date && date >= formData.releaseDate) {
+                        setFormData(prev => ({ ...prev, dueDate: date }));
+                      }
+                    }}
+                    disabled={(date) => date < formData.releaseDate}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
