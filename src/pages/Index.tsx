@@ -130,21 +130,18 @@ const Index = () => {
     setActiveTab("analysis");
   };
   const handleDeleteDebt = async (legacyDebt: LegacyDebt) => {
-    const confirmed = window.confirm(`Tem certeza que deseja excluir o contrato ${legacyDebt.contractNumber || 'sem número'}?`);
-    if (confirmed) {
-      try {
-        await deleteDebt(legacyDebt.id);
-        toast({
-          title: "Sucesso",
-          description: "Contrato excluído com sucesso.",
-        });
-      } catch (error) {
-        toast({
-          title: "Erro",
-          description: "Não foi possível excluir o contrato.",
-          variant: "destructive",
-        });
-      }
+    try {
+      await deleteDebt(legacyDebt.id);
+      toast({
+        title: "Sucesso",
+        description: "Contrato excluído com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o contrato.",
+        variant: "destructive",
+      });
     }
   };
   const handleNewDebt = () => {
