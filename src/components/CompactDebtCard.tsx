@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Edit2, Calendar, DollarSign, Percent, Calculator, BarChart3 } from "lucide-react";
+import { Edit2, Calendar, DollarSign, Percent, Calculator, BarChart3, Trash2 } from "lucide-react";
 import { useCET } from "@/hooks/useCET";
 
 interface Debt {
@@ -22,11 +22,12 @@ interface Debt {
 interface CompactDebtCardProps {
   debt: Debt;
   onEdit: (debt: Debt) => void;
+  onDelete?: (debt: Debt) => void;
   onViewTable?: (debt: Debt) => void;
   onViewAnalysis?: (debt: Debt) => void;
 }
 
-export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: CompactDebtCardProps) => {
+export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAnalysis }: CompactDebtCardProps) => {
   const { cet: cetAnnual, loading: cetAnnualLoading } = useCET(debt, 'annual');
   const { cet: cetMonthly, loading: cetMonthlyLoading } = useCET(debt, 'monthly');
   
@@ -110,6 +111,16 @@ export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: C
             >
               <Edit2 className="h-3 w-3" />
             </Button>
+            {onDelete && (
+              <Button 
+                onClick={() => onDelete(debt)}
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
             {onViewTable && (
               <Button 
                 onClick={() => onViewTable(debt)}

@@ -129,6 +129,24 @@ const Index = () => {
     setPreSelectedDebtForAnalysis(debt);
     setActiveTab("analysis");
   };
+  const handleDeleteDebt = async (legacyDebt: LegacyDebt) => {
+    const confirmed = window.confirm(`Tem certeza que deseja excluir o contrato ${legacyDebt.contractNumber || 'sem número'}?`);
+    if (confirmed) {
+      try {
+        await deleteDebt(legacyDebt.id);
+        toast({
+          title: "Sucesso",
+          description: "Contrato excluído com sucesso.",
+        });
+      } catch (error) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível excluir o contrato.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
   const handleNewDebt = () => {
     setEditingDebt(undefined);
     setIsFormOpen(true);
@@ -288,7 +306,7 @@ const Index = () => {
                       </h3>
                     </div>
                     <div className="grid gap-3">
-                      {bankDebts.map(debt => <CompactDebtCard key={debt.id} debt={debt} onEdit={debtData => handleEditDebt(debt)} onViewTable={debtData => handleViewTable(debt)} onViewAnalysis={debtData => handleViewAnalysis(debt)} />)}
+                      {bankDebts.map(debt => <CompactDebtCard key={debt.id} debt={debt} onEdit={debtData => handleEditDebt(debt)} onDelete={debtData => handleDeleteDebt(debt)} onViewTable={debtData => handleViewTable(debt)} onViewAnalysis={debtData => handleViewAnalysis(debt)} />)}
                     </div>
                   </div>)}
               </div>}
