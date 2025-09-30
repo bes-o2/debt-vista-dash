@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
-import { useCET } from "@/hooks/useCET";
 import { TooltipKeys } from "@/lib/tooltips";
 import { useTooltip } from "@/hooks/useTooltip";
 

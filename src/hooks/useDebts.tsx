@@ -56,6 +56,8 @@ export interface LegacyDebt {
   tacAmount?: number;
   bank: string;
   contractNumber?: string;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
 }
 
 export function useDebts() {
@@ -213,6 +215,8 @@ export function useDebts() {
       tacAmount: debt.additional_fees || 0,
       bank: debt.title || 'Banco do Brasil',
       contractNumber: debt.title,
+      cet_monthly_rate: debt.cet_monthly_rate,
+      cet_annual_rate: debt.cet_annual_rate,
     };
   };
 

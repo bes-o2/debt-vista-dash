@@ -2,7 +2,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit2, Calendar, DollarSign, Percent, Calculator, BarChart3, Trash2 } from "lucide-react";
-import { useCET } from "@/hooks/useCET";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +28,8 @@ interface Debt {
   tacAmount?: number;
   bank: string;
   contractNumber?: string;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
 }
 
 interface CompactDebtCardProps {
@@ -40,8 +41,9 @@ interface CompactDebtCardProps {
 }
 
 export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAnalysis }: CompactDebtCardProps) => {
-  const { cet: cetAnnual, loading: cetAnnualLoading } = useCET(debt, 'annual');
-  const { cet: cetMonthly, loading: cetMonthlyLoading } = useCET(debt, 'monthly');
+  // Use stored CET values from database
+  const cetMonthly = debt.cet_monthly_rate;
+  const cetAnnual = debt.cet_annual_rate;
   
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -205,9 +207,7 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
               <span className="text-xs">CET</span>
             </div>
             <span className="text-sm font-medium text-primary">
-              {cetMonthlyLoading || cetAnnualLoading ? (
-                <span className="text-xs">...</span>
-              ) : cetMonthly && cetAnnual ? (
+              {cetMonthly !== undefined && cetAnnual !== undefined ? (
                 `${cetMonthly.toFixed(2)}% a.m | ${cetAnnual.toFixed(2)}% a.a`
               ) : (
                 <span className="text-xs text-muted-foreground">N/A</span>

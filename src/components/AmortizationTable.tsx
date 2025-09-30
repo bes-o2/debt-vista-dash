@@ -5,7 +5,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Loader2, Calculator, Download, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useCET } from '@/hooks/useCET';
 import { calculateIRRFromCashFlows } from '@/lib/irrCalculator';
 interface Debt {
   id: string;
@@ -20,6 +19,8 @@ interface Debt {
   iofAmount?: number;
   tacAmount?: number;
   contractNumber?: string;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
 }
 interface Installment {
   installment_number: number;
@@ -55,14 +56,10 @@ export function AmortizationTable({
   const {
     toast
   } = useToast();
-  const {
-    cet: cetMonthly,
-    loading: cetMonthlyLoading
-  } = useCET(debt, 'monthly');
-  const {
-    cet: cetAnnual,
-    loading: cetAnnualLoading
-  } = useCET(debt, 'annual');
+  
+  // Use stored CET values from database
+  const cetMonthly = debt.cet_monthly_rate;
+  const cetAnnual = debt.cet_annual_rate;
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
