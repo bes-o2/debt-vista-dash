@@ -126,20 +126,19 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
   const renderLabel = (props: any, dataKey: 'shortTerm' | 'longTerm') => {
     const { x, y, width, height, value, payload } = props;
     
-    // Safety checks - only render if there's enough space
-    if (!payload || height < 35) return null;
+    // Safety checks
+    if (!payload || height < 25) return null;
     
     const amount = dataKey === 'shortTerm' ? payload.shortTermAmount : payload.longTermAmount;
     
     // Don't render if amount is not available or is zero
     if (!amount || amount === 0) return null;
     
-    const formattedAmount = new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
+    const formattedAmount = amount >= 1000000 
+      ? `${(amount / 1000000).toFixed(1)}M`
+      : amount >= 1000 
+      ? `${(amount / 1000).toFixed(0)}K`
+      : amount.toFixed(0);
     
     return (
       <text
@@ -148,12 +147,12 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
         fill="white"
         textAnchor="middle"
         dominantBaseline="middle"
-        fontSize={14}
+        fontSize={11}
         fontWeight="bold"
-        style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.9)' }}
+        style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
       >
-        <tspan x={x + width / 2} dy="-0.6em">{value.toFixed(0)}%</tspan>
-        <tspan x={x + width / 2} dy="1.4em" fontSize={12}>{formattedAmount}</tspan>
+        <tspan x={x + width / 2} dy="-0.3em">{value.toFixed(0)}%</tspan>
+        <tspan x={x + width / 2} dy="1.2em">{formattedAmount}</tspan>
       </text>
     );
   };
