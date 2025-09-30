@@ -93,14 +93,17 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
             return sum;
           }
 
-          // Check if the debt has been released yet
+          // Check if the debt has been released yet (compare month/year only)
           const releaseDate = new Date(debt.releaseDate);
-          if (date < releaseDate) {
+          const releaseDateMonth = releaseDate.toISOString().substring(0, 7); // YYYY-MM
+          const currentMonth = date.toISOString().substring(0, 7); // YYYY-MM
+          
+          if (currentMonth < releaseDateMonth) {
             // Contract not released yet, no balance
             return sum;
           }
 
-          // Check if this debt is still active in this month
+          // Check if this debt is still active in this month for PMT calculation
           const firstInstallmentDate = new Date(debtInstallments[0].due_date);
           const lastInstallmentDate = new Date(debtInstallments[debtInstallments.length - 1].due_date);
           
@@ -108,7 +111,7 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
           if (date >= firstInstallmentDate && date <= lastInstallmentDate) {
             // Find the installment for this specific month
             const monthInstallment = debtInstallments.find(inst => 
-              inst.due_date.substring(0, 7) === monthData.month
+              inst.due_date.substring(0, 7) === currentMonth
             );
             
             if (monthInstallment) {
@@ -117,18 +120,17 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
           }
 
           // Calculate remaining balance for this month
-          // Find the installment that would be due just after our target date
-          // or the last installment if all are before the target date
+          // Find installments that were due before or in this month
           const installmentsBeforeTarget = debtInstallments.filter(inst => 
-            new Date(inst.due_date) <= date
+            inst.due_date.substring(0, 7) <= currentMonth
           );
 
           if (installmentsBeforeTarget.length === 0) {
-            // If no installments are due yet but contract is released, return the full financed amount
+            // No installments due yet, but contract is released - return full financed amount
             return sum + debt.financedAmount;
           }
 
-          // Get the last installment before or on the target date
+          // Get the last installment before or in the target month
           const lastInstallment = installmentsBeforeTarget[installmentsBeforeTarget.length - 1];
           
           // Return the remaining balance after this installment
