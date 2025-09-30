@@ -185,6 +185,76 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
     }).filter(item => item.count > 0);
   }, [availableBanks, filteredDebts, viewType, installmentsData]);
 
+  // Calculate max Y value across both views for consistent axis scale
+  const maxYValue = useMemo(() => {
+    const calculateMaxForView = (viewMode: 'atual' | 'total') => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return availableBanks.reduce((maxValue, bank) => {
+        const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
+        
+        let principalAmount = 0;
+        let financedInterest = 0;
+
+        if (viewMode === 'total') {
+          principalAmount = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
+          
+          financedInterest = bankDebts.reduce((sum, debt) => {
+            const installments = installmentsData[debt.id];
+            if (installments && installments.length > 0) {
+              const totalInterest = installments.reduce((interestSum, inst) => 
+                interestSum + inst.interest_amount, 0
+              );
+              return sum + totalInterest;
+            } else {
+              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+              const monthlyRate = debt.interestType === 'annual' 
+                ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+                : debt.interestRate / 100;
+              const totalInterest = debt.financedAmount * monthlyRate * months * 0.5;
+              return sum + totalInterest;
+            }
+          }, 0);
+        } else {
+          bankDebts.forEach(debt => {
+            const installments = installmentsData[debt.id];
+            if (installments && installments.length > 0) {
+              const futureInstallments = installments.filter(inst => {
+                const dueDate = new Date(inst.due_date);
+                dueDate.setHours(0, 0, 0, 0);
+                return dueDate >= today;
+              });
+
+              if (futureInstallments.length > 0) {
+                principalAmount += futureInstallments[0].remaining_balance;
+                const futureInterest = futureInstallments.reduce((sum, inst) => 
+                  sum + inst.interest_amount, 0
+                );
+                financedInterest += futureInterest;
+              }
+            } else {
+              principalAmount += debt.financedAmount;
+              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+              const monthlyRate = debt.interestType === 'annual' 
+                ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
+                : debt.interestRate / 100;
+              financedInterest += debt.financedAmount * monthlyRate * months * 0.5;
+            }
+          });
+        }
+
+        const bankTotal = principalAmount + financedInterest;
+        return Math.max(maxValue, bankTotal);
+      }, 0);
+    };
+
+    const maxTotal = calculateMaxForView('total');
+    const maxAtual = calculateMaxForView('atual');
+    
+    return Math.max(maxTotal, maxAtual);
+  }, [availableBanks, filteredDebts, installmentsData]);
+
   // Calculate bank comparison data with CET from stored values
   const bankComparisonDataWithCET = useMemo(() => {
     return bankComparisonData.map(item => {
@@ -685,6 +755,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                     />
                     <YAxis 
                       yAxisId="left"
+                      domain={[0, maxYValue * 1.1]}
                       tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`}
                       fontSize={12}
                       stroke="hsl(var(--muted-foreground))"
