@@ -776,12 +776,17 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                       fill="hsl(var(--chart-1))" 
                       name="Valor Principal"
                       radius={[0, 0, 0, 0]}
-                      label={{
+                       label={{
                         position: 'center',
                         fill: 'hsl(var(--primary-foreground))',
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: 600,
-                        formatter: (value: number) => value > 0 ? formatCurrency(value) : ''
+                        formatter: (value: number) => value > 0 ? new Intl.NumberFormat('pt-BR', { 
+                          style: 'currency', 
+                          currency: 'BRL',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }).format(value) : ''
                       }}
                     />
                     <Bar 
@@ -791,12 +796,17 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                       fill="hsl(var(--chart-3))" 
                       name="Juros Financiados"
                       radius={[4, 4, 0, 0]}
-                      label={{
+                       label={{
                         position: 'center',
                         fill: 'hsl(var(--primary-foreground))',
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: 600,
-                        formatter: (value: number) => value > 0 ? formatCurrency(value) : ''
+                        formatter: (value: number) => value > 0 ? new Intl.NumberFormat('pt-BR', { 
+                          style: 'currency', 
+                          currency: 'BRL',
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        }).format(value) : ''
                       }}
                     />
                     <Line 
