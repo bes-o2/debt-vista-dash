@@ -290,10 +290,11 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
                 type="monotone"
                 dataKey="totalPMT"
                 stroke="hsl(var(--destructive))"
-                strokeWidth={3}
-                dot={{ fill: "hsl(var(--destructive))", strokeWidth: 2, r: 4 }}
+                strokeWidth={4}
+                dot={{ fill: "hsl(var(--destructive))", strokeWidth: 3, r: 5, stroke: "hsl(var(--background))" }}
                 name="PMT Total Mensal"
                 connectNulls={false}
+                style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
               />
             </ComposedChart>
           </ResponsiveContainer>
