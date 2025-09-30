@@ -647,7 +647,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                       stroke="hsl(var(--chart-5))" 
                       strokeWidth={3}
                       name="CET Médio (%)"
-                      dot={{ fill: "hsl(var(--chart-5))", strokeWidth: 2, r: 4 }}
+                      dot={{ fill: "white", strokeWidth: 2, r: 5, stroke: "hsl(var(--chart-5))" }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
