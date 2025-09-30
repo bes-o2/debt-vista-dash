@@ -776,6 +776,13 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                       fill="hsl(var(--chart-1))" 
                       name="Valor Principal"
                       radius={[0, 0, 0, 0]}
+                      label={{
+                        position: 'center',
+                        fill: 'hsl(var(--primary-foreground))',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        formatter: (value: number) => value > 0 ? formatCurrency(value) : ''
+                      }}
                     />
                     <Bar 
                       yAxisId="left"
@@ -784,6 +791,13 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
                       fill="hsl(var(--chart-3))" 
                       name="Juros Financiados"
                       radius={[4, 4, 0, 0]}
+                      label={{
+                        position: 'center',
+                        fill: 'hsl(var(--primary-foreground))',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        formatter: (value: number) => value > 0 ? formatCurrency(value) : ''
+                      }}
                     />
                     <Line 
                       yAxisId="right"
