@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { useState, useMemo } from "react";
 import { PieChart as PieChartIcon, Calendar } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
@@ -123,6 +123,44 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
     return null;
   };
 
+  const renderLabel = (props: any, dataKey: 'shortTerm' | 'longTerm') => {
+    const { x, y, width, height, value } = props;
+    
+    // Only show label if value is significant and bar is tall enough
+    if (value < 5 || height < 35) return null;
+    
+    // Get the data from the chart
+    const data = chartData.find(d => {
+      const barData = props.payload;
+      return barData && d.bank === barData.bank;
+    });
+    
+    if (!data) return null;
+    
+    const amount = dataKey === 'shortTerm' ? data.shortTermAmount : data.longTermAmount;
+    const formattedAmount = amount >= 1000000 
+      ? `${(amount / 1000000).toFixed(1)}M`
+      : amount >= 1000 
+      ? `${(amount / 1000).toFixed(0)}K`
+      : amount.toFixed(0);
+    
+    return (
+      <text
+        x={x + width / 2}
+        y={y + height / 2}
+        fill="white"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={11}
+        fontWeight="bold"
+        style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+      >
+        <tspan x={x + width / 2} dy="-0.3em">{value.toFixed(0)}%</tspan>
+        <tspan x={x + width / 2} dy="1.2em">{formattedAmount}</tspan>
+      </text>
+    );
+  };
+
   return (
     <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
       <CardHeader>
@@ -187,13 +225,17 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
               stackId="debt" 
               fill="hsl(var(--muted-foreground))"
               name="Curto Prazo"
-            />
+            >
+              <LabelList content={(props) => renderLabel(props, 'shortTerm')} />
+            </Bar>
             <Bar 
               dataKey="longTerm" 
               stackId="debt" 
               fill="hsl(280 100% 60%)"
               name="Longo Prazo"
-            />
+            >
+              <LabelList content={(props) => renderLabel(props, 'longTerm')} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
         
