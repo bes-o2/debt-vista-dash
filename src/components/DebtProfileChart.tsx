@@ -43,10 +43,11 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
     
     // Group debts by bank
     const bankGroups = debts.reduce((acc, debt) => {
-      if (!acc[debt.bank]) {
-        acc[debt.bank] = [];
+      const groupKey = debt.bank || 'Sem Nome';
+      if (!acc[groupKey]) {
+        acc[groupKey] = [];
       }
-      acc[debt.bank].push(debt);
+      acc[groupKey].push(debt);
       return acc;
     }, {} as Record<string, Debt[]>);
     
