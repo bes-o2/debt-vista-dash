@@ -124,20 +124,12 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
   };
 
   const renderLabel = (props: any, dataKey: 'shortTerm' | 'longTerm') => {
-    const { x, y, width, height, value } = props;
+    const { x, y, width, height, value, payload } = props;
     
-    // Only show label if value is significant and bar is tall enough
-    if (value < 5 || height < 35) return null;
+    // Only show label if bar has some height
+    if (height < 25) return null;
     
-    // Get the data from the chart
-    const data = chartData.find(d => {
-      const barData = props.payload;
-      return barData && d.bank === barData.bank;
-    });
-    
-    if (!data) return null;
-    
-    const amount = dataKey === 'shortTerm' ? data.shortTermAmount : data.longTermAmount;
+    const amount = dataKey === 'shortTerm' ? payload.shortTermAmount : payload.longTermAmount;
     const formattedAmount = amount >= 1000000 
       ? `${(amount / 1000000).toFixed(1)}M`
       : amount >= 1000 
