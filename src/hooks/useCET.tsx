@@ -118,20 +118,22 @@ export function useCET(debt: Debt, returnType: 'monthly' | 'annual' = 'annual') 
       const installments: Installment[] = data.installments;
       const payments = installments.map((inst: Installment) => inst.installment_amount);
       
-      // Valor presente inicial (valor financiado + custos iniciais)
-      const initialAmount = debt.financedAmount + (debt.iofAmount || 0) + (debt.tacAmount || 0);
+      // Valor líquido efetivamente recebido pelo cliente no tempo 0
+      // O cliente recebe o valor financiado MENOS os custos iniciais (IOF, TAC, etc.)
+      const netAmountReceived = debt.financedAmount - (debt.iofAmount || 0) - (debt.tacAmount || 0);
       
       console.log('CET calculation data:', {
         financedAmount: debt.financedAmount,
         iofAmount: debt.iofAmount || 0,
         tacAmount: debt.tacAmount || 0,
-        initialAmount,
+        netAmountReceived,
         paymentsCount: payments.length,
-        totalPayments: payments.reduce((sum, p) => sum + p, 0)
+        totalPayments: payments.reduce((sum, p) => sum + p, 0),
+        effectiveCostPercentage: (((payments.reduce((sum, p) => sum + p, 0) - netAmountReceived) / netAmountReceived) * 100).toFixed(2) + '%'
       });
       
-      // Calcular a taxa CET mensal
-      const monthlyRate = findCETRate(initialAmount, payments);
+      // Calcular a taxa CET mensal usando TIR dos fluxos de caixa
+      const monthlyRate = findCETRate(netAmountReceived, payments);
       
       console.log('CET rates calculated:', {
         monthlyRate: monthlyRate * 100,
