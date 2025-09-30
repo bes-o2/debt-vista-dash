@@ -38,6 +38,7 @@ interface GlobalFiltersProps {
   onStartDateChange: (date: Date | undefined) => void;
   onEndDateChange: (date: Date | undefined) => void;
   onClearFilters: () => void;
+  hideDateFilters?: boolean;
 }
 
 export const GlobalFilters = ({
@@ -52,7 +53,8 @@ export const GlobalFilters = ({
   onDebtsChange,
   onStartDateChange,
   onEndDateChange,
-  onClearFilters
+  onClearFilters,
+  hideDateFilters = false
 }: GlobalFiltersProps) => {
   const [debtSelectorOpen, setDebtSelectorOpen] = useState(false);
 
@@ -94,7 +96,7 @@ export const GlobalFilters = ({
     }
   };
 
-  const hasActiveFilters = selectedBank !== "all" || selectedCalculationType !== "all" || selectedDebts.length > 0 || startDate || endDate;
+  const hasActiveFilters = selectedBank !== "all" || selectedCalculationType !== "all" || selectedDebts.length > 0 || (!hideDateFilters && (startDate || endDate));
 
   return (
     <div className="rounded-3xl bg-card p-6 border border-border mb-6">
@@ -111,7 +113,7 @@ export const GlobalFilters = ({
       </div>
 
       {/* Filters Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+      <div className={cn("grid grid-cols-1 gap-4 mb-6", hideDateFilters ? "md:grid-cols-3" : "md:grid-cols-6")}>
         {/* Bank Filter */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Banco</label>
@@ -206,45 +208,49 @@ export const GlobalFilters = ({
           </Popover>
         </div>
 
-        {/* Start Date Filter */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Data Inicial</label>
-          <input
-            type="date"
-            value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
-            onChange={(e) => onStartDateChange(e.target.value ? new Date(e.target.value) : undefined)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="dd/mm/aaaa"
-          />
-        </div>
+        {!hideDateFilters && (
+          <>
+            {/* Start Date Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Data Inicial</label>
+              <input
+                type="date"
+                value={startDate ? format(startDate, "yyyy-MM-dd") : ""}
+                onChange={(e) => onStartDateChange(e.target.value ? new Date(e.target.value) : undefined)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="dd/mm/aaaa"
+              />
+            </div>
 
-        {/* End Date Filter */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Data Final</label>
-          <input
-            type="date"
-            value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
-            onChange={(e) => onEndDateChange(e.target.value ? new Date(e.target.value) : undefined)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="dd/mm/aaaa"
-          />
-        </div>
+            {/* End Date Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Data Final</label>
+              <input
+                type="date"
+                value={endDate ? format(endDate, "yyyy-MM-dd") : ""}
+                onChange={(e) => onEndDateChange(e.target.value ? new Date(e.target.value) : undefined)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                placeholder="dd/mm/aaaa"
+              />
+            </div>
 
-        {/* Clear Dates Button */}
-        <div className="flex items-end">
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              onStartDateChange(undefined);
-              onEndDateChange(undefined);
-            }}
-            className="w-full"
-            disabled={!startDate && !endDate}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Zerar Datas
-          </Button>
-        </div>
+            {/* Clear Dates Button */}
+            <div className="flex items-end">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  onStartDateChange(undefined);
+                  onEndDateChange(undefined);
+                }}
+                className="w-full"
+                disabled={!startDate && !endDate}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Zerar Datas
+              </Button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Active Filters Display */}
@@ -278,7 +284,7 @@ export const GlobalFilters = ({
               />
             </Badge>
           )}
-          {startDate && (
+          {!hideDateFilters && startDate && (
             <Badge variant="secondary" className="gap-1">
               Data Inicial: {format(startDate, "dd/MM/yyyy")}
               <X 
@@ -287,7 +293,7 @@ export const GlobalFilters = ({
               />
             </Badge>
           )}
-          {endDate && (
+          {!hideDateFilters && endDate && (
             <Badge variant="secondary" className="gap-1">
               Data Final: {format(endDate, "dd/MM/yyyy")}
               <X 

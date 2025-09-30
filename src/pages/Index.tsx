@@ -350,7 +350,7 @@ const Index = () => {
               <h2 className="text-3xl font-bold tracking-tight">Tabela de Amortização</h2>
               
               {/* Filters Section */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Bank Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Filtrar por Banco</Label>
@@ -365,30 +365,6 @@ const Index = () => {
                         </SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                
-                {/* Start Date Filter */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Data Inicial</Label>
-                  <input
-                    type="date"
-                    value={globalStartDate ? format(globalStartDate, "yyyy-MM-dd") : ""}
-                    onChange={(e) => setGlobalStartDate(e.target.value ? new Date(e.target.value) : undefined)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="dd/mm/aaaa"
-                  />
-                </div>
-                
-                {/* End Date Filter */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Data Final</Label>
-                  <input
-                    type="date"
-                    value={globalEndDate ? format(globalEndDate, "yyyy-MM-dd") : ""}
-                    onChange={(e) => setGlobalEndDate(e.target.value ? new Date(e.target.value) : undefined)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="dd/mm/aaaa"
-                  />
                 </div>
 
                 {/* Debt Filter */}
