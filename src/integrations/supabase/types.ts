@@ -14,11 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      archived_companies: {
+        Row: {
+          cnpj: string | null
+          created_at: string
+          created_by: string
+          deleted_at: string
+          deleted_by: string
+          id: string
+          industry: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          created_at: string
+          created_by: string
+          deleted_at?: string
+          deleted_by: string
+          id: string
+          industry?: string | null
+          name: string
+          updated_at: string
+        }
+        Update: {
+          cnpj?: string | null
+          created_at?: string
+          created_by?: string
+          deleted_at?: string
+          deleted_by?: string
+          id?: string
+          industry?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           cnpj: string | null
           created_at: string
           created_by: string
+          deleted_at: string | null
           id: string
           industry: string | null
           name: string
@@ -28,6 +65,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           created_by: string
+          deleted_at?: string | null
           id?: string
           industry?: string | null
           name: string
@@ -37,6 +75,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           created_by?: string
+          deleted_at?: string | null
           id?: string
           industry?: string | null
           name?: string
@@ -280,6 +319,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_company: {
+        Args: { company_id: string }
+        Returns: undefined
+      }
+      cleanup_old_archived_companies: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       debug_company_creation: {
         Args: { _name: string; _user_id: string }
         Returns: Json

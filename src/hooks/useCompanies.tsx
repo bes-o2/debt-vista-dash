@@ -217,6 +217,40 @@ export const useCompanies = () => {
     }
   };
 
+  const deleteCompany = async (id: string) => {
+    if (!user) return false;
+
+    try {
+      // Call the archive_company function to soft delete and backup
+      const { error: archiveError } = await supabase
+        .rpc('archive_company', { company_id: id });
+
+      if (archiveError) {
+        throw archiveError;
+      }
+
+      // Remove from local state
+      const updatedCompanies = companies.filter(company => company.id !== id);
+      setCompanies(updatedCompanies);
+      updateSelectedCompany(updatedCompanies);
+      
+      toast({
+        title: "Empresa excluída",
+        description: "A empresa foi arquivada e será permanentemente excluída em 30 dias",
+      });
+
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao excluir empresa';
+      toast({
+        title: "Erro",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchCompanies();
   }, [user]);
@@ -227,6 +261,7 @@ export const useCompanies = () => {
     error,
     addCompany,
     updateCompany,
+    deleteCompany,
     refetch: fetchCompanies
   };
 };

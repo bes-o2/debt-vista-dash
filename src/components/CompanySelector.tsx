@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Plus, Building2 } from 'lucide-react';
+import { ChevronDown, Plus, Building2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -14,15 +14,27 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useCompanies } from '@/hooks/useCompanies';
+import { useCompanies, type Company } from '@/hooks/useCompanies';
 import { useCompany } from '@/hooks/useCompany';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 export const CompanySelector: React.FC = () => {
-  const { companies, loading, addCompany } = useCompanies();
+  const { companies, loading, addCompany, deleteCompany } = useCompanies();
   const { selectedCompany, setSelectedCompany } = useCompany();
   const { toast } = useToast();
   
@@ -31,6 +43,8 @@ export const CompanySelector: React.FC = () => {
   const [newCompanyCnpj, setNewCompanyCnpj] = useState('');
   const [newCompanyIndustry, setNewCompanyIndustry] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
 
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +73,21 @@ export const CompanySelector: React.FC = () => {
       setIsDialogOpen(false);
     }
     setIsAdding(false);
+  };
+
+  const handleDeleteClick = (company: Company) => {
+    setCompanyToDelete(company);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!companyToDelete) return;
+    
+    const success = await deleteCompany(companyToDelete.id);
+    if (success) {
+      setDeleteDialogOpen(false);
+      setCompanyToDelete(null);
+    }
   };
 
   // Auto-selecionar primeira empresa se não há nenhuma selecionada
@@ -181,8 +210,59 @@ export const CompanySelector: React.FC = () => {
               </form>
             </DialogContent>
           </Dialog>
+
+          {/* Delete Company Option */}
+          {selectedCompany && companies.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleDeleteClick(selectedCompany)}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir empresa atual
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Excluir Empresa
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p className="font-semibold">
+                Você está prestes a excluir a empresa "{companyToDelete?.name}".
+              </p>
+              <p>
+                ⚠️ <strong>ATENÇÃO:</strong> Esta ação é permanente após 30 dias.
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li>Todas as dívidas e dados associados serão excluídos</li>
+                <li>A empresa será arquivada por 30 dias</li>
+                <li>Após 30 dias, os dados serão permanentemente excluídos</li>
+              </ul>
+              <p className="font-semibold mt-4">
+                Tem certeza que deseja continuar?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sim, excluir empresa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
