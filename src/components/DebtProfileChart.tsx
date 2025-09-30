@@ -126,10 +126,14 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
   const renderLabel = (props: any, dataKey: 'shortTerm' | 'longTerm') => {
     const { x, y, width, height, value, payload } = props;
     
-    // Only show label if bar has some height
-    if (height < 25) return null;
+    // Safety checks
+    if (!payload || height < 25) return null;
     
     const amount = dataKey === 'shortTerm' ? payload.shortTermAmount : payload.longTermAmount;
+    
+    // Don't render if amount is not available or is zero
+    if (!amount || amount === 0) return null;
+    
     const formattedAmount = amount >= 1000000 
       ? `${(amount / 1000000).toFixed(1)}M`
       : amount >= 1000 
