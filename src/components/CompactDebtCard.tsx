@@ -133,7 +133,7 @@ export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: C
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 items-center">
+        <div className="grid grid-cols-5 gap-4 items-center">
           {/* Valor Financiado */}
           <div className="flex flex-col">
             <div className="flex items-center gap-1 text-muted-foreground mb-1">
@@ -167,6 +167,17 @@ export const CompactDebtCard = ({ debt, onEdit, onViewTable, onViewAnalysis }: C
               ) : (
                 <span className="text-xs text-muted-foreground">N/A</span>
               )}
+            </span>
+          </div>
+
+          {/* Início */}
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1 text-muted-foreground mb-1">
+              <Calendar className="h-3 w-3" />
+              <span className="text-xs">Início</span>
+            </div>
+            <span className="text-sm font-medium text-foreground">
+              {formatDate(debt.releaseDate)}
             </span>
           </div>
 
