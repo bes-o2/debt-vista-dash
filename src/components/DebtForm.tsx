@@ -362,92 +362,35 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
               <Label className="text-sm font-medium">
                 Data Liberação <span className="text-red-500">*</span>
               </Label>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={format(formData.releaseDate, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const date = new Date(e.target.value);
-                    if (!isNaN(date.getTime())) {
-                      setFormData(prev => ({ ...prev, releaseDate: date }));
-                    }
-                  }}
-                  className="flex-1"
-                  required
-                />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0"
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={formData.releaseDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          setFormData(prev => ({ ...prev, releaseDate: date }));
-                        }
-                      }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+              <Input
+                type="date"
+                value={format(formData.releaseDate, "yyyy-MM-dd")}
+                onChange={(e) => {
+                  const date = new Date(e.target.value);
+                  if (!isNaN(date.getTime())) {
+                    setFormData(prev => ({ ...prev, releaseDate: date }));
+                  }
+                }}
+                required
+              />
             </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 Vencimento <span className="text-red-500">*</span>
               </Label>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={format(formData.dueDate, "yyyy-MM-dd")}
-                  onChange={(e) => {
-                    const date = new Date(e.target.value);
-                    if (!isNaN(date.getTime()) && date >= formData.releaseDate) {
-                      setFormData(prev => ({ ...prev, dueDate: date }));
-                    }
-                  }}
-                  min={format(formData.releaseDate, "yyyy-MM-dd")}
-                  className="flex-1"
-                  required
-                />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0"
-                    >
-                      <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={formData.dueDate}
-                      onSelect={(date) => {
-                        if (date && date >= formData.releaseDate) {
-                          setFormData(prev => ({ ...prev, dueDate: date }));
-                        }
-                      }}
-                      disabled={(date) => date < formData.releaseDate}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+              <Input
+                type="date"
+                value={format(formData.dueDate, "yyyy-MM-dd")}
+                onChange={(e) => {
+                  const date = new Date(e.target.value);
+                  if (!isNaN(date.getTime()) && date >= formData.releaseDate) {
+                    setFormData(prev => ({ ...prev, dueDate: date }));
+                  }
+                }}
+                min={format(formData.releaseDate, "yyyy-MM-dd")}
+                required
+              />
             </div>
           </div>
 
