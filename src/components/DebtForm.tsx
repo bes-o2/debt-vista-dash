@@ -362,35 +362,75 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
               <Label className="text-sm font-medium">
                 Data Liberação <span className="text-red-500">*</span>
               </Label>
-              <Input
-                type="date"
-                value={format(formData.releaseDate, "yyyy-MM-dd")}
-                onChange={(e) => {
-                  const date = new Date(e.target.value);
-                  if (!isNaN(date.getTime())) {
-                    setFormData(prev => ({ ...prev, releaseDate: date }));
-                  }
-                }}
-                required
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.releaseDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.releaseDate ? (
+                      format(formData.releaseDate, "dd/MM/yyyy", { locale: ptBR })
+                    ) : (
+                      <span>Selecione a data</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.releaseDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setFormData(prev => ({ ...prev, releaseDate: date }));
+                      }
+                    }}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">
                 Vencimento <span className="text-red-500">*</span>
               </Label>
-              <Input
-                type="date"
-                value={format(formData.dueDate, "yyyy-MM-dd")}
-                onChange={(e) => {
-                  const date = new Date(e.target.value);
-                  if (!isNaN(date.getTime()) && date >= formData.releaseDate) {
-                    setFormData(prev => ({ ...prev, dueDate: date }));
-                  }
-                }}
-                min={format(formData.releaseDate, "yyyy-MM-dd")}
-                required
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.dueDate ? (
+                      format(formData.dueDate, "dd/MM/yyyy", { locale: ptBR })
+                    ) : (
+                      <span>Selecione a data</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.dueDate}
+                    onSelect={(date) => {
+                      if (date && date >= formData.releaseDate) {
+                        setFormData(prev => ({ ...prev, dueDate: date }));
+                      }
+                    }}
+                    disabled={(date) => date < formData.releaseDate}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
