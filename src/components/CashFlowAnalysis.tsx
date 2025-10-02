@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -374,35 +375,39 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {filteredDebts.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Selecione pelo menos um banco primeiro
-              </p>
-            ) : (
-              filteredDebts.map((debt) => (
-                <div key={debt.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                  <Checkbox
-                    id={debt.id}
-                    checked={selectedDebts.includes(debt.id)}
-                    onCheckedChange={() => handleDebtToggle(debt.id)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <label htmlFor={debt.id} className="text-sm font-medium cursor-pointer block truncate">
-                      {formatCurrency(debt.financedAmount)}
-                      {debt.contractNumber && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          #{debt.contractNumber}
-                        </span>
-                      )}
-                    </label>
-                    <p className="text-xs text-muted-foreground">
-                      {debt.calculationTable} • {debt.interestRate}% {debt.interestType === 'monthly' ? 'a.m.' : 'a.a.'}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
+          <CardContent>
+            <ScrollArea className="h-[400px] pr-4">
+              <div className="space-y-3">
+                {filteredDebts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Selecione pelo menos um banco primeiro
+                  </p>
+                ) : (
+                  filteredDebts.map((debt) => (
+                    <div key={debt.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      <Checkbox
+                        id={debt.id}
+                        checked={selectedDebts.includes(debt.id)}
+                        onCheckedChange={() => handleDebtToggle(debt.id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <label htmlFor={debt.id} className="text-sm font-medium cursor-pointer block truncate">
+                          {formatCurrency(debt.financedAmount)}
+                          {debt.contractNumber && (
+                            <span className="text-xs text-muted-foreground ml-2">
+                              #{debt.contractNumber}
+                            </span>
+                          )}
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          {debt.calculationTable} • {debt.interestRate}% {debt.interestType === 'monthly' ? 'a.m.' : 'a.a.'}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
 
