@@ -139,6 +139,8 @@ const Index = () => {
   };
   const handleViewTable = (debt: LegacyDebt) => {
     setSelectedDebt(debt);
+    setSelectedDebtsForTable([debt.id]);
+    setSelectedBank(debt.bank);
     setActiveTab("table");
   };
   const handleViewAnalysis = (debt: LegacyDebt) => {
