@@ -73,15 +73,13 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
       setSelectedBanks([preSelectedDebt.bank]);
       // Set the specific debt
       setSelectedDebts([preSelectedDebt.id]);
-      // Clear the pre-selection after a small delay to allow state to update
-      setTimeout(() => {
-        calculateCashFlow();
-        if (onClearPreSelection) {
-          onClearPreSelection();
-        }
-      }, 100);
+      // Clear the pre-selection
+      if (onClearPreSelection) {
+        onClearPreSelection();
+      }
     }
   }, [preSelectedDebt, onClearPreSelection]);
+
 
   // Get unique banks
   const availableBanks = useMemo(() => {
@@ -99,6 +97,19 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
     if (selectedDebts.length === 0) return filteredDebts;
     return filteredDebts.filter(debt => selectedDebts.includes(debt.id));
   }, [filteredDebts, selectedDebts]);
+
+  // Auto-calculate when debts are selected and data is ready
+  useEffect(() => {
+    if (finalDebts.length > 0 && !installmentsLoading) {
+      const hasAllData = finalDebts.every(debt => 
+        installmentsData[debt.id] && installmentsData[debt.id].length > 0
+      );
+      if (hasAllData) {
+        calculateCashFlow();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finalDebts.length, installmentsLoading]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
