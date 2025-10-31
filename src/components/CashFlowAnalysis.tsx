@@ -5,8 +5,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -57,8 +58,8 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedDebts, setSelectedDebts] = useState<string[]>([]);
   const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated'>('absolute');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const { toast } = useToast();
 
@@ -179,7 +180,7 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
 
       // Apply date filter only if dates are actually provided
       let filteredData = sortedData;
-      if ((startDate && startDate.trim()) || (endDate && endDate.trim())) {
+      if (startDate || endDate) {
         filteredData = sortedData.filter(point => {
           const [year, month] = point.month.replace(/(\w+)\/(\d+)/, (_, m, y) => {
             const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 
@@ -189,12 +190,15 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
           }).split('-');
           const pointDate = `${year}-${month}`;
           
-          if (startDate && startDate.trim() && endDate && endDate.trim()) {
-            return pointDate >= startDate && pointDate <= endDate;
-          } else if (startDate && startDate.trim()) {
-            return pointDate >= startDate;
-          } else if (endDate && endDate.trim()) {
-            return pointDate <= endDate;
+          const startDateStr = startDate ? startDate.toISOString().slice(0, 7) : null;
+          const endDateStr = endDate ? endDate.toISOString().slice(0, 7) : null;
+          
+          if (startDateStr && endDateStr) {
+            return pointDate >= startDateStr && pointDate <= endDateStr;
+          } else if (startDateStr) {
+            return pointDate >= startDateStr;
+          } else if (endDateStr) {
+            return pointDate <= endDateStr;
           }
           return true;
         });
@@ -436,20 +440,19 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-muted-foreground">Data Inicial</label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    placeholder="Data inicial"
+                    onChange={(date) => setStartDate(date)}
+                    placeholder="dd/mm/aaaa"
                   />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Data Final</label>
-                  <Input
-                    type="date"
+                  <DateInput
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    placeholder="Data final"
+                    onChange={(date) => setEndDate(date)}
+                    minDate={startDate}
+                    placeholder="dd/mm/aaaa"
                   />
                 </div>
               </div>
@@ -613,8 +616,8 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
         debts={debts}
         selectedBanks={selectedBanks}
         selectedDebts={selectedDebts}
-        startDate={startDate}
-        endDate={endDate}
+        startDate={startDate ? startDate.toISOString().slice(0, 10) : ''}
+        endDate={endDate ? endDate.toISOString().slice(0, 10) : ''}
       />
 
       {chartData.length === 0 && !installmentsLoading && (

@@ -2,19 +2,15 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Plus, CalendarIcon, Info } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { Plus, Info } from "lucide-react";
 import { useBanks } from "@/hooks/useBanks";
 import { toast } from "@/hooks/use-toast";
 import { Debt, DebtInput } from "@/hooks/useDebts";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -362,12 +358,10 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
               <Label className="text-sm font-medium">
                 Data Liberação <span className="text-red-500">*</span>
               </Label>
-              <Input
-                type="date"
-                value={format(formData.releaseDate, "yyyy-MM-dd")}
-                onChange={(e) => {
-                  const date = new Date(e.target.value);
-                  if (!isNaN(date.getTime())) {
+              <DateInput
+                value={formData.releaseDate}
+                onChange={(date) => {
+                  if (date) {
                     setFormData(prev => ({ ...prev, releaseDate: date }));
                   }
                 }}
@@ -379,16 +373,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
               <Label className="text-sm font-medium">
                 Vencimento <span className="text-red-500">*</span>
               </Label>
-              <Input
-                type="date"
-                value={format(formData.dueDate, "yyyy-MM-dd")}
-                onChange={(e) => {
-                  const date = new Date(e.target.value);
-                  if (!isNaN(date.getTime()) && date >= formData.releaseDate) {
+              <DateInput
+                value={formData.dueDate}
+                onChange={(date) => {
+                  if (date) {
                     setFormData(prev => ({ ...prev, dueDate: date }));
                   }
                 }}
-                min={format(formData.releaseDate, "yyyy-MM-dd")}
+                minDate={formData.releaseDate}
                 required
               />
             </div>

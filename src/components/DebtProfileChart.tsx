@@ -1,10 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { useState, useMemo } from "react";
-import { PieChart as PieChartIcon, Calendar } from "lucide-react";
+import { PieChart as PieChartIcon } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 
@@ -30,14 +30,14 @@ interface DebtProfileChartProps {
 export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
   // State management for date filtering only
   const [dateType, setDateType] = useState<'today' | 'custom'>('today');
-  const [customDate, setCustomDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [customDate, setCustomDate] = useState<Date>(new Date());
 
   // Get installments data
   const { installmentsData, loading } = useDebtInstallments(debts);
 
   // Calculate short-term vs long-term debt profile by bank based on actual amortization
   const chartData = useMemo(() => {
-    const baseDate = dateType === 'today' ? new Date() : new Date(customDate);
+    const baseDate = dateType === 'today' ? new Date() : customDate;
     const twelveMonthsFromBase = new Date(baseDate);
     twelveMonthsFromBase.setMonth(twelveMonthsFromBase.getMonth() + 12);
     
@@ -185,15 +185,11 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
             {dateType === 'custom' && (
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Data</Label>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="date"
-                    value={customDate}
-                    onChange={(e) => setCustomDate(e.target.value)}
-                    className="w-40"
-                  />
-                </div>
+                <DateInput
+                  value={customDate}
+                  onChange={(date) => date && setCustomDate(date)}
+                  className="w-40"
+                />
               </div>
             )}
           </div>
