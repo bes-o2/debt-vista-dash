@@ -92,9 +92,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   // Update form data when debt prop changes
   useEffect(() => {
     if (debt) {
+      // Calculate release date as first_due_date - 1 month
+      const firstDueDate = new Date(debt.first_due_date);
+      const releaseDate = new Date(firstDueDate);
+      releaseDate.setMonth(releaseDate.getMonth() - 1);
+      
       setFormData({
         financedAmount: debt.financed_amount,
-        releaseDate: new Date(debt.first_due_date),
+        releaseDate: releaseDate,
         dueDate: new Date(debt.last_due_date),
         calculationTable: debt.calculation_table,
         rateType: debt.interest_base === 'Pré-fixado' ? 'pre' : 'post',
@@ -140,11 +145,15 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
           : formData.spreadRate)
         : undefined;
 
+      // Calculate first due date as release date + 1 month
+      const firstDueDate = new Date(formData.releaseDate);
+      firstDueDate.setMonth(firstDueDate.getMonth() + 1);
+
       const calculationResponse = await supabase.functions.invoke('calculate-amortization', {
         body: {
           debtId: debt?.id || 'temp-id',
           financedAmount: formData.financedAmount,
-          firstDueDate: formData.releaseDate.toISOString().split('T')[0],
+          firstDueDate: firstDueDate.toISOString().split('T')[0],
           lastDueDate: formData.dueDate.toISOString().split('T')[0],
           calculationTable: formData.calculationTable,
           interestRate: formData.interestRate,
@@ -171,11 +180,15 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         console.warn('CET calculation failed or not available');
       }
 
+      // Calculate first due date as release date + 1 month for saving
+      const firstDueDateForSave = new Date(formData.releaseDate);
+      firstDueDateForSave.setMonth(firstDueDateForSave.getMonth() + 1);
+
       await Promise.resolve(onSave({
         title: formData.bank,
         description: formData.contractNumber || undefined,
         financed_amount: formData.financedAmount,
-        first_due_date: formData.releaseDate.toISOString().split('T')[0],
+        first_due_date: firstDueDateForSave.toISOString().split('T')[0],
         last_due_date: formData.dueDate.toISOString().split('T')[0],
         calculation_table: formData.calculationTable,
         interest_base: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
