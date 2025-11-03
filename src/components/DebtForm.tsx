@@ -93,14 +93,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   useEffect(() => {
     if (debt) {
       // Calculate release date as first_due_date - 1 month
-      const firstDueDate = new Date(debt.first_due_date);
-      const releaseDate = new Date(firstDueDate);
-      releaseDate.setMonth(releaseDate.getMonth() - 1);
+      // Parse date string carefully to avoid timezone issues
+      const [year, month, day] = debt.first_due_date.split('-').map(Number);
+      const releaseDate = new Date(year, month - 2, day); // month-2 because: 0-indexed month AND subtract 1
       
       setFormData({
         financedAmount: debt.financed_amount,
         releaseDate: releaseDate,
-        dueDate: new Date(debt.last_due_date),
+        dueDate: new Date(debt.last_due_date + 'T00:00:00'),
         calculationTable: debt.calculation_table,
         rateType: debt.interest_base === 'Pré-fixado' ? 'pre' : 'post',
         indexer: debt.interest_base === 'Pré-fixado' ? "" : debt.interest_base || "",
@@ -146,14 +146,20 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         : undefined;
 
       // Calculate first due date as release date + 1 month
-      const firstDueDate = new Date(formData.releaseDate);
-      firstDueDate.setMonth(firstDueDate.getMonth() + 1);
+      // Use local date components to avoid timezone issues
+      const releaseYear = formData.releaseDate.getFullYear();
+      const releaseMonth = formData.releaseDate.getMonth();
+      const releaseDay = formData.releaseDate.getDate();
+      const firstDueDate = new Date(releaseYear, releaseMonth + 1, releaseDay);
+      
+      // Format date as YYYY-MM-DD ensuring local timezone
+      const firstDueDateStr = `${firstDueDate.getFullYear()}-${String(firstDueDate.getMonth() + 1).padStart(2, '0')}-${String(firstDueDate.getDate()).padStart(2, '0')}`;
 
       const calculationResponse = await supabase.functions.invoke('calculate-amortization', {
         body: {
           debtId: debt?.id || 'temp-id',
           financedAmount: formData.financedAmount,
-          firstDueDate: firstDueDate.toISOString().split('T')[0],
+          firstDueDate: firstDueDateStr,
           lastDueDate: formData.dueDate.toISOString().split('T')[0],
           calculationTable: formData.calculationTable,
           interestRate: formData.interestRate,
@@ -181,14 +187,17 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       }
 
       // Calculate first due date as release date + 1 month for saving
-      const firstDueDateForSave = new Date(formData.releaseDate);
-      firstDueDateForSave.setMonth(firstDueDateForSave.getMonth() + 1);
+      const saveYear = formData.releaseDate.getFullYear();
+      const saveMonth = formData.releaseDate.getMonth();
+      const saveDay = formData.releaseDate.getDate();
+      const firstDueDateForSave = new Date(saveYear, saveMonth + 1, saveDay);
+      const saveDateStr = `${firstDueDateForSave.getFullYear()}-${String(firstDueDateForSave.getMonth() + 1).padStart(2, '0')}-${String(firstDueDateForSave.getDate()).padStart(2, '0')}`;
 
       await Promise.resolve(onSave({
         title: formData.bank,
         description: formData.contractNumber || undefined,
         financed_amount: formData.financedAmount,
-        first_due_date: firstDueDateForSave.toISOString().split('T')[0],
+        first_due_date: saveDateStr,
         last_due_date: formData.dueDate.toISOString().split('T')[0],
         calculation_table: formData.calculationTable,
         interest_base: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
