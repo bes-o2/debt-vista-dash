@@ -94,13 +94,18 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     if (debt) {
       // Calculate release date as first_due_date - 1 month
       // Parse date string carefully to avoid timezone issues
-      const [year, month, day] = debt.first_due_date.split('-').map(Number);
-      const releaseDate = new Date(year, month - 2, day); // month-2 because: 0-indexed month AND subtract 1
+      const [fdYear, fdMonth, fdDay] = debt.first_due_date.split('-').map(Number);
+      // fdMonth is 1-indexed (1=Jan, 4=Apr), so subtract 1 to get Date month (0-indexed), then subtract 1 more for previous month
+      const releaseDate = new Date(fdYear, fdMonth - 1 - 1, fdDay);
+      
+      // Parse last_due_date carefully too
+      const [ldYear, ldMonth, ldDay] = debt.last_due_date.split('-').map(Number);
+      const lastDueDate = new Date(ldYear, ldMonth - 1, ldDay);
       
       setFormData({
         financedAmount: debt.financed_amount,
         releaseDate: releaseDate,
-        dueDate: new Date(debt.last_due_date + 'T00:00:00'),
+        dueDate: lastDueDate,
         calculationTable: debt.calculation_table,
         rateType: debt.interest_base === 'Pré-fixado' ? 'pre' : 'post',
         indexer: debt.interest_base === 'Pré-fixado' ? "" : debt.interest_base || "",
