@@ -12,7 +12,7 @@ import {
 interface Debt {
   id: string;
   financedAmount: number;
-  releaseDate: string;
+  first_due_date: string;  // Changed from releaseDate
   dueDate: string;
   calculationTable: 'SAC' | 'PRICE';
   interestRate: number;
@@ -88,7 +88,7 @@ export function useCETManager(debts: Debt[]): CETManagerResult {
 
     debts.forEach(debt => {
       installmentsMap[debt.id] = installmentsData[debt.id] || [];
-      startDatesMap[debt.id] = debt.releaseDate;
+      startDatesMap[debt.id] = debt.first_due_date;  // Changed from releaseDate
     });
 
     // Calculate all CETs in batch

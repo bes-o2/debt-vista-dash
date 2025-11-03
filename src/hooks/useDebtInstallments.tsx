@@ -14,7 +14,7 @@ interface Debt {
   id: string;
   bank: string;
   financedAmount: number;
-  releaseDate: string;
+  first_due_date: string;  // Changed from releaseDate
   dueDate: string;
   calculationTable: 'SAC' | 'PRICE';
   interestRate: number;
@@ -86,7 +86,7 @@ export const useDebtInstallments = (debts: Debt[]) => {
               body: {
                 debtId: debt.id,
                 financedAmount: debt.financedAmount,
-                firstDueDate: debt.releaseDate,
+                firstDueDate: debt.first_due_date,  // Changed from releaseDate
                 lastDueDate: debt.dueDate,
                 calculationTable: debt.calculationTable,
                 interestRate: debt.interestRate,

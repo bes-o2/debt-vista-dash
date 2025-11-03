@@ -2,11 +2,16 @@ import { type LegacyDebt } from "@/hooks/useDebts";
 
 // Convert legacy debt format to the format expected by new components
 export const normalizeDebtForCalculation = (legacyDebt: LegacyDebt) => {
+  // Calculate first_due_date as releaseDate + 1 month
+  const releaseDate = new Date(legacyDebt.releaseDate);
+  const firstDueDate = new Date(releaseDate);
+  firstDueDate.setMonth(firstDueDate.getMonth() + 1);
+  
   return {
     id: legacyDebt.id,
     bank: legacyDebt.bank,
     financedAmount: legacyDebt.financedAmount,
-    releaseDate: legacyDebt.releaseDate,
+    first_due_date: firstDueDate.toISOString().split('T')[0],  // Format as YYYY-MM-DD
     dueDate: legacyDebt.dueDate,
     calculationTable: legacyDebt.calculationTable,
     interestRate: legacyDebt.interestRate,

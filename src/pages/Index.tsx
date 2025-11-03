@@ -31,6 +31,7 @@ import { useCompany } from "@/hooks/useCompany";
 import { useDebts, type LegacyDebt } from "@/hooks/useDebts";
 import { Logo } from "@/components/Logo";
 import { useDataInitialization } from "@/hooks/useDataInitialization";
+import { normalizeDebtForCalculation } from "@/lib/debtUtils";
 
 const Index = () => {
   const {
@@ -252,12 +253,12 @@ const Index = () => {
               <OutstandingBalanceChart debts={debts} />
               
               {/* Debt Profile Chart */}
-              <DebtProfileChart debts={debts} />
+              <DebtProfileChart debts={debts.map(normalizeDebtForCalculation)} />
               
               {/* Net Debt Calculation */}
               <NetDebtCard debts={debts} />
               
-              <DebtChart debts={debts} />
+              <DebtChart debts={debts.map(normalizeDebtForCalculation)} />
             </TabsContent>
 
           <TabsContent value="debts" className="space-y-6">

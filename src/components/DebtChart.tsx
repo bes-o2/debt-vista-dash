@@ -15,7 +15,7 @@ import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 interface Debt {
   id: string;
   financedAmount: number;
-  releaseDate: string;
+  first_due_date: string;  // Changed from releaseDate
   dueDate: string;
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
@@ -133,7 +133,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
             return sum + totalInterest;
           } else {
             // Fallback: aproximação
-            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.first_due_date).getTime()) / (1000 * 60 * 60 * 24 * 30));
             const monthlyRate = debt.interestType === 'annual' 
               ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
               : debt.interestRate / 100;
@@ -166,7 +166,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
           } else {
             // Fallback se não tiver installments calculados ainda
             principalAmount += debt.financedAmount;
-            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.first_due_date).getTime()) / (1000 * 60 * 60 * 24 * 30));
             const monthlyRate = debt.interestType === 'annual' 
               ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
               : debt.interestRate / 100;
@@ -208,7 +208,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
               );
               return sum + totalInterest;
             } else {
-              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.first_due_date).getTime()) / (1000 * 60 * 60 * 24 * 30));
               const monthlyRate = debt.interestType === 'annual' 
                 ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
                 : debt.interestRate / 100;
@@ -235,7 +235,7 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
               }
             } else {
               principalAmount += debt.financedAmount;
-              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.releaseDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
+              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.first_due_date).getTime()) / (1000 * 60 * 60 * 24 * 30));
               const monthlyRate = debt.interestType === 'annual' 
                 ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
                 : debt.interestRate / 100;

@@ -343,10 +343,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      archive_company: {
-        Args: { company_id: string }
-        Returns: undefined
-      }
+      archive_company: { Args: { company_id: string }; Returns: undefined }
       calculate_annual_from_monthly: {
         Args: { monthly_rate: number }
         Returns: number
@@ -355,18 +352,12 @@ export type Database = {
         Args: { annual_rate: number }
         Returns: number
       }
-      cleanup_old_archived_companies: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
+      cleanup_old_archived_companies: { Args: never; Returns: number }
       debug_company_creation: {
         Args: { _name: string; _user_id: string }
         Returns: Json
       }
-      get_auth_debug_info: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      get_auth_debug_info: { Args: never; Returns: Json }
       get_indexer_rate_for_date: {
         Args: { indexer_type: string; target_date: string }
         Returns: number
@@ -375,10 +366,7 @@ export type Database = {
         Args: { indexer_type: string }
         Returns: number
       }
-      is_company_owner: {
-        Args: { _company_id: string }
-        Returns: boolean
-      }
+      is_company_owner: { Args: { _company_id: string }; Returns: boolean }
       user_belongs_to_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean

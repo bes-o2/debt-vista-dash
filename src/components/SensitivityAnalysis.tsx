@@ -18,7 +18,7 @@ export function SensitivityAnalysis() {
       id: debt.id,
       bank: debt.title || '',
       financedAmount: debt.financed_amount,
-      releaseDate: debt.first_due_date,
+      first_due_date: debt.first_due_date,  // Changed from releaseDate
       dueDate: debt.last_due_date,
       calculationTable: debt.calculation_table,
       interestRate: debt.interest_rate,

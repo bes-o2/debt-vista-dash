@@ -11,7 +11,7 @@ import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 interface Debt {
   id: string;
   financedAmount: number;
-  releaseDate: string;
+  first_due_date: string;  // Changed from releaseDate
   dueDate: string;
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
