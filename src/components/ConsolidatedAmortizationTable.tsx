@@ -83,11 +83,15 @@ export function ConsolidatedAmortizationTable({
       let totalFinancedAmount = 0;
 
       for (const debt of debts) {
+        // Derive first due date as releaseDate + 1 month (local-safe)
+        const rel = new Date(debt.releaseDate);
+        const fd = new Date(rel.getFullYear(), rel.getMonth() + 1, rel.getDate());
+        const firstDueDateStr = `${fd.getFullYear()}-${String(fd.getMonth() + 1).padStart(2, '0')}-${String(fd.getDate()).padStart(2, '0')}`;
         const { data, error } = await supabase.functions.invoke('calculate-amortization', {
           body: {
             debtId: debt.id,
             financedAmount: debt.financedAmount,
-            firstDueDate: debt.releaseDate,
+            firstDueDate: firstDueDateStr,
             lastDueDate: debt.dueDate,
             calculationTable: debt.calculationTable,
             interestRate: debt.interestRate,
