@@ -208,7 +208,11 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         interest_base: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
         interest_rate: formData.interestRate,
         interest_type: formData.interestType,
-        iof_rate: formData.iofAmount || undefined,
+        // Store IOF as rate (% of financed amount) to fit numeric(10,6)
+        iof_rate: formData.iofAmount && formData.financedAmount > 0 
+          ? Number(((formData.iofAmount / formData.financedAmount) * 100).toFixed(6)) 
+          : undefined,
+        // TAC and other fees as absolute amount
         additional_fees: formData.tacAmount || undefined,
         spread_rate: annualSpreadRate,
         cet_monthly_rate: cetMonthlyRate,
