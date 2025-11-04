@@ -227,7 +227,7 @@ export function useDebts() {
       iofAmount: debt.iof_rate || 0,
       tacAmount: debt.additional_fees || 0,
       bank: debt.title || 'Banco do Brasil',
-      contractNumber: debt.title,
+      contractNumber: debt.description,
       cet_monthly_rate: debt.cet_monthly_rate,
       cet_annual_rate: debt.cet_annual_rate,
     };
