@@ -139,6 +139,23 @@ serve(async (req) => {
       startDate: firstDueDate
     });
 
+    // Persist CET to database
+    try {
+      const { error: cetUpdateError } = await supabaseClient
+        .from('debts')
+        .update({
+          cet_monthly_rate: cet.monthlyRate,
+          cet_annual_rate: cet.annualRate
+        })
+        .eq('id', debtId);
+        
+      if (cetUpdateError) {
+        console.error('Error updating CET in database:', cetUpdateError);
+      }
+    } catch (cetError) {
+      console.error('Failed to persist CET:', cetError);
+    }
+
     return new Response(JSON.stringify({ 
       success: true, 
       installments,
@@ -296,30 +313,28 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
   
   console.log('Static monthly rate:', staticMonthlyRate * 100 + '%');
 
-  // Initialize balances
+  // Initialize balances - do NOT add IOF/TAC to principal
   let remainingBalance = financedAmount;
   const installments: Installment[] = [];
 
-  // Calculate fixed amortization for SAC or installment for PRICE
+  // Calculate fixed amortization for SAC or installment for PRICE pre-fixed
   let fixedAmortization = 0;
   let fixedInstallment = 0;
   
   if (calculationTable === 'SAC') {
     // SAC: Fixed amortization based on financed amount only
     fixedAmortization = financedAmount / totalMonths;
-  } else {
-    // PRICE: Calculate fixed installment including all fees
-    const totalAmount = financedAmount + iofAmount + tacAmount;
-    remainingBalance = totalAmount;
-    
+  } else if (calculationTable === 'PRICE' && !isPostFixed) {
+    // PRICE pre-fixed: Calculate fixed installment (no IOF/TAC in principal)
     if (staticMonthlyRate > 0) {
-      fixedInstallment = totalAmount * (staticMonthlyRate * Math.pow(1 + staticMonthlyRate, totalMonths)) / 
+      fixedInstallment = financedAmount * (staticMonthlyRate * Math.pow(1 + staticMonthlyRate, totalMonths)) / 
                         (Math.pow(1 + staticMonthlyRate, totalMonths) - 1);
     } else {
       // Zero interest rate case
-      fixedInstallment = totalAmount / totalMonths;
+      fixedInstallment = financedAmount / totalMonths;
     }
   }
+  // For PRICE post-fixed, we calculate installment dynamically per month (no fixedInstallment)
 
   for (let i = 1; i <= totalMonths; i++) {
     // Calculate due date for this installment
@@ -363,9 +378,30 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
         installmentAmount = amortizationAmount + interestAmount;
       }
     } else {
-      // PRICE: Fixed installment
-      installmentAmount = fixedInstallment;
-      amortizationAmount = installmentAmount - interestAmount;
+      // PRICE
+      if (isPostFixed) {
+        // PRICE post-fixed: Calculate installment dynamically for each month
+        const nRest = totalMonths - i + 1;
+        if (effectiveMonthlyRate > 0) {
+          installmentAmount = remainingBalance * (effectiveMonthlyRate * Math.pow(1 + effectiveMonthlyRate, nRest)) / 
+                             (Math.pow(1 + effectiveMonthlyRate, nRest) - 1);
+        } else {
+          installmentAmount = remainingBalance / nRest;
+        }
+        amortizationAmount = installmentAmount - interestAmount;
+        
+        // Ensure non-negative amortization
+        amortizationAmount = Math.max(amortizationAmount, 0);
+        
+        // Log for audit
+        if (i === 1 || i === 12 || i === totalMonths || i % 12 === 0) {
+          console.log(`PRICE post-fixed installment ${i}: rate=${(effectiveMonthlyRate * 100).toFixed(4)}%, installment=${installmentAmount.toFixed(2)}, amortization=${amortizationAmount.toFixed(2)}, balance=${remainingBalance.toFixed(2)}`);
+        }
+      } else {
+        // PRICE pre-fixed: Fixed installment
+        installmentAmount = fixedInstallment;
+        amortizationAmount = installmentAmount - interestAmount;
+      }
       
       // Adjust last installment to ensure zero balance
       if (i === totalMonths || amortizationAmount >= remainingBalance) {
