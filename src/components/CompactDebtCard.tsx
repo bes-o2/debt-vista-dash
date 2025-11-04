@@ -92,9 +92,6 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
   const isOverdue = daysUntilDue < 0;
   const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
 
-  // Generate contract number if not available
-  const contractDisplay = debt.contractNumber || `CT${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
   return (
     <Card className="group hover:shadow-md transition-all duration-200 bg-gradient-card border-border/50 relative">
       <CardContent className="p-4">
@@ -111,7 +108,7 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
               )}
             </div>
             <span className="text-sm text-muted-foreground">
-              #{contractDisplay}
+              #{debt.bank}{debt.contractNumber ? ` - ${debt.contractNumber}` : ''}
             </span>
           </div>
           
@@ -160,7 +157,7 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
                   <AlertDialogHeader>
                     <AlertDialogTitle>Excluir Contrato</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Tem certeza que deseja excluir o contrato <strong>#{contractDisplay}</strong>?
+                      Tem certeza que deseja excluir este contrato do <strong>{debt.bank}</strong>?
                       <br />
                       Esta ação não pode ser desfeita.
                     </AlertDialogDescription>
