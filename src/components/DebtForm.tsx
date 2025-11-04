@@ -59,7 +59,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     iofAmount: 0,
     tacAmount: 0,
     bank: banks.length > 0 ? banks[0].name : 'Banco do Brasil',
-    contractNumber: ""
+    contractNumber: "",
+    indexerStartDate: undefined as Date | undefined
   });
 
   const [financedAmountDisplay, setFinancedAmountDisplay] = useState("R$ 0,00");
@@ -116,7 +117,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         iofAmount: debt.iof_rate || 0,
         tacAmount: debt.additional_fees || 0,
         bank: debt.title || "Banco do Brasil",
-        contractNumber: debt.description || ""
+        contractNumber: debt.description || "",
+        indexerStartDate: debt.indexer_start_date ? new Date(debt.indexer_start_date) : undefined
       });
       setFinancedAmountDisplay(formatCurrency(debt.financed_amount * 100));
       setIofAmountDisplay(debt.iof_rate ? formatCurrency(debt.iof_rate * 100) : "R$ 0,00");
@@ -171,6 +173,9 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
           interestType: formData.interestType,
           indexer: formData.rateType === 'post' ? formData.indexer : 'Pré-fixado',
           spreadRate: annualSpreadRate,
+          indexerStartDate: formData.rateType === 'post' && formData.indexerStartDate
+            ? formData.indexerStartDate.toISOString().split('T')[0]
+            : undefined,
           iofAmount: formData.iofAmount || 0,
           tacAmount: formData.tacAmount || 0
         }
@@ -215,6 +220,9 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         // TAC and other fees as absolute amount
         additional_fees: formData.tacAmount || undefined,
         spread_rate: annualSpreadRate,
+        indexer_start_date: formData.rateType === 'post' && formData.indexerStartDate
+          ? formData.indexerStartDate.toISOString().split('T')[0]
+          : undefined,
         cet_monthly_rate: cetMonthlyRate,
         cet_annual_rate: cetAnnualRate
       }));
@@ -266,7 +274,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       iofAmount: 0,
       tacAmount: 0,
       bank: banks.length > 0 ? banks[0].name : 'Banco do Brasil',
-      contractNumber: ""
+      contractNumber: "",
+      indexerStartDate: undefined
     });
     setFinancedAmountDisplay("R$ 0,00");
     setIofAmountDisplay("R$ 0,00");

@@ -16,6 +16,7 @@ interface EconomicIndex {
   index_type: string;
   reference_date: string;
   rate: number;
+  rate_type: 'daily' | 'monthly' | 'annual';
   source: string;
 }
 
@@ -150,6 +151,9 @@ serve(async (req) => {
         const bcbData: BCBRate[] = await response.json();
         console.log(`Received ${bcbData.length} records for ${rateType}`);
 
+        // Determine rate_type based on index
+        const rateType = (config.name === 'CDI' || config.name === 'SELIC') ? 'daily' : 'monthly';
+        
         // Transform and validate data
         const indices: EconomicIndex[] = bcbData
           .filter((item: BCBRate) => {
@@ -162,12 +166,15 @@ serve(async (req) => {
             const referenceDate = `${year}-${month}-${day}`;
 
             return {
-              index_type: rateType,
+              index_type: config.name,
               reference_date: referenceDate,
               rate: parseFloat(item.valor),
+              rate_type: rateType,
               source: 'BCB'
             };
           });
+        
+        console.log(`Processed ${indices.length} ${config.name} records. Rate type: ${rateType}`);
 
         allIndices.push(...indices);
         

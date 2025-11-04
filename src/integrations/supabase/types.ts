@@ -216,6 +216,7 @@ export type Database = {
           id: string
           index_type: string
           rate: number
+          rate_type: string | null
           reference_date: string
           source: string
           updated_at: string
@@ -225,6 +226,7 @@ export type Database = {
           id?: string
           index_type: string
           rate: number
+          rate_type?: string | null
           reference_date: string
           source?: string
           updated_at?: string
@@ -234,6 +236,7 @@ export type Database = {
           id?: string
           index_type?: string
           rate?: number
+          rate_type?: string | null
           reference_date?: string
           source?: string
           updated_at?: string

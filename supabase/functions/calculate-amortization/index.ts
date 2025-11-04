@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getEffectiveRateForDate } from './getEffectiveRate.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,6 +34,7 @@ interface Installment {
   indexer_rate: number;
   installment_amount: number;
   days_in_period: number;
+  effective_rate?: number; // Taxa efetiva mensal usada nesta parcela (%)
 }
 
 serve(async (req) => {
@@ -75,12 +77,12 @@ serve(async (req) => {
       hasReprogrammingRules: Object.keys(reprogrammingRules).length > 0
     });
 
-    // Get indexer rate if applicable
+    // Get indexer rate if applicable (legacy support - now we fetch per installment)
     const indexerRate = await getIndexerRate(supabaseClient, indexer, indexerStartDate);
     console.log('Indexer rate found:', { indexer, indexerRate, spreadRate });
 
     // Calculate installments using JavaScript
-    const installments = calculateAmortizationJS({
+    const installments = await calculateAmortizationJS({
       financedAmount,
       firstDueDate,
       lastDueDate,
@@ -94,7 +96,7 @@ serve(async (req) => {
       reprogrammingRules,
       iofAmount,
       tacAmount
-    });
+    }, supabaseClient);
 
     // Try to save installments to database
     try {
@@ -232,7 +234,7 @@ async function getIndexerRate(
   }
 }
 
-function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[] {
+async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabaseClient: any): Promise<Installment[]> {
   const {
     financedAmount,
     firstDueDate,
@@ -240,6 +242,7 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     calculationTable,
     interestRate,
     interestType,
+    indexer,
     indexerRate = 0,
     spreadRate = 0,
     indexerStartDate,
@@ -248,14 +251,24 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     tacAmount = 0
   } = params;
 
-  // Calculate final rate: indexer + spread rate + nominal interest rate
-  // For Post Fixed: total rate = indexer + spread
-  // For Pre Fixed: just the nominal interest rate
-  const finalRate = indexerRate + spreadRate + interestRate;
-  console.log('Rate composition:', { 
+  // Determine if this is a post-fixed debt
+  const isPostFixed = indexer && indexer !== 'Pré-fixado' && indexer !== 'PRE_FIXADO' && indexer !== 'prefixado';
+  
+  console.log('Debt type:', {
+    isPostFixed,
+    indexer,
+    spreadRate,
+    interestRate
+  });
+
+  // For pre-fixed, use the static rate
+  // For post-fixed, we'll fetch per-installment rates
+  const staticRate = indexerRate + spreadRate + interestRate;
+  console.log('Static rate composition:', { 
     indexerRate, 
-    nominalRate: interestRate, 
-    finalRate 
+    nominalRate: interestRate,
+    spreadRate,
+    staticRate 
   });
 
   const firstDueDateObj = new Date(firstDueDate);
@@ -271,15 +284,17 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     totalMonths 
   });
 
-  // Convert monthly rate to effective rate based on interestType
-  let monthlyRate: number;
+  // For pre-fixed, calculate static monthly rate
+  let staticMonthlyRate: number;
   if (interestType === 'annual') {
     // Convert annual to effective monthly: (1 + annual)^(1/12) - 1
-    monthlyRate = Math.pow(1 + finalRate / 100, 1/12) - 1;
+    staticMonthlyRate = Math.pow(1 + staticRate / 100, 1/12) - 1;
   } else {
     // Monthly rate
-    monthlyRate = finalRate / 100;
+    staticMonthlyRate = staticRate / 100;
   }
+  
+  console.log('Static monthly rate:', staticMonthlyRate * 100 + '%');
 
   // Initialize balances
   let remainingBalance = financedAmount;
@@ -310,9 +325,29 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
     // Calculate due date for this installment
     const installmentDate = new Date(firstDueDateObj);
     installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+    const dueDateStr = installmentDate.toISOString().split('T')[0];
+
+    // Get effective rate for this installment
+    let effectiveMonthlyRate = staticMonthlyRate;
+    let effectiveRatePercent = staticRate;
+    
+    if (isPostFixed) {
+      // For post-fixed, get rate specific to this installment date
+      effectiveRatePercent = await getEffectiveRateForDate(
+        supabaseClient,
+        indexer,
+        dueDateStr,
+        spreadRate || 0
+      );
+      effectiveMonthlyRate = effectiveRatePercent / 100;
+      
+      if (i === 1 || i === totalMonths || i % 12 === 0) {
+        console.log(`Installment ${i} (${dueDateStr}): effective rate = ${effectiveRatePercent.toFixed(4)}%`);
+      }
+    }
 
     // Calculate interest for this period
-    const interestAmount = remainingBalance * monthlyRate;
+    const interestAmount = remainingBalance * effectiveMonthlyRate;
 
     // Calculate amortization and installment based on table type
     let amortizationAmount: number;
@@ -347,13 +382,14 @@ function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>): Installment[
 
     installments.push({
       installment_number: i,
-      due_date: installmentDate.toISOString().split('T')[0],
+      due_date: dueDateStr,
       principal_balance: Number(remainingBalance.toFixed(2)),
       amortization: Number(amortizationAmount.toFixed(2)),
       interest_amount: Number(interestAmount.toFixed(2)),
       indexer_rate: Number(indexerRate.toFixed(4)),
       installment_amount: Number(installmentAmount.toFixed(2)),
-      days_in_period: 30 // Standard monthly period
+      days_in_period: 30, // Standard monthly period
+      effective_rate: isPostFixed ? Number(effectiveRatePercent.toFixed(4)) : undefined
     });
 
     // Update remaining balance

@@ -7,6 +7,7 @@ import { useEconomicIndices } from "@/hooks/useEconomicIndices";
 import { format, parseISO, differenceInHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { SensitivityAnalysis } from "@/components/SensitivityAnalysis";
+import { IndexProjectionsManager } from "@/components/IndexProjectionsManager";
 
 export function SettingsModal() {
   const { 
@@ -61,10 +62,14 @@ export function SettingsModal() {
 
   return (
     <Tabs defaultValue="rates" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
+      <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="rates" className="flex items-center gap-2">
           <Database className="h-4 w-4" />
           Taxas e Indexadores
+        </TabsTrigger>
+        <TabsTrigger value="projections" className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4" />
+          Projeções
         </TabsTrigger>
         <TabsTrigger value="sensitivity" className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4" />
@@ -160,6 +165,10 @@ export function SettingsModal() {
             </div>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="projections" className="space-y-4">
+        <IndexProjectionsManager />
       </TabsContent>
 
       <TabsContent value="sensitivity" className="space-y-4">
