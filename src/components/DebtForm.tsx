@@ -69,7 +69,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   const hasErrors = (
     !formData.bank?.trim() ||
     formData.financedAmount <= 0 ||
-    formData.interestRate <= 0 ||
+    (formData.rateType === 'pre' && formData.interestRate <= 0) ||
     (formData.rateType === 'post' && !formData.indexer.trim()) ||
     (formData.rateType === 'post' && formData.spreadRate < 0) ||
     formData.dueDate < formData.releaseDate
@@ -561,46 +561,48 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
             </div>
           )}
 
-          {/* Taxa de Juros */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Tipo de Taxa <span className="text-red-500">*</span>
-              </Label>
-              <RadioGroup 
-                value={formData.interestType} 
-                onValueChange={(value: 'monthly' | 'annual') => 
-                  setFormData(prev => ({ ...prev, interestType: value }))
-                }
-                className="flex gap-6"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="monthly" id="monthly" />
-                  <Label htmlFor="monthly">Taxa a.m (%)</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="annual" id="annual" />
-                  <Label htmlFor="annual">Taxa a.a (%)</Label>
-                </div>
-              </RadioGroup>
-            </div>
+          {/* Taxa de Juros - Só para Pré-fixada */}
+          {formData.rateType === 'pre' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Tipo de Taxa <span className="text-red-500">*</span>
+                </Label>
+                <RadioGroup 
+                  value={formData.interestType} 
+                  onValueChange={(value: 'monthly' | 'annual') => 
+                    setFormData(prev => ({ ...prev, interestType: value }))
+                  }
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="monthly" id="monthly" />
+                    <Label htmlFor="monthly">Taxa a.m (%)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="annual" id="annual" />
+                    <Label htmlFor="annual">Taxa a.a (%)</Label>
+                  </div>
+                </RadioGroup>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="interestRate" className="text-sm font-medium">
-                {formData.interestType === 'monthly' ? 'Taxa a.m (%)' : 'Taxa a.a (%)'} <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="interestRate"
-                type="number"
-                step="0.001"
-                min="0"
-                value={formData.interestRate}
-                onChange={(e) => setFormData(prev => ({ ...prev, interestRate: parseFloat(e.target.value) || 0 }))}
-                placeholder="0,000"
-                required
-              />
+              <div className="space-y-2">
+                <Label htmlFor="interestRate" className="text-sm font-medium">
+                  {formData.interestType === 'monthly' ? 'Taxa a.m (%)' : 'Taxa a.a (%)'} <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="interestRate"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={formData.interestRate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, interestRate: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0,000"
+                  required
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Campos Opcionais */}
           <div className="space-y-4">
