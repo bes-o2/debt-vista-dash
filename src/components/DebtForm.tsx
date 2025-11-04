@@ -210,6 +210,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         interest_type: formData.interestType,
         iof_rate: formData.iofAmount || undefined,
         additional_fees: formData.tacAmount || undefined,
+        spread_rate: annualSpreadRate,
         cet_monthly_rate: cetMonthlyRate,
         cet_annual_rate: cetAnnualRate
       }));

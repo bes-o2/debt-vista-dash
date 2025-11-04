@@ -38,6 +38,7 @@ export interface DebtInput {
   interest_base: string;
   interest_rate: number;
   interest_type: 'monthly' | 'annual';
+  spread_rate?: number;
   iof_rate?: number;
   additional_fees?: number;
   cet_monthly_rate?: number;
