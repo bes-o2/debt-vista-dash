@@ -312,9 +312,9 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
     const totalAmount = financedAmount + iofAmount + tacAmount;
     remainingBalance = totalAmount;
     
-    if (monthlyRate > 0) {
-      fixedInstallment = totalAmount * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / 
-                        (Math.pow(1 + monthlyRate, totalMonths) - 1);
+    if (staticMonthlyRate > 0) {
+      fixedInstallment = totalAmount * (staticMonthlyRate * Math.pow(1 + staticMonthlyRate, totalMonths)) / 
+                        (Math.pow(1 + staticMonthlyRate, totalMonths) - 1);
     } else {
       // Zero interest rate case
       fixedInstallment = totalAmount / totalMonths;
