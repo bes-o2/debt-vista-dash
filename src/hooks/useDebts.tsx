@@ -62,6 +62,7 @@ export interface LegacyDebt {
   contractNumber?: string;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  spread_rate?: number;
 }
 
 export function useDebts() {
@@ -231,6 +232,7 @@ export function useDebts() {
       contractNumber: debt.description,
       cet_monthly_rate: debt.cet_monthly_rate,
       cet_annual_rate: debt.cet_annual_rate,
+      spread_rate: debt.spread_rate,
     };
   };
 

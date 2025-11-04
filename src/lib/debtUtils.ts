@@ -17,6 +17,7 @@ export const normalizeDebtForCalculation = (legacyDebt: LegacyDebt) => {
     interestRate: legacyDebt.interestRate,
     interestType: legacyDebt.interestType,
     indexer: legacyDebt.indexer,
+    spread_rate: legacyDebt.spread_rate || 0,
     iofAmount: legacyDebt.iofAmount,
     tacAmount: legacyDebt.tacAmount,
     contractNumber: legacyDebt.contractNumber

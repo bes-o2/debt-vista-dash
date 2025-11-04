@@ -30,6 +30,7 @@ interface Debt {
   contractNumber?: string;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  spread_rate?: number;
 }
 
 interface CompactDebtCardProps {
@@ -70,6 +71,15 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
 
   // Convert interest rate to show both monthly and annual
   const getMonthlyRate = () => {
+    // For post-fixed debts, show indexer + spread
+    if (debt.indexer && debt.indexer !== 'Pré-fixado') {
+      // Show just the spread for now (will be combined with real-time indexer later)
+      const spreadRate = debt.spread_rate || 0;
+      // Convert annual spread to monthly for display
+      return (Math.pow(1 + spreadRate / 100, 1 / 12) - 1) * 100;
+    }
+    
+    // For pre-fixed debts
     if (debt.interestType === 'monthly') {
       return debt.interestRate;
     }
@@ -78,6 +88,12 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
   };
 
   const getAnnualRate = () => {
+    // For post-fixed debts, show indexer + spread
+    if (debt.indexer && debt.indexer !== 'Pré-fixado') {
+      return debt.spread_rate || 0;
+    }
+    
+    // For pre-fixed debts
     if (debt.interestType === 'annual') {
       return debt.interestRate;
     }
@@ -193,7 +209,14 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
           <div className="flex flex-col">
             <span className="text-xs text-muted-foreground mb-1">Taxa</span>
             <span className="text-sm font-medium text-foreground">
-              {monthlyRate.toFixed(2)}% a.m | {annualRate.toFixed(2)}% a.a
+              {debt.indexer && debt.indexer !== 'Pré-fixado' ? (
+                <span className="flex flex-col">
+                  <span className="text-xs">{debt.indexer} + {annualRate.toFixed(2)}% a.a</span>
+                  <span className="text-xs text-muted-foreground">Spread: {monthlyRate.toFixed(4)}% a.m</span>
+                </span>
+              ) : (
+                <span>{monthlyRate.toFixed(2)}% a.m | {annualRate.toFixed(2)}% a.a</span>
+              )}
             </span>
           </div>
 
