@@ -20,6 +20,7 @@ interface Debt {
   interestRate: number;
   interestType: 'monthly' | 'annual';
   indexer?: string;
+  spread_rate?: number;
   iofAmount?: number;
   tacAmount?: number;
   contractNumber?: string;
@@ -47,34 +48,20 @@ export const useDebtInstallments = (debts: Debt[]) => {
     setError(null);
     
     try {
-      // First, try to get existing installments from the database
-      const { data: existingInstallments, error: fetchError } = await supabase
+      // FORCE RECALCULATION: Delete all existing installments to force fresh calculation with correct spread_rate
+      console.log('Deleting existing installments to force recalculation...');
+      const { error: deleteError } = await supabase
         .from('debt_installments')
-        .select('*')
-        .in('debt_id', debtIds)
-        .order('debt_id', { ascending: true })
-        .order('installment_number', { ascending: true });
+        .delete()
+        .in('debt_id', debtIds);
 
-      if (fetchError) throw fetchError;
+      if (deleteError) {
+        console.error('Error deleting installments:', deleteError);
+      }
 
-      // Group installments by debt_id
+      // Now all debts need calculation
       const groupedInstallments: { [debtId: string]: Installment[] } = {};
-      existingInstallments?.forEach(installment => {
-        if (!groupedInstallments[installment.debt_id]) {
-          groupedInstallments[installment.debt_id] = [];
-        }
-        groupedInstallments[installment.debt_id].push({
-          installment_number: installment.installment_number,
-          due_date: installment.due_date,
-          principal_amount: Number(installment.principal_amount),
-          interest_amount: Number(installment.interest_amount),
-          total_amount: Number(installment.total_amount),
-          remaining_balance: Number(installment.remaining_balance)
-        });
-      });
-
-      // For debts without calculated installments, calculate them
-      const debtsNeedingCalculation = debtIds.filter(id => !groupedInstallments[id]).map(id => debtMap[id]);
+      const debtsNeedingCalculation = debtIds.map(id => debtMap[id]);
       
       if (debtsNeedingCalculation.length > 0) {
         console.log(`Calculating installments for ${debtsNeedingCalculation.length} debts`);
@@ -92,6 +79,7 @@ export const useDebtInstallments = (debts: Debt[]) => {
                 interestRate: debt.interestRate,
                 interestType: debt.interestType,
                 indexer: debt.indexer,
+                spreadRate: debt.spread_rate || 0,
                 iofAmount: debt.iofAmount || 0,
                 tacAmount: debt.tacAmount || 0
               }
