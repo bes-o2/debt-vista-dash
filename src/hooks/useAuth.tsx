@@ -19,8 +19,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Modo desenvolvimento: login automático
+  const isDevelopment = import.meta.env.DEV;
+
   useEffect(() => {
-    // Set up auth state listener
+    // Se estiver em modo desenvolvimento, cria um usuário mock
+    if (isDevelopment) {
+      const mockUser: User = {
+        id: 'dev-user-123',
+        aud: 'authenticated',
+        role: 'authenticated',
+        email: 'dev@test.com',
+        email_confirmed_at: new Date().toISOString(),
+        phone: '',
+        confirmed_at: new Date().toISOString(),
+        last_sign_in_at: new Date().toISOString(),
+        app_metadata: { provider: 'email', providers: ['email'] },
+        user_metadata: { full_name: 'Usuário Desenvolvimento' },
+        identities: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as User;
+
+      const mockSession: Session = {
+        provider_token: null,
+        provider_refresh_token: null,
+        access_token: 'dev-token',
+        refresh_token: 'dev-refresh',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'bearer',
+        user: mockUser,
+      };
+
+      setUser(mockUser);
+      setSession(mockSession);
+      setLoading(false);
+      return;
+    }
+
+    // Set up auth state listener (produção)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
