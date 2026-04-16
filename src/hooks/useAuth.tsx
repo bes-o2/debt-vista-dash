@@ -19,46 +19,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Modo desenvolvimento: login automático
-  const isDevelopment = import.meta.env.DEV;
-
   useEffect(() => {
-    // Se estiver em modo desenvolvimento, cria um usuário mock
-    if (isDevelopment) {
-      const mockUser: User = {
-        id: 'dev-user-123',
-        aud: 'authenticated',
-        role: 'authenticated',
-        email: 'dev@test.com',
-        email_confirmed_at: new Date().toISOString(),
-        phone: '',
-        confirmed_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        app_metadata: { provider: 'email', providers: ['email'] },
-        user_metadata: { full_name: 'Usuário Desenvolvimento' },
-        identities: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as User;
-
-      const mockSession: Session = {
-        provider_token: null,
-        provider_refresh_token: null,
-        access_token: 'dev-token',
-        refresh_token: 'dev-refresh',
-        expires_in: 3600,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-        token_type: 'bearer',
-        user: mockUser,
-      };
-
-      setUser(mockUser);
-      setSession(mockSession);
-      setLoading(false);
-      return;
-    }
-
-    // Set up auth state listener (produção)
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -78,19 +40,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName?: string) => {
-    // Validação de domínio corporativo - desativada em desenvolvimento local
-    // if (!email.endsWith('@o2inc.com.br')) {
-    //   const error = { message: 'Apenas emails corporativos @o2inc.com.br são permitidos para cadastro.' };
-    //   toast({
-    //     title: "Erro no cadastro",
-    //     description: error.message,
-    //     variant: "destructive"
-    //   });
-    //   return { error };
-    // }
+    // Validação de domínio corporativo
+    if (!email.endsWith('@o2inc.com.br')) {
+      const error = { message: 'Apenas emails corporativos @o2inc.com.br são permitidos para cadastro.' };
+      toast({
+        title: "Erro no cadastro",
+        description: error.message,
+        variant: "destructive"
+      });
+      return { error };
+    }
 
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
