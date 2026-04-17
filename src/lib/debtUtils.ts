@@ -11,13 +11,14 @@ export const normalizeDebtForCalculation = (legacyDebt: LegacyDebt) => {
     id: legacyDebt.id,
     bank: legacyDebt.bank,
     financedAmount: legacyDebt.financedAmount,
-    first_due_date: firstDueDate.toISOString().split('T')[0],  // Format as YYYY-MM-DD
+    firstDueDate: legacyDebt.firstDueDate || firstDueDate.toISOString().split('T')[0],
+    releaseDate: legacyDebt.releaseDate,
     dueDate: legacyDebt.dueDate,
     calculationTable: legacyDebt.calculationTable,
     interestRate: legacyDebt.interestRate,
     interestType: legacyDebt.interestType,
     indexer: legacyDebt.indexer,
-    spread_rate: legacyDebt.spread_rate || 0,
+    spreadRate: legacyDebt.spread_rate || 0,
     iofAmount: legacyDebt.iofAmount,
     tacAmount: legacyDebt.tacAmount,
     contractNumber: legacyDebt.contractNumber

@@ -57,12 +57,14 @@ const Index = () => {
   } = useDataInitialization();
   
   // Initialize economic data and projections once
-  useEffect(() => {
-    if (!isInitialized) {
-      initializeHistoricalData();
-      initializeProjections();
-    }
-  }, [isInitialized, initializeHistoricalData, initializeProjections]);
+  // DISABLED: Caused infinite 401 errors due to dependency array re-creating functions
+  // Re-enable when: (1) useDataInitialization returns stable function refs, or (2) move to manual trigger
+  // useEffect(() => {
+  //   if (!isInitialized) {
+  //     initializeHistoricalData();
+  //     initializeProjections();
+  //   }
+  // }, [isInitialized, initializeHistoricalData, initializeProjections]);
 
   // Convert database debts to legacy format for backward compatibility - memoized to prevent infinite recalculation
   const debts: LegacyDebt[] = useMemo(() => dbDebts.map(convertToLegacyFormat), [dbDebts, convertToLegacyFormat]);

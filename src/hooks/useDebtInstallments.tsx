@@ -10,17 +10,20 @@ interface Installment {
   remaining_balance: number;
 }
 
+// Local interface matching LegacyDebt format from convertToLegacyFormat
+// See docs/FIELD_MAPPING.md for field correspondence
 interface Debt {
   id: string;
   bank: string;
   financedAmount: number;
-  first_due_date: string;  // Changed from releaseDate
-  dueDate: string;
+  releaseDate: string;  // Date of debt origination (calculated: first_due_date - 1 month)
+  firstDueDate: string;  // Date of first installment (from database)
+  dueDate: string;  // Last due date from database
   calculationTable: 'SAC' | 'PRICE';
   interestRate: number;
   interestType: 'monthly' | 'annual';
   indexer?: string;
-  spread_rate?: number;
+  spreadRate?: number;  // Standardized to camelCase
   iofAmount?: number;
   tacAmount?: number;
   contractNumber?: string;
@@ -43,6 +46,10 @@ export const useDebtInstallments = (debts: Debt[]) => {
 
   const fetchInstallments = async () => {
     if (debtIds.length === 0) return;
+
+    // Verify session is available directly from client (not React state) to avoid race conditions
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession?.access_token) return;
     
     setLoading(true);
     setError(null);
@@ -73,13 +80,13 @@ export const useDebtInstallments = (debts: Debt[]) => {
               body: {
                 debtId: debt.id,
                 financedAmount: debt.financedAmount,
-                firstDueDate: debt.first_due_date,  // Changed from releaseDate
-                lastDueDate: debt.dueDate,
+                firstDueDate: debt.firstDueDate,  // First installment date
+                lastDueDate: debt.dueDate,  // Last installment date
                 calculationTable: debt.calculationTable,
                 interestRate: debt.interestRate,
                 interestType: debt.interestType,
                 indexer: debt.indexer,
-                spreadRate: debt.spread_rate || 0,
+                spreadRate: debt.spreadRate || 0,
                 iofAmount: debt.iofAmount || 0,
                 tacAmount: debt.tacAmount || 0
               }

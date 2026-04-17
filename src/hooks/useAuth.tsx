@@ -29,10 +29,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Get initial session — validate it belongs to the current project
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error || !session) {
+        // Clear any stale session from a previous project
+        supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+      } else {
+        setSession(session);
+        setUser(session.user);
+      }
       setLoading(false);
     });
 

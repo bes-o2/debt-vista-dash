@@ -9,8 +9,9 @@ export interface Debt {
   id: string;
   company_id: string;
   created_by: string;
-  title?: string;
-  description?: string;
+  title?: string;  // Contract name or title
+  description?: string;  // Contract number or additional details
+  bank?: string;  // Bank/Institution name (soon: will replace title usage as bank identifier)
   financed_amount: number;
   first_due_date: string;
   last_due_date: string;
@@ -47,11 +48,13 @@ export interface DebtInput {
 }
 
 // Legacy interface for backward compatibility
+// See docs/FIELD_MAPPING.md for field correspondence with Database (Debt) interface
 export interface LegacyDebt {
   id: string;
   financedAmount: number;
-  releaseDate: string;
-  dueDate: string;
+  releaseDate: string;  // Date of debt origination (calculated: first_due_date - 1 month)
+  firstDueDate: string;  // Date of first installment (from database: first_due_date)
+  dueDate: string;  // Date of last installment (from database: last_due_date)
   calculationTable: 'SAC' | 'PRICE';
   indexer?: string;
   interestRate: number;
@@ -213,14 +216,15 @@ export function useDebts() {
   // Convert new debt format to legacy format for backward compatibility
   const convertToLegacyFormat = (debt: Debt): LegacyDebt => {
     // Calculate the contract start date by going back from first due date
-    const firstDueDate = new Date(debt.first_due_date);
-    const contractStartDate = new Date(firstDueDate);
+    const firstDueDateObj = new Date(debt.first_due_date);
+    const contractStartDate = new Date(firstDueDateObj);
     contractStartDate.setMonth(contractStartDate.getMonth() - 1); // Contract starts 1 month before first due
-    
+
     return {
       id: debt.id,
       financedAmount: debt.financed_amount,
       releaseDate: contractStartDate.toISOString(),
+      firstDueDate: debt.first_due_date,  // First installment date from database
       dueDate: debt.last_due_date,
       calculationTable: debt.calculation_table,
       indexer: debt.interest_base,
@@ -228,8 +232,8 @@ export function useDebts() {
       interestType: debt.interest_type,
       iofAmount: debt.iof_rate || 0,
       tacAmount: debt.additional_fees || 0,
-      bank: debt.title || 'Banco do Brasil',
-      contractNumber: debt.description,
+      bank: debt.bank || 'Banco do Brasil',  // Mapped from bank column (soon to be added)
+      contractNumber: debt.description || debt.title,  // Prefer description, fallback to title
       cet_monthly_rate: debt.cet_monthly_rate,
       cet_annual_rate: debt.cet_annual_rate,
       spread_rate: debt.spread_rate,
