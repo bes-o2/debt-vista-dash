@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, LogOut, Building, Filter, X, CalendarIcon } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -23,7 +23,6 @@ import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
 import { ConsolidatedAmortizationTable } from "@/components/ConsolidatedAmortizationTable";
-import { CfoDashboardV2 } from "@/components/CfoDashboardV2";
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
@@ -292,14 +291,10 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <PieChart className="h-4 w-4" />
               Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="cfo-v2" className="flex items-center gap-2">
-              <Building className="h-4 w-4" />
-              CFO V2
             </TabsTrigger>
             <TabsTrigger value="debts" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -332,14 +327,6 @@ const Index = () => {
 
               <DebtChart debts={normalizedDebts} />
             </TabsContent>
-
-          <TabsContent value="cfo-v2" className="space-y-6">
-            <CfoDashboardV2
-              debts={debts}
-              companyId={selectedCompany?.id}
-              companyName={selectedCompany?.name}
-            />
-          </TabsContent>
 
           <TabsContent value="debts" className="space-y-6">
             <div className="flex items-center justify-between">
