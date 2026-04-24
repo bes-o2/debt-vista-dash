@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Calendar, Building2, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,12 +23,10 @@ interface Debt {
 }
 
 interface Installment {
+  debt_id: string;
   installment_number: number;
   due_date: string;
-  principal_balance: number;
-  amortization: number;
-  interest_amount: number;
-  installment_amount: number;
+  total_amount: number;
 }
 
 interface PaymentScheduleTableProps {
@@ -100,30 +97,26 @@ export function PaymentScheduleTable({
       const allContracts: ContractPayments[] = [];
       const allMonths = new Set<string>();
 
-      // Calculate installments for each selected debt
+      const { data, error } = await supabase
+        .from('debt_installments')
+        .select('debt_id, installment_number, due_date, total_amount')
+        .in('debt_id', filteredDebts.map((debt) => debt.id))
+        .order('due_date', { ascending: true });
+
+      if (error) throw error;
+
+      const installmentsByDebt = (data ?? []).reduce<Record<string, Installment[]>>((acc, installment) => {
+        if (!acc[installment.debt_id]) {
+          acc[installment.debt_id] = [];
+        }
+
+        acc[installment.debt_id].push(installment);
+        return acc;
+      }, {});
+
+      // Read saved installments for each selected debt. Recalculation is explicit elsewhere.
       for (const debt of filteredDebts) {
-        // Derive first due date as releaseDate + 1 month (local-safe)
-        const rel = new Date(debt.releaseDate);
-        const fd = new Date(rel.getFullYear(), rel.getMonth() + 1, rel.getDate());
-        const firstDueDateStr = `${fd.getFullYear()}-${String(fd.getMonth() + 1).padStart(2, '0')}-${String(fd.getDate()).padStart(2, '0')}`;
-        const { data, error } = await supabase.functions.invoke('calculate-amortization', {
-          body: {
-            debtId: debt.id,
-            financedAmount: debt.financedAmount,
-            firstDueDate: firstDueDateStr,
-            lastDueDate: debt.dueDate,
-            calculationTable: debt.calculationTable,
-            interestRate: debt.interestRate,
-            interestType: debt.interestType,
-            indexer: debt.indexer,
-            iofAmount: debt.iofAmount || 0,
-            tacAmount: debt.tacAmount || 0
-          }
-        });
-
-        if (error) throw error;
-
-        const installments: Installment[] = data.installments;
+        const installments = installmentsByDebt[debt.id] ?? [];
         const contractDisplay = debt.contractNumber || `CT${debt.id.substring(0, 8).toUpperCase()}`;
         const monthlyPayments: { [month: string]: number } = {};
 
@@ -136,7 +129,7 @@ export function PaymentScheduleTable({
           if (startDate && startDate.trim() && dueDate < startDate) return;
           if (endDate && endDate.trim() && dueDate > endDate) return;
 
-          monthlyPayments[month] = installment.installment_amount;
+          monthlyPayments[month] = (monthlyPayments[month] || 0) + installment.total_amount;
           allMonths.add(month);
         });
 
@@ -373,89 +366,87 @@ export function PaymentScheduleTable({
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="w-full">
-              <div className="min-w-fit">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky left-0 bg-background border-r min-w-[200px]">
-                        Contrato / Banco
+          <CardContent className="p-0">
+            <div className="overflow-x-auto w-full">
+              <Table className="min-w-max">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 top-0 z-30 bg-card border-r min-w-[200px] whitespace-nowrap">
+                      Contrato / Banco
+                    </TableHead>
+                    {months.map(month => (
+                      <TableHead key={month} className="sticky top-0 z-20 bg-card text-center min-w-[100px] whitespace-nowrap">
+                        {formatMonthHeader(month)}
                       </TableHead>
-                      {months.map(month => (
-                        <TableHead key={month} className="text-center min-w-[100px]">
-                          {formatMonthHeader(month)}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Object.entries(contractsByBank)
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([bank, contracts]) => {
-                        const bankTotals = getBankMonthlyTotals(contracts);
-                        
-                        return (
-                          <React.Fragment key={bank}>
-                            {/* Bank header row */}
-                            <TableRow className="bg-muted/30">
-                              <TableCell className="sticky left-0 bg-muted/30 border-r font-semibold">
-                                <div className="flex items-center gap-2">
-                                  <Building2 className="h-4 w-4" />
-                                  {bank}
-                                  <Badge variant="secondary" className="text-xs">
-                                    {contracts.length}
-                                  </Badge>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(contractsByBank)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([bank, contracts]) => {
+                      const bankTotals = getBankMonthlyTotals(contracts);
+
+                      return (
+                        <React.Fragment key={bank}>
+                          {/* Bank header row */}
+                          <TableRow className="bg-muted/30">
+                            <TableCell className="sticky left-0 z-10 bg-muted border-r font-semibold whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4" />
+                                {bank}
+                                <Badge variant="secondary" className="text-xs">
+                                  {contracts.length}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            {months.map(month => (
+                              <TableCell key={month} className="text-center font-semibold whitespace-nowrap">
+                                {formatCurrency(bankTotals[month] || 0)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+
+                          {/* Contract rows for this bank */}
+                          {contracts.map(contract => (
+                            <TableRow key={contract.debtId}>
+                              <TableCell className="sticky left-0 z-10 bg-card border-r pl-8 whitespace-nowrap">
+                                <div className="text-sm">
+                                  <div className="font-medium">{contract.contractNumber}</div>
+                                  <div className="text-muted-foreground text-xs">
+                                    {formatCurrency(
+                                      filteredDebts.find(d => d.id === contract.debtId)?.financedAmount || 0
+                                    )}
+                                  </div>
                                 </div>
                               </TableCell>
                               {months.map(month => (
-                                <TableCell key={month} className="text-center font-semibold">
-                                  {formatCurrency(bankTotals[month] || 0)}
+                                <TableCell key={month} className="text-center text-sm whitespace-nowrap">
+                                  {formatCurrency(contract.monthlyPayments[month] || 0)}
                                 </TableCell>
                               ))}
                             </TableRow>
-                            
-                            {/* Contract rows for this bank */}
-                            {contracts.map(contract => (
-                              <TableRow key={contract.debtId}>
-                                <TableCell className="sticky left-0 bg-background border-r pl-8">
-                                  <div className="text-sm">
-                                    <div className="font-medium">{contract.contractNumber}</div>
-                                    <div className="text-muted-foreground text-xs">
-                                      {formatCurrency(
-                                        filteredDebts.find(d => d.id === contract.debtId)?.financedAmount || 0
-                                      )}
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                {months.map(month => (
-                                  <TableCell key={month} className="text-center text-sm">
-                                    {formatCurrency(contract.monthlyPayments[month] || 0)}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            ))}
-                          </React.Fragment>
-                        );
-                      })}
-                    
-                    {/* Grand total row */}
-                    {Object.keys(contractsByBank).length > 1 && (
-                      <TableRow className="bg-primary/10 font-bold">
-                        <TableCell className="sticky left-0 bg-primary/10 border-r">
-                          TOTAL GERAL
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
+
+                  {/* Grand total row */}
+                  {Object.keys(contractsByBank).length > 1 && (
+                    <TableRow className="bg-primary/10 font-bold">
+                      <TableCell className="sticky left-0 z-10 bg-primary/10 border-r whitespace-nowrap">
+                        TOTAL GERAL
+                      </TableCell>
+                      {months.map(month => (
+                        <TableCell key={month} className="text-center whitespace-nowrap">
+                          {formatCurrency(grandTotals[month] || 0)}
                         </TableCell>
-                        {months.map(month => (
-                          <TableCell key={month} className="text-center">
-                            {formatCurrency(grandTotals[month] || 0)}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </ScrollArea>
+                      ))}
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       )}

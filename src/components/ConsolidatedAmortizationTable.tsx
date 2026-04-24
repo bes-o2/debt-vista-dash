@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,6 +11,7 @@ interface Debt {
   bank: string;
   financedAmount: number;
   releaseDate: string;
+  firstDueDate?: string;
   dueDate: string;
   calculationTable: 'SAC' | 'PRICE';
   interestRate: number;
@@ -30,11 +31,39 @@ interface ConsolidatedInstallment {
   installment_amount: number;
 }
 
+interface StoredInstallmentRow {
+  debt_id: string;
+  installment_number: number;
+  due_date: string;
+  principal_amount: number;
+  interest_amount: number;
+  total_amount: number;
+  remaining_balance: number;
+}
+
 interface ConsolidatedAmortizationTableProps {
   debts: Debt[];
   startDate?: Date;
   endDate?: Date;
 }
+
+const toStoredShape = (row: StoredInstallmentRow): ConsolidatedInstallment => ({
+  installment_number: row.installment_number,
+  due_date: row.due_date,
+  principal_balance: row.remaining_balance,
+  amortization: row.principal_amount,
+  interest_amount: row.interest_amount,
+  installment_amount: row.total_amount,
+});
+
+const toEdgeShape = (installment: any): ConsolidatedInstallment => ({
+  installment_number: installment.installment_number,
+  due_date: installment.due_date,
+  principal_balance: Math.max(0, installment.principal_balance ?? installment.remaining_balance ?? 0),
+  amortization: installment.amortization,
+  interest_amount: installment.interest_amount,
+  installment_amount: installment.installment_amount,
+});
 
 export function ConsolidatedAmortizationTable({
   debts,
@@ -50,6 +79,9 @@ export function ConsolidatedAmortizationTable({
     totalCurrentInstallment: 0
   });
   const { toast } = useToast();
+  const debtIdsKey = useMemo(() => debts.map((debt) => debt.id).sort().join(','), [debts]);
+  const startDateKey = startDate?.toISOString() ?? '';
+  const endDateKey = endDate?.toISOString() ?? '';
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -64,29 +96,120 @@ export function ConsolidatedAmortizationTable({
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const calculateConsolidatedAmortization = async (silent: boolean = false) => {
+  const consolidateInstallments = (
+    allInstallments: { [key: string]: ConsolidatedInstallment[] },
+    silent: boolean,
+  ) => {
+    const consolidatedMap: { [key: string]: ConsolidatedInstallment } = {};
+    const totalFinancedAmount = debts.reduce((sum, debt) => sum + debt.financedAmount, 0);
+
+    Object.values(allInstallments).forEach((installments) => {
+      installments.forEach((installment) => {
+        const dueDate = installment.due_date;
+        const installmentDate = new Date(dueDate);
+
+        if (startDate && installmentDate < startDate) return;
+        if (endDate && installmentDate > endDate) return;
+
+        if (!consolidatedMap[dueDate]) {
+          consolidatedMap[dueDate] = {
+            installment_number: installment.installment_number,
+            due_date: dueDate,
+            principal_balance: 0,
+            amortization: 0,
+            interest_amount: 0,
+            installment_amount: 0
+          };
+        }
+
+        consolidatedMap[dueDate].principal_balance += installment.principal_balance;
+        consolidatedMap[dueDate].amortization += installment.amortization;
+        consolidatedMap[dueDate].interest_amount += installment.interest_amount;
+        consolidatedMap[dueDate].installment_amount += installment.installment_amount;
+      });
+    });
+
+    const consolidatedArray = Object.values(consolidatedMap)
+      .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+    const totalPaid = consolidatedArray.reduce((sum, inst) => sum + inst.installment_amount, 0);
+    const totalCurrentInstallment = consolidatedArray.length > 0 ? consolidatedArray[0].installment_amount : 0;
+
+    setConsolidatedInstallments(consolidatedArray);
+    setSummary({
+      totalContracts: debts.length,
+      totalFinancedAmount,
+      totalPaid,
+      totalCurrentInstallment
+    });
+
+    if (!silent) {
+      toast({
+        title: "Tabela consolidada carregada",
+        description: `${consolidatedArray.length} períodos consolidados de ${debts.length} contratos.`
+      });
+    }
+  };
+
+  const loadSavedInstallments = async (silent: boolean = false) => {
     if (debts.length === 0) {
-      if (!silent) {
-        toast({
-          title: "Selecione pelo menos uma dívida",
-          description: "É necessário selecionar dívidas para gerar a tabela consolidada.",
-          variant: "destructive"
-        });
-      }
+      setConsolidatedInstallments([]);
       return;
     }
 
     setLoading(true);
     try {
-      // Calculate amortization for each debt
-      const allInstallments: { [key: string]: any[] } = {};
-      let totalFinancedAmount = 0;
+      const { data, error } = await supabase
+        .from('debt_installments')
+        .select('debt_id, installment_number, due_date, principal_amount, interest_amount, total_amount, remaining_balance')
+        .in('debt_id', debts.map((debt) => debt.id))
+        .order('due_date', { ascending: true });
+
+      if (error) throw error;
+
+      const allInstallments = (data ?? []).reduce<{ [key: string]: ConsolidatedInstallment[] }>((acc, row) => {
+        if (!acc[row.debt_id]) {
+          acc[row.debt_id] = [];
+        }
+
+        acc[row.debt_id].push(toStoredShape(row));
+        return acc;
+      }, {});
+
+      consolidateInstallments(allInstallments, silent);
+    } catch (error) {
+      console.error('Error loading consolidated amortization:', error);
+      toast({
+        title: "Erro ao carregar tabela consolidada",
+        description: "Não foi possível carregar as parcelas salvas.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const recalculateConsolidatedAmortization = async () => {
+    if (debts.length === 0) {
+      toast({
+        title: "Selecione pelo menos uma dívida",
+        description: "É necessário selecionar dívidas para recalcular a tabela consolidada.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const allInstallments: { [key: string]: ConsolidatedInstallment[] } = {};
 
       for (const debt of debts) {
-        // Derive first due date as releaseDate + 1 month (local-safe)
-        const rel = new Date(debt.releaseDate);
-        const fd = new Date(rel.getFullYear(), rel.getMonth() + 1, rel.getDate());
-        const firstDueDateStr = `${fd.getFullYear()}-${String(fd.getMonth() + 1).padStart(2, '0')}-${String(fd.getDate()).padStart(2, '0')}`;
+        const firstDueDateStr = debt.firstDueDate
+          ? debt.firstDueDate
+          : (() => {
+              const rel = new Date(debt.releaseDate);
+              const fd = new Date(rel.getFullYear(), rel.getMonth() + 1, 1);
+              return `${fd.getFullYear()}-${String(fd.getMonth() + 1).padStart(2, '0')}-${String(fd.getDate()).padStart(2, '0')}`;
+            })();
         const { data, error } = await supabase.functions.invoke('calculate-amortization', {
           body: {
             debtId: debt.id,
@@ -103,70 +226,15 @@ export function ConsolidatedAmortizationTable({
         });
 
         if (error) throw error;
-        
-        allInstallments[debt.id] = data.installments;
-        totalFinancedAmount += debt.financedAmount;
+        allInstallments[debt.id] = (data?.installments ?? []).map(toEdgeShape);
       }
 
-      // Consolidate installments by due date
-      const consolidatedMap: { [key: string]: ConsolidatedInstallment } = {};
-
-      Object.entries(allInstallments).forEach(([debtId, installments]) => {
-        installments.forEach((installment) => {
-          const dueDate = installment.due_date;
-          
-          // Apply date filters if provided
-          const installmentDate = new Date(dueDate);
-          if (startDate && installmentDate < startDate) return;
-          if (endDate && installmentDate > endDate) return;
-
-          if (!consolidatedMap[dueDate]) {
-            consolidatedMap[dueDate] = {
-              installment_number: installment.installment_number,
-              due_date: dueDate,
-              principal_balance: 0,
-              amortization: 0,
-              interest_amount: 0,
-              installment_amount: 0
-            };
-          }
-
-          // Sum values from all contracts for this period
-          consolidatedMap[dueDate].principal_balance += installment.principal_balance;
-          consolidatedMap[dueDate].amortization += installment.amortization;
-          consolidatedMap[dueDate].interest_amount += installment.interest_amount;
-          consolidatedMap[dueDate].installment_amount += installment.installment_amount;
-        });
-      });
-
-      // Convert to array and sort by date
-      const consolidatedArray = Object.values(consolidatedMap)
-        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
-
-      setConsolidatedInstallments(consolidatedArray);
-
-      // Calculate summary
-      const totalPaid = consolidatedArray.reduce((sum, inst) => sum + inst.installment_amount, 0);
-      const totalCurrentInstallment = consolidatedArray.length > 0 ? consolidatedArray[0].installment_amount : 0;
-
-      setSummary({
-        totalContracts: debts.length,
-        totalFinancedAmount,
-        totalPaid,
-        totalCurrentInstallment
-      });
-
-      if (!silent) {
-        toast({
-          title: "Tabela consolidada gerada com sucesso!",
-          description: `${consolidatedArray.length} períodos consolidados de ${debts.length} contratos.`
-        });
-      }
+      consolidateInstallments(allInstallments, false);
     } catch (error) {
       console.error('Error calculating consolidated amortization:', error);
       toast({
-        title: "Erro ao calcular tabela consolidada",
-        description: "Não foi possível calcular a tabela de amortização consolidada.",
+        title: "Erro ao recalcular tabela consolidada",
+        description: "Não foi possível recalcular a tabela de amortização consolidada.",
         variant: "destructive"
       });
     } finally {
@@ -200,13 +268,12 @@ export function ConsolidatedAmortizationTable({
   };
 
   useEffect(() => {
-    const idsKey = debts.map(d => d.id).sort().join(',');
     if (debts.length > 0) {
-      calculateConsolidatedAmortization(true); // Silent recalculation
+      loadSavedInstallments(true);
     } else {
       setConsolidatedInstallments([]);
     }
-  }, [debts.map(d => d.id).sort().join(','), startDate, endDate]);
+  }, [debtIdsKey, startDateKey, endDateKey]);
 
   if (debts.length === 0) {
     return (
@@ -222,7 +289,6 @@ export function ConsolidatedAmortizationTable({
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-card border-border/50">
           <CardHeader className="pb-3">
@@ -269,7 +335,6 @@ export function ConsolidatedAmortizationTable({
         </Card>
       </div>
 
-      {/* Table Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -281,7 +346,7 @@ export function ConsolidatedAmortizationTable({
               </span>
             </CardTitle>
             <div className="flex gap-2">
-              <Button onClick={() => calculateConsolidatedAmortization()} disabled={loading} variant="outline" size="sm">
+              <Button onClick={() => recalculateConsolidatedAmortization()} disabled={loading} variant="outline" size="sm">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
                 Recalcular
               </Button>
@@ -298,7 +363,7 @@ export function ConsolidatedAmortizationTable({
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">Calculando tabela consolidada...</span>
+              <span className="ml-2">Carregando tabela consolidada...</span>
             </div>
           ) : consolidatedInstallments.length > 0 ? (
             <div className="overflow-auto max-h-96 border rounded-md">
@@ -314,7 +379,7 @@ export function ConsolidatedAmortizationTable({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {consolidatedInstallments.map((period, index) => (
+                  {consolidatedInstallments.map((period) => (
                     <TableRow key={period.due_date}>
                       <TableCell className="font-medium">
                         {period.installment_number}
@@ -341,10 +406,10 @@ export function ConsolidatedAmortizationTable({
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              <p className="mb-4">Clique em "Calcular" para gerar a tabela consolidada.</p>
-              <Button onClick={() => calculateConsolidatedAmortization()} disabled={loading}>
+              <p className="mb-4">Nenhuma parcela salva encontrada. Use "Recalcular" para gerar a tabela explicitamente.</p>
+              <Button onClick={() => recalculateConsolidatedAmortization()} disabled={loading}>
                 <Calculator className="h-4 w-4 mr-2" />
-                Calcular Tabela Consolidada
+                Recalcular Tabela Consolidada
               </Button>
             </div>
           )}

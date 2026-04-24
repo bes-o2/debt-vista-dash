@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+import { useCompany } from '@/hooks/useCompany';
+import {
+  calculateGuaranteeMetrics,
+  type GuaranteeMetricDebt,
+  type GuaranteeMetricRow,
+  type GuaranteeMetrics,
+} from '@/lib/guaranteeMetrics';
 
 export type GuaranteeType =
   | 'imovel'
@@ -23,6 +30,7 @@ export const GUARANTEE_TYPE_LABELS: Record<GuaranteeType, string> = {
 
 type DebtGuaranteeRow = Tables<'debt_guarantees'>;
 type DebtGuaranteeInsertRow = TablesInsert<'debt_guarantees'>;
+type DebtRowForMetrics = Pick<Tables<'debts'>, 'id' | 'bank' | 'financed_amount'>;
 
 export interface DebtGuarantee {
   id: string;
@@ -41,31 +49,122 @@ export interface DebtGuaranteeInput {
   description?: string;
 }
 
+export interface UseDebtGuaranteesOptions {
+  debtId?: string;
+  companyId?: string;
+  debtIds?: string[];
+  debts?: GuaranteeMetricDebt[];
+  includeMetrics?: boolean;
+}
+
 const mapGuaranteeRow = (row: DebtGuaranteeRow): DebtGuarantee => ({
   ...row,
   type: row.type as GuaranteeType,
   description: row.description ?? undefined,
 });
 
-export function useDebtGuarantees(debtId?: string) {
+const normalizeDebtIds = (debtIds?: string[]) =>
+  [...new Set((debtIds ?? []).filter((debtId): debtId is string => Boolean(debtId)))].sort();
+
+const mapDebtRowForMetrics = (row: DebtRowForMetrics): GuaranteeMetricDebt => ({
+  id: row.id,
+  bank: row.bank,
+  financedAmount: row.financed_amount,
+});
+
+const normalizeGuaranteeRowForMetrics = (row: DebtGuarantee): GuaranteeMetricRow => ({
+  debt_id: row.debt_id,
+  value: row.value,
+});
+
+export function useDebtGuarantees(debtOrOptions?: string | UseDebtGuaranteesOptions) {
   const queryClient = useQueryClient();
+  const { selectedCompany } = useCompany();
 
-  const { data: guarantees = [], isLoading } = useQuery({
-    queryKey: ['debt_guarantees', debtId],
+  const isSingleDebtScope = typeof debtOrOptions === 'string';
+  const options = typeof debtOrOptions === 'object' && debtOrOptions !== null ? debtOrOptions : undefined;
+  const debtId = isSingleDebtScope ? debtOrOptions : options?.debtId;
+  const companyId = options ? options.companyId ?? selectedCompany?.id : undefined;
+  const debtIds = normalizeDebtIds(options?.debtIds);
+  const debtIdsKey = debtIds.join('|');
+  const shouldLoadMetrics = !!options && (options.includeMetrics !== false || !!options.debts);
+  const scopeKey = debtId
+    ? `debt:${debtId}`
+    : `company:${companyId ?? 'none'}:debtIds:${debtIdsKey || 'none'}`;
+
+  const guaranteesQuery = useQuery({
+    queryKey: ['debt_guarantees', scopeKey],
     queryFn: async () => {
-      if (!debtId) return [];
+      if (!debtId && !companyId && debtIds.length === 0) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('debt_guarantees')
         .select('*')
-        .eq('debt_id', debtId)
         .order('created_at', { ascending: true });
 
+      if (debtId) {
+        query = query.eq('debt_id', debtId);
+      } else {
+        if (companyId) {
+          query = query.eq('company_id', companyId);
+        }
+
+        if (debtIds.length > 0) {
+          query = query.in('debt_id', debtIds);
+        }
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
-      return data.map(mapGuaranteeRow);
+      return (data ?? []).map(mapGuaranteeRow);
     },
-    enabled: !!debtId,
+    enabled: !!debtId || !!companyId || debtIds.length > 0,
   });
+
+  const metricsDebtQuery = useQuery({
+    queryKey: ['debt_guarantees_metrics_debts', scopeKey],
+    queryFn: async () => {
+      if (!shouldLoadMetrics || options?.debts) return [];
+      if (!debtId && !companyId && debtIds.length === 0) return [];
+
+      let query = supabase
+        .from('debts')
+        .select('id, bank, financed_amount')
+        .order('created_at', { ascending: false });
+
+      if (debtId) {
+        query = query.eq('id', debtId);
+      } else {
+        if (companyId) {
+          query = query.eq('company_id', companyId);
+        }
+
+        if (debtIds.length > 0) {
+          query = query.in('id', debtIds);
+        }
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return (data ?? []).map(mapDebtRowForMetrics);
+    },
+    enabled: shouldLoadMetrics && !options?.debts && (!!debtId || !!companyId || debtIds.length > 0),
+  });
+
+  const metricDebts = options?.debts ?? metricsDebtQuery.data ?? [];
+  const guaranteeMetrics = shouldLoadMetrics
+    ? calculateGuaranteeMetrics({
+        debts: metricDebts,
+        guarantees: (guaranteesQuery.data ?? []).map(normalizeGuaranteeRowForMetrics),
+      })
+    : undefined;
+
+  const guarantees = guaranteesQuery.data ?? [];
+  const isLoading = guaranteesQuery.isLoading;
+  const isLoadingMetrics = metricsDebtQuery.isLoading;
+  const error = guaranteesQuery.error ?? metricsDebtQuery.error;
 
   const saveGuaranteesMutation = useMutation({
     mutationFn: async ({
@@ -80,7 +179,8 @@ export function useDebtGuarantees(debtId?: string) {
       const { error: deleteError } = await supabase
         .from('debt_guarantees')
         .delete()
-        .eq('debt_id', targetDebtId);
+        .eq('debt_id', targetDebtId)
+        .eq('company_id', companyId);
 
       if (deleteError) throw deleteError;
 
@@ -100,14 +200,17 @@ export function useDebtGuarantees(debtId?: string) {
 
       if (insertError) throw insertError;
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['debt_guarantees', variables.debtId] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debt_guarantees'] });
     },
   });
 
   return {
     guarantees,
     isLoading,
+    isLoadingMetrics,
+    error,
+    guaranteeMetrics,
     saveGuarantees: saveGuaranteesMutation.mutateAsync,
     isSaving: saveGuaranteesMutation.isPending,
   };

@@ -99,21 +99,9 @@ export const GlobalFilters = ({
   const hasActiveFilters = selectedBank !== "all" || selectedCalculationType !== "all" || selectedDebts.length > 0 || (!hideDateFilters && (startDate || endDate));
 
   return (
-    <div className="rounded-3xl bg-card p-6 border border-border mb-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-3 rounded-2xl bg-primary/10">
-          <Filter className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-foreground">Filtros Globais</h3>
-          <p className="text-muted-foreground">
-            Configure os filtros para personalizar sua análise
-          </p>
-        </div>
-      </div>
-
+    <div className="rounded-xl bg-card px-5 py-4 border border-border">
       {/* Filters Grid */}
-      <div className={cn("grid grid-cols-1 gap-4 mb-6", hideDateFilters ? "md:grid-cols-3" : "md:grid-cols-6")}>
+      <div className={cn("grid grid-cols-1 gap-3", hideDateFilters ? "md:grid-cols-3" : "md:grid-cols-6")}>
         {/* Bank Filter */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-foreground">Banco</label>
@@ -252,8 +240,8 @@ export const GlobalFilters = ({
 
       {/* Active Filters Display */}
       {hasActiveFilters && (
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm text-muted-foreground">Filtros ativos:</span>
+        <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-border/40">
+          <span className="text-xs font-medium text-muted-foreground">Ativos:</span>
           {selectedBank !== "all" && (
             <Badge variant="secondary" className="gap-1">
               Banco: {selectedBank}
@@ -302,10 +290,6 @@ export const GlobalFilters = ({
         </div>
       )}
 
-      {/* Filter Summary */}
-      <div className="text-sm text-muted-foreground">
-        Exibindo {selectedDebts.length > 0 ? selectedDebts.length : debts.length} de {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
-      </div>
     </div>
   );
 };

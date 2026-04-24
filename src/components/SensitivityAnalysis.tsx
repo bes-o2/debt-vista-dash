@@ -4,27 +4,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { useDebts } from "@/hooks/useDebts";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
-import { useCompany } from "@/hooks/useCompany";
 import { Badge } from "@/components/ui/badge";
+import { normalizeDebtForCalculation } from "@/lib/debtUtils";
 
 export function SensitivityAnalysis() {
-  const { selectedCompany } = useCompany();
   const { debts } = useDebts();
   
   // Map debts to the format expected by useDebtInstallments
   const mappedDebts = useMemo(() => {
     if (!debts) return [];
-    return debts.map(debt => ({
-      id: debt.id,
-      bank: debt.title || '',
-      financedAmount: debt.financed_amount,
-      first_due_date: debt.first_due_date,  // Changed from releaseDate
-      dueDate: debt.last_due_date,
-      calculationTable: debt.calculation_table,
-      interestRate: debt.interest_rate,
-      interestType: debt.interest_type,
-      indexer: debt.interest_base,
-    }));
+    return debts.map(normalizeDebtForCalculation);
   }, [debts]);
   
   const { installmentsData } = useDebtInstallments(mappedDebts);

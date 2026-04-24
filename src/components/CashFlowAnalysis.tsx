@@ -2,13 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { DateInput } from '@/components/ui/date-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Label } from '@/components/ui/label';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
+import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Bar } from 'recharts';
 import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentScheduleTable } from '@/components/PaymentScheduleTable';
@@ -47,6 +44,7 @@ interface CashFlowAnalysisProps {
 
 interface ChartDataPoint {
   month: string;
+  isoMonth: string;
   totalBalance: number;
   totalAmortization: number;
   totalInterest: number;
@@ -60,11 +58,28 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
   const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated'>('absolute');
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [rawChartData, setRawChartData] = useState<ChartDataPoint[]>([]);
+
+  const chartData = useMemo(() => {
+    if (rawChartData.length === 0) return [];
+    if (analysisType === 'accumulated') {
+      let accAmortization = 0, accInterest = 0, accPayment = 0;
+      return rawChartData.map(point => {
+        accAmortization += point.totalAmortization;
+        accInterest += point.totalInterest;
+        accPayment += point.totalPayment;
+        return { ...point, totalAmortization: accAmortization, totalInterest: accInterest, totalPayment: accPayment };
+      });
+    }
+    return rawChartData;
+  }, [rawChartData, analysisType]);
   const { toast } = useToast();
 
   // Use the shared hook to get real installment data
-  const normalizedDebts = debts.map(normalizeDebtForCalculation);
+  const normalizedDebts = useMemo(
+    () => debts.map(normalizeDebtForCalculation),
+    [debts]
+  );
   const { installmentsData, loading: installmentsLoading } = useDebtInstallments(normalizedDebts);
 
   // Effect to handle pre-selected debt
@@ -157,6 +172,7 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
           if (!monthlyData[monthKey]) {
             monthlyData[monthKey] = {
               month: monthLabel,
+              isoMonth: monthKey,
               totalBalance: 0,
               totalAmortization: 0,
               totalInterest: 0,
@@ -181,50 +197,22 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
       // Apply date filter only if dates are actually provided
       let filteredData = sortedData;
       if (startDate || endDate) {
+        const startDateStr = startDate ? startDate.toISOString().slice(0, 7) : null;
+        const endDateStr = endDate ? endDate.toISOString().slice(0, 7) : null;
+
         filteredData = sortedData.filter(point => {
-          const [year, month] = point.month.replace(/(\w+)\/(\d+)/, (_, m, y) => {
-            const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 
-                              'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-            const monthIndex = monthNames.indexOf(m.toLowerCase()) + 1;
-            return `20${y}-${monthIndex.toString().padStart(2, '0')}`;
-          }).split('-');
-          const pointDate = `${year}-${month}`;
-          
-          const startDateStr = startDate ? startDate.toISOString().slice(0, 7) : null;
-          const endDateStr = endDate ? endDate.toISOString().slice(0, 7) : null;
-          
           if (startDateStr && endDateStr) {
-            return pointDate >= startDateStr && pointDate <= endDateStr;
+            return point.isoMonth >= startDateStr && point.isoMonth <= endDateStr;
           } else if (startDateStr) {
-            return pointDate >= startDateStr;
+            return point.isoMonth >= startDateStr;
           } else if (endDateStr) {
-            return pointDate <= endDateStr;
+            return point.isoMonth <= endDateStr;
           }
           return true;
         });
       }
 
-      // Apply analysis type (accumulated vs absolute)
-      if (analysisType === 'accumulated') {
-        let accAmortization = 0;
-        let accInterest = 0;
-        let accPayment = 0;
-        
-        filteredData = filteredData.map(point => {
-          accAmortization += point.totalAmortization;
-          accInterest += point.totalInterest;
-          accPayment += point.totalPayment;
-          
-          return {
-            ...point,
-            totalAmortization: accAmortization,
-            totalInterest: accInterest,
-            totalPayment: accPayment
-          };
-        });
-      }
-
-      setChartData(filteredData);
+      setRawChartData(filteredData);
       
       toast({
         title: "Análise gerada com sucesso!",
@@ -295,17 +283,17 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
 
   return (
     <div className="space-y-6">
-      {/* Header without gradients */}
-      <div className="rounded-3xl bg-card p-8 border border-border">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 rounded-2xl bg-primary/10">
-            <BarChart3 className="h-8 w-8 text-primary" />
+      {/* Header */}
+      <div className="rounded-2xl bg-card p-4 border border-border">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="p-2 rounded-xl bg-primary/10">
+            <BarChart3 className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-3xl font-bold text-foreground">
+            <h2 className="text-xl font-bold text-foreground">
               Fluxo de Pagamento
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Cronograma de pagamentos e projeção financeira das dívidas selecionadas
             </p>
           </div>
@@ -315,91 +303,70 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
       {/* Filters Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Bank Selection */}
-        <Card className="border-2 border-muted/50 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="pb-4">
+        <Card className="border border-muted/50 shadow-sm">
+          <CardHeader className="pb-2 pt-3 px-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Filter className="h-5 w-5 text-primary" />
+              <CardTitle className="flex items-center gap-1.5 text-sm">
+                <Filter className="h-3.5 w-3.5 text-primary" />
                 Seleção de Bancos
               </CardTitle>
               <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={selectAllBanks}
-                  className="text-xs hover:bg-primary/10"
-                >
+                <Button variant="ghost" size="sm" onClick={selectAllBanks} className="text-xs h-6 px-2 hover:bg-primary/10">
                   Todos
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearBankSelection}
-                  className="text-xs hover:bg-destructive/10"
-                >
+                <Button variant="ghost" size="sm" onClick={clearBankSelection} className="text-xs h-6 px-2 hover:bg-destructive/10">
                   Limpar
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-1.5 px-4 pb-3">
             {availableBanks.map((bank) => (
-              <div key={bank} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+              <div key={bank} className="flex items-center space-x-2 py-1 px-1.5 rounded hover:bg-muted/50 transition-colors">
                 <Checkbox
                   id={bank}
                   checked={selectedBanks.includes(bank)}
                   onCheckedChange={() => handleBankToggle(bank)}
                 />
-                <label htmlFor={bank} className="text-sm font-medium cursor-pointer flex-1">
+                <label htmlFor={bank} className="text-sm cursor-pointer flex-1">
                   {bank}
                 </label>
-                <Badge variant="outline" className="text-xs">
+                <span className="text-xs text-muted-foreground">
                   {debts.filter(d => d.bank === bank).length}
-                </Badge>
+                </span>
               </div>
             ))}
           </CardContent>
         </Card>
 
         {/* Debt Selection */}
-        <Card className="border-2 border-muted/50 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="pb-4">
+        <Card className="border border-muted/50 shadow-sm">
+          <CardHeader className="pb-2 pt-3 px-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <DollarSign className="h-5 w-5 text-primary" />
+              <CardTitle className="flex items-center gap-1.5 text-sm">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
                 Dívidas Específicas
               </CardTitle>
               <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={selectAllDebts}
-                  className="text-xs hover:bg-primary/10"
-                  disabled={filteredDebts.length === 0}
-                >
+                <Button variant="ghost" size="sm" onClick={selectAllDebts} className="text-xs h-6 px-2 hover:bg-primary/10" disabled={filteredDebts.length === 0}>
                   Todas
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearDebtSelection}
-                  className="text-xs hover:bg-destructive/10"
-                >
+                <Button variant="ghost" size="sm" onClick={clearDebtSelection} className="text-xs h-6 px-2 hover:bg-destructive/10">
                   Limpar
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px] pr-4">
-              <div className="space-y-3">
+          <CardContent className="px-4 pb-3">
+            <ScrollArea className="h-[150px] pr-2">
+              <div className="space-y-1.5">
                 {filteredDebts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="text-xs text-muted-foreground text-center py-4">
                     Selecione pelo menos um banco primeiro
                   </p>
                 ) : (
                   filteredDebts.map((debt) => (
-                    <div key={debt.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div key={debt.id} className="flex items-center space-x-2 py-1 px-1.5 rounded hover:bg-muted/50 transition-colors">
                       <Checkbox
                         id={debt.id}
                         checked={selectedDebts.includes(debt.id)}
@@ -409,7 +376,7 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
                         <label htmlFor={debt.id} className="text-sm font-medium cursor-pointer block truncate">
                           {formatCurrency(debt.financedAmount)}
                           {debt.contractNumber && (
-                            <span className="text-xs text-muted-foreground ml-2">
+                            <span className="text-xs text-muted-foreground ml-1">
                               #{debt.contractNumber}
                             </span>
                           )}
@@ -427,16 +394,16 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
         </Card>
 
         {/* Analysis Configuration */}
-        <Card className="border-2 border-muted/50 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Calendar className="h-5 w-5 text-primary" />
+        <Card className="border border-muted/50 shadow-sm">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="flex items-center gap-1.5 text-sm">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
               Configurações
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Período de Análise</label>
+          <CardContent className="space-y-3 px-4 pb-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Período de Análise</label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-muted-foreground">Data Inicial</label>
@@ -458,22 +425,9 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Tipo de Análise</label>
-              <Select value={analysisType} onValueChange={(value: any) => setAnalysisType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="absolute">Valores Mensais</SelectItem>
-                  <SelectItem value="accumulated">Valores Acumulados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <Separator />
 
-            <Button 
+            <Button
               onClick={calculateCashFlow}
               className="w-full"
               disabled={installmentsLoading || finalDebts.length === 0}
@@ -541,9 +495,24 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
               Evolução do Fluxo de Caixa
-              <Badge variant="outline" className="ml-auto">
-                {analysisType === 'accumulated' ? 'Acumulado' : 'Mensal'}
-              </Badge>
+              <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 ml-auto">
+                <Button
+                  variant={analysisType === 'absolute' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-6 text-xs px-3 rounded-sm"
+                  onClick={() => setAnalysisType('absolute')}
+                >
+                  Mensal
+                </Button>
+                <Button
+                  variant={analysisType === 'accumulated' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-6 text-xs px-3 rounded-sm"
+                  onClick={() => setAnalysisType('accumulated')}
+                >
+                  Acumulado
+                </Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>

@@ -23,6 +23,7 @@ import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
 import { ConsolidatedAmortizationTable } from "@/components/ConsolidatedAmortizationTable";
+import { CfoDashboardV2 } from "@/components/CfoDashboardV2";
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
@@ -33,6 +34,7 @@ import { useDebtGuarantees, type DebtGuaranteeInput } from "@/hooks/useDebtGuara
 import { Logo } from "@/components/Logo";
 import { useDataInitialization } from "@/hooks/useDataInitialization";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const {
@@ -124,6 +126,32 @@ const Index = () => {
       }))
       .filter((guarantee) => guarantee.value > 0);
   };
+  const syncDebtInstallments = async (debtId: string, debtData: DebtInput) => {
+    const iofAmount = debtData.iof_rate != null
+      ? (debtData.financed_amount * debtData.iof_rate) / 100
+      : 0;
+
+    const { error } = await supabase.functions.invoke("calculate-amortization", {
+      body: {
+        debtId,
+        financedAmount: debtData.financed_amount,
+        firstDueDate: debtData.first_due_date,
+        lastDueDate: debtData.last_due_date,
+        calculationTable: debtData.calculation_table,
+        interestRate: debtData.interest_rate,
+        interestType: debtData.interest_type,
+        indexer: debtData.interest_base,
+        spreadRate: debtData.spread_rate,
+        indexerStartDate: debtData.indexer_start_date,
+        iofAmount,
+        tacAmount: debtData.additional_fees || 0,
+      }
+    });
+
+    if (error) {
+      throw error;
+    }
+  };
   const handleSaveDebt = async (debtData: DebtInput, guarantees: DebtGuaranteeInput[]) => {
     if (!selectedCompany) {
       toast({
@@ -144,6 +172,7 @@ const Index = () => {
       : await createDebtAsync(debtData);
 
     try {
+      await syncDebtInstallments(savedDebt.id, debtData);
       await saveGuarantees({
         debtId: savedDebt.id,
         companyId: savedDebt.company_id,
@@ -156,8 +185,8 @@ const Index = () => {
 
       throw new Error(
         error instanceof Error
-          ? `A divida foi salva, mas houve um erro ao salvar as garantias: ${error.message}`
-          : "A divida foi salva, mas houve um erro ao salvar as garantias."
+          ? `A divida foi salva, mas houve um erro ao sincronizar parcelas ou garantias: ${error.message}`
+          : "A divida foi salva, mas houve um erro ao sincronizar parcelas ou garantias."
       );
     }
 
@@ -261,10 +290,14 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <PieChart className="h-4 w-4" />
               Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="cfo-v2" className="flex items-center gap-2">
+              <Building className="h-4 w-4" />
+              CFO V2
             </TabsTrigger>
             <TabsTrigger value="debts" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
@@ -297,6 +330,14 @@ const Index = () => {
               
               <DebtChart debts={debts.map(normalizeDebtForCalculation)} />
             </TabsContent>
+
+          <TabsContent value="cfo-v2" className="space-y-6">
+            <CfoDashboardV2
+              debts={debts}
+              companyId={selectedCompany?.id}
+              companyName={selectedCompany?.name}
+            />
+          </TabsContent>
 
           <TabsContent value="debts" className="space-y-6">
             <div className="flex items-center justify-between">

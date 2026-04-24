@@ -1,3 +1,4 @@
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, DollarSign, Clock, Building, AlertTriangle, BarChart3, Filter, Wallet, HelpCircle } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -22,6 +23,8 @@ interface Debt {
   tacAmount?: number;
   bank: string;
   contractNumber?: string;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
 }
 
 interface DashboardStatsProps {
@@ -29,6 +32,22 @@ interface DashboardStatsProps {
   selectedBank?: string;
   selectedCalculationType?: string;
   selectedDebts?: string[];
+}
+
+function OutstandingBalanceTooltipWrapper({ children }: { children: React.ReactNode }) {
+  const { TooltipWrapper } = useTooltip(TooltipKeys.CURRENT_OUTSTANDING_BALANCE);
+  return <TooltipWrapper>{children}</TooltipWrapper>;
+}
+
+function StatCardTooltipIcon({ tooltipKey, icon: Icon }: { tooltipKey: TooltipKeys; icon: React.ElementType }) {
+  const { TooltipWrapper } = useTooltip(tooltipKey);
+  return (
+    <TooltipWrapper>
+      <div className="ml-auto">
+        <Icon className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-help" />
+      </div>
+    </TooltipWrapper>
+  );
 }
 
 export const DashboardStats = ({ 
@@ -84,29 +103,65 @@ export const DashboardStats = ({
     return sum + pmt;
   }, 0);
 
-  // Convert annual rates to monthly for comparison
-  const normalizedRates = filteredDebts.map(debt => 
-    debt.interestType === 'annual' 
-      ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-      : debt.interestRate / 100
-  );
+  // Weighted average CET (monthly) by financed amount (saldo a amortizar)
+  const averageInterestRate = useMemo(() => {
+    if (filteredDebts.length === 0) return 0;
 
-  const averageInterestRate = normalizedRates.length > 0 
-    ? (normalizedRates.reduce((sum, rate) => sum + rate, 0) / normalizedRates.length) * 100
-    : 0;
+    let totalWeightedRate = 0;
+    let totalWeight = 0;
+
+    filteredDebts.forEach(debt => {
+      const monthlyRate = debt.cet_monthly_rate != null
+        ? debt.cet_monthly_rate
+        : debt.interestType === 'annual'
+          ? (Math.pow(1 + debt.interestRate / 100, 1/12) - 1) * 100
+          : debt.interestRate;
+
+      const weight = debt.financedAmount;
+      totalWeightedRate += monthlyRate * weight;
+      totalWeight += weight;
+    });
+
+    return totalWeight > 0 ? totalWeightedRate / totalWeight : 0;
+  }, [filteredDebts]);
+
+  // Derives the next monthly installment due date for a debt based on its release date.
+  // installmentsData is not available in this component, so we calculate the upcoming
+  // due date from the contract schedule instead of using debt.dueDate (contract end date).
+  const getNextInstallmentDueDate = (debt: Debt): Date | null => {
+    const today = new Date();
+    const releaseDate = new Date(debt.releaseDate);
+    const contractEnd = new Date(debt.dueDate);
+
+    if (contractEnd <= today) return null;
+
+    // First installment is one month after release; find the next unpaid month
+    const firstDue = new Date(releaseDate);
+    firstDue.setMonth(firstDue.getMonth() + 1);
+
+    // Walk forward month by month until we find a due date >= today
+    const candidate = new Date(firstDue);
+    while (candidate < today) {
+      candidate.setMonth(candidate.getMonth() + 1);
+    }
+
+    return candidate <= contractEnd ? candidate : null;
+  };
 
   const getDebtsWithUpcomingDueDate = () => {
     const today = new Date();
     const nextMonth = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-    
+
     return filteredDebts.filter(debt => {
-      const dueDate = new Date(debt.dueDate);
-      return dueDate >= today && dueDate <= nextMonth;
+      const nextDue = getNextInstallmentDueDate(debt);
+      return nextDue !== null && nextDue >= today && nextDue <= nextMonth;
     }).length;
   };
 
   const getOverdueDebts = () => {
     const today = new Date();
+    // A contract is considered overdue when its contract end date has passed
+    // and it still has a next installment that should have been paid.
     return filteredDebts.filter(debt => new Date(debt.dueDate) < today).length;
   };
 
@@ -294,61 +349,36 @@ export const DashboardStats = ({
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header with Material 3 styling */}
-      <div className="rounded-3xl bg-card p-8 border border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-primary/10">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
-            <h2 className="text-3xl font-bold text-foreground">
-              Dashboard Financeiro
-            </h2>
+    <div className="space-y-4">
+      {/* Hero: Outstanding Balance — the primary focal point */}
+      <TooltipProvider>
+        <OutstandingBalanceTooltipWrapper>
+          <div className="rounded-xl border border-border bg-card px-6 py-5 cursor-help hover:border-foreground/20 transition-colors">
+            <p className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground mb-1.5">Saldo Devedor Atual</p>
+            <p className="text-[2.75rem] font-bold text-foreground tabular-nums leading-none mb-2">
+              {formatCurrency(currentOutstandingBalance)}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {filteredDebts.length} contrato{filteredDebts.length !== 1 ? 's' : ''} ativo{filteredDebts.length !== 1 ? 's' : ''}
+              {averageInterestRate > 0 && <> · <span className="tabular-nums">{averageInterestRate.toFixed(2)}%</span> a.m. médio</>}
+            </p>
           </div>
-          <TooltipProvider>
-            {(() => {
-              const { TooltipWrapper } = useTooltip(TooltipKeys.CURRENT_OUTSTANDING_BALANCE);
-              return (
-                <TooltipWrapper>
-                  <div className="flex items-center gap-3 bg-primary/5 px-6 py-4 rounded-2xl border border-primary/20 hover:bg-primary/10 transition-colors cursor-help">
-                    <div className="p-2 rounded-xl bg-primary/10">
-                      <Wallet className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-muted-foreground">Saldo Devedor Atual</p>
-                      <p className="text-xl font-bold text-primary">{formatCurrency(currentOutstandingBalance)}</p>
-                    </div>
-                  </div>
-                </TooltipWrapper>
-              );
-            })()}
-          </TooltipProvider>
-        </div>
-      </div>
+        </OutstandingBalanceTooltipWrapper>
+      </TooltipProvider>
 
       {/* Stats Cards */}
       <TooltipProvider>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {stats.map((stat, index) => (
-            <Card key={index} className={`${stat.bgColor} ${stat.borderColor} border-2 hover:shadow-lg transition-all duration-300 group`}>
+            <Card key={index} className={`${stat.bgColor} ${stat.borderColor} border hover:shadow-card transition-shadow duration-300`}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-bold text-foreground">
+                <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
                   {stat.title}
                 </CardTitle>
-                {(() => {
-                  const { TooltipWrapper } = useTooltip(stat.tooltipKey);
-                  return (
-                     <TooltipWrapper>
-                       <div className="ml-auto">
-                         <stat.icon className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-help" />
-                       </div>
-                     </TooltipWrapper>
-                  );
-                })()}
+                <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={stat.icon} />
               </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground mb-1">{stat.value}</div>
+              <div className="text-2xl font-bold text-foreground mb-1 tabular-nums">{stat.value}</div>
               {stat.trend === "high" && (
                 <p className="text-xs text-destructive flex items-center">
                   <TrendingUp className="mr-1 h-3 w-3" />
@@ -377,26 +407,26 @@ export const DashboardStats = ({
         </div>
       </TooltipProvider>
 
-      {/* Sistema de Amortização */}
+      {/* Portfolio Breakdown */}
       {filteredDebts.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
             <CardHeader>
-              <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <BarChart3 className="h-5 w-5 text-primary" />
+              <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <BarChart3 className="h-4 w-4 text-primary" />
                 </div>
                 Sistema de Amortização
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
                 <span className="text-sm font-medium text-foreground">SAC</span>
                 <Badge variant={sac > 0 ? "default" : "secondary"}>
                   {sac} contrato{sac !== 1 ? 's' : ''}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
                 <span className="text-sm font-medium text-foreground">PRICE</span>
                 <Badge variant={price > 0 ? "default" : "secondary"}>
                   {price} contrato{price !== 1 ? 's' : ''}
@@ -405,23 +435,23 @@ export const DashboardStats = ({
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
+          <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
             <CardHeader>
-              <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/20">
-                  <DollarSign className="h-5 w-5 text-orange-600" />
+              <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-orange-100 dark:bg-orange-900/20">
+                  <DollarSign className="h-4 w-4 text-orange-600" />
                 </div>
                 Resumo Financeiro
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
                 <span className="text-sm font-medium text-foreground">Contratos ativos</span>
                 <Badge variant="outline">{filteredDebts.length}</Badge>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
                 <span className="text-sm font-medium text-foreground">PMT mensal total</span>
-                <span className="font-bold text-orange-600">
+                <span className="font-bold text-orange-600 tabular-nums">
                   {formatCurrency(totalCurrentPMT)}
                 </span>
               </div>
@@ -431,7 +461,7 @@ export const DashboardStats = ({
       )}
 
       {overdueDebts > 0 && (
-        <Card className="bg-destructive/5 border-2 border-destructive/20 hover:shadow-lg transition-all duration-300">
+        <Card className="bg-destructive/5 border border-destructive/20 hover:shadow-card transition-shadow duration-300">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-xl bg-destructive/10">

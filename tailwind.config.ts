@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import defaultTheme from "tailwindcss/defaultTheme";
 
 export default {
   darkMode: ["class"],
@@ -13,6 +14,13 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["DM Sans", ...defaultTheme.fontFamily.sans],
+        display: ["Oswald", "Arial Narrow", ...defaultTheme.fontFamily.sans],
+      },
+      letterSpacing: {
+        eyebrow: "0.08em",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -82,6 +90,7 @@ export default {
       boxShadow: {
         "elegant": "var(--shadow-elegant)",
         "card": "var(--shadow-card)",
+        "green": "var(--shadow-elegant)",
       },
       borderRadius: {
         lg: "var(--radius)",

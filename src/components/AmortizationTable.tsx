@@ -38,7 +38,7 @@ interface AmortizationTableProps {
 }
 export function AmortizationTable({
   debt,
-  autoCalculate = true
+  autoCalculate = false
 }: AmortizationTableProps) {
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(false);

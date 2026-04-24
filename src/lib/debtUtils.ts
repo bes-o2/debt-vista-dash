@@ -1,27 +1,94 @@
 import { type LegacyDebt } from "@/hooks/useDebts";
 
-// Convert legacy debt format to the format expected by new components
-export const normalizeDebtForCalculation = (legacyDebt: LegacyDebt) => {
-  // Calculate first_due_date as releaseDate + 1 month
-  const releaseDate = new Date(legacyDebt.releaseDate);
-  const firstDueDate = new Date(releaseDate);
-  firstDueDate.setMonth(firstDueDate.getMonth() + 1);
-  
+type DebtSource = Partial<LegacyDebt> & {
+  financed_amount?: number;
+  first_due_date?: string;
+  last_due_date?: string;
+  calculation_table?: 'SAC' | 'PRICE';
+  interest_base?: string;
+  interest_rate?: number;
+  interest_type?: 'monthly' | 'annual';
+  spreadRate?: number;
+  spread_rate?: number;
+  iof_rate?: number;
+  additional_fees?: number;
+  title?: string;
+  description?: string;
+};
+
+export interface NormalizedDebtForCalculation {
+  id: string;
+  bank: string;
+  financedAmount: number;
+  releaseDate: string;
+  firstDueDate: string;
+  first_due_date?: string;
+  dueDate: string;
+  calculationTable: 'SAC' | 'PRICE';
+  interestRate: number;
+  interestType: 'monthly' | 'annual';
+  indexer?: string;
+  spreadRate?: number;
+  iofAmount?: number;
+  tacAmount?: number;
+  contractNumber?: string;
+  cet_monthly_rate?: number;
+  cet_annual_rate?: number;
+}
+
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const addMonthsLocal = (dateString: string, months: number) => {
+  const date = new Date(dateString.includes('T') ? dateString : `${dateString}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setMonth(date.getMonth() + months);
+  return formatLocalDate(date);
+};
+
+// Convert legacy, database, or already-normalized debt formats to the format expected by calculation hooks
+export const normalizeDebtForCalculation = (debt: DebtSource): NormalizedDebtForCalculation => {
+  const financedAmount = debt.financedAmount ?? debt.financed_amount ?? 0;
+  const releaseDate = debt.releaseDate
+    ?? (debt.firstDueDate ? addMonthsLocal(debt.firstDueDate, -1) : undefined)
+    ?? (debt.first_due_date ? addMonthsLocal(debt.first_due_date, -1) : undefined)
+    ?? '';
+  const firstDueDate = debt.firstDueDate
+    ?? debt.first_due_date
+    ?? (releaseDate ? addMonthsLocal(releaseDate, 1) : '');
+  const dueDate = debt.dueDate ?? debt.last_due_date ?? '';
+  const bank = debt.bank ?? debt.title ?? debt.description ?? '';
+  const calculationTable = debt.calculationTable ?? debt.calculation_table ?? 'SAC';
+  const interestRate = debt.interestRate ?? debt.interest_rate ?? 0;
+  const interestType = debt.interestType ?? debt.interest_type ?? 'monthly';
+  const iofAmount = debt.iofAmount ?? (
+    debt.iof_rate != null
+      ? (financedAmount * debt.iof_rate) / 100
+      : undefined
+  );
+
   return {
-    id: legacyDebt.id,
-    bank: legacyDebt.bank,
-    financedAmount: legacyDebt.financedAmount,
-    firstDueDate: legacyDebt.firstDueDate || firstDueDate.toISOString().split('T')[0],
-    releaseDate: legacyDebt.releaseDate,
-    dueDate: legacyDebt.dueDate,
-    calculationTable: legacyDebt.calculationTable,
-    interestRate: legacyDebt.interestRate,
-    interestType: legacyDebt.interestType,
-    indexer: legacyDebt.indexer,
-    spreadRate: legacyDebt.spread_rate || 0,
-    iofAmount: legacyDebt.iofAmount,
-    tacAmount: legacyDebt.tacAmount,
-    contractNumber: legacyDebt.contractNumber
+    id: debt.id || `${bank}-${financedAmount}-${firstDueDate}-${dueDate}`,
+    bank,
+    financedAmount,
+    releaseDate,
+    firstDueDate,
+    first_due_date: firstDueDate,
+    dueDate,
+    calculationTable,
+    interestRate,
+    interestType,
+    indexer: debt.indexer ?? debt.interest_base,
+    spreadRate: debt.spreadRate ?? debt.spread_rate ?? 0,
+    iofAmount,
+    tacAmount: debt.tacAmount ?? debt.additional_fees,
+    contractNumber: debt.contractNumber ?? debt.title ?? debt.description,
+    cet_monthly_rate: debt.cet_monthly_rate,
+    cet_annual_rate: debt.cet_annual_rate,
   };
 };
 
