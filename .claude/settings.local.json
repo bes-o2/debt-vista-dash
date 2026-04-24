@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite *)",
+      "Bash(taskkill /F /IM bun.exe)",
+      "Bash(taskkill /F /IM node.exe /FI \"WINDOWTITLE eq vite*\")",
+      "Bash(netstat -ano)",
+      "Bash(bun run *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(mkdir -p /tmp/design-pkg)",
+      "Read(//tmp/**)",
+      "Bash(tar -xzf \"C:\\\\Users\\\\mbesn\\\\.claude\\\\projects\\\\C--Projetos-debt-vista-dash\\\\db2a9029-6b03-4705-9538-fdfe0daa3b24\\\\tool-results\\\\webfetch-1776979421003-jnmpr3.bin\")",
+      "Bash(tar -xzf \"/c/Users/mbesn/.claude/projects/C--Projetos-debt-vista-dash/db2a9029-6b03-4705-9538-fdfe0daa3b24/tool-results/webfetch-1776979421003-jnmpr3.bin\")",
+      "Bash(npx tsc *)",
+      "Bash(bun x *)",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__execute_sql",
+      "Bash(git clone *)",
+      "Read(//c/Users/mbesn/.claude/plugins/aios-master/**)",
+      "Bash(bash setup.sh)",
+      "Bash(agents)",
+      "Bash(skills\")",
+      "Bash(mkdir -p /c/Users/mbesn/.claude/agents)",
+      "Bash(mkdir -p /c/Users/mbesn/.claude/workflows)",
+      "Bash(cp /c/Users/mbesn/.claude/commands/agents/*.md /c/Users/mbesn/.claude/agents/)",
+      "Bash(cp -r /c/Users/mbesn/.claude/commands/workflows/* /c/Users/mbesn/.claude/workflows/)",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 40)",
+      "PowerShell(npm *)",
+      "Bash(npm --version)",
+      "Read(//usr/local/**)",
+      "Read(//c/Users/mbesn/.nvm/versions/**)",
+      "Bash(bunx tsc *)",
+      "Bash(npm run *)",
+      "Bash(supabase migration *)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}
