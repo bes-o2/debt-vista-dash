@@ -5,34 +5,17 @@ import { useState, useMemo } from "react";
 import { Building, Calendar, Loader2 } from "lucide-react";
 import { getBankColor } from "@/lib/utils";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
-import { normalizeDebtForCalculation } from "@/lib/debtUtils";
-import { type LegacyDebt } from "@/hooks/useDebts";
-
-interface Debt {
-  id: string;
-  financedAmount: number;
-  releaseDate: string;
-  dueDate: string;
-  calculationTable: 'SAC' | 'PRICE';
-  indexer?: string;
-  interestRate: number;
-  interestType: 'monthly' | 'annual';
-  bank: string;
-  iofAmount?: number;
-  tacAmount?: number;
-  contractNumber?: string;
-}
+import { parseLocalDate, type NormalizedDebtForCalculation } from "@/lib/debtUtils";
 
 interface OutstandingBalanceChartProps {
-  debts: LegacyDebt[];
+  debts: NormalizedDebtForCalculation[];
 }
 
 export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps) => {
   const [viewType, setViewType] = useState<'annual' | 'total'>('annual');
   
   // Use the hook to get real installment data
-  const normalizedDebts = debts.map(normalizeDebtForCalculation);
-  const { installmentsData, loading: installmentsLoading } = useDebtInstallments(normalizedDebts);
+  const { installmentsData, loading: installmentsLoading } = useDebtInstallments(debts);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -94,8 +77,9 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
           }
 
           // Check if the debt has been released yet (compare month/year only)
-          const releaseDate = new Date(debt.releaseDate);
-          const releaseDateMonth = releaseDate.toISOString().substring(0, 7); // YYYY-MM
+          const releaseDate = parseLocalDate(debt.releaseDate);
+          if (!releaseDate) return sum;
+          const releaseDateMonth = `${releaseDate.getFullYear()}-${String(releaseDate.getMonth() + 1).padStart(2, '0')}`;
           const currentMonth = date.toISOString().substring(0, 7); // YYYY-MM
           
           if (currentMonth < releaseDateMonth) {
@@ -104,8 +88,9 @@ export const OutstandingBalanceChart = ({ debts }: OutstandingBalanceChartProps)
           }
 
           // Check if this debt is still active in this month for PMT calculation
-          const firstInstallmentDate = new Date(debtInstallments[0].due_date);
-          const lastInstallmentDate = new Date(debtInstallments[debtInstallments.length - 1].due_date);
+          const firstInstallmentDate = parseLocalDate(debtInstallments[0].due_date);
+          const lastInstallmentDate = parseLocalDate(debtInstallments[debtInstallments.length - 1].due_date);
+          if (!firstInstallmentDate || !lastInstallmentDate) return sum;
           
           // If the current month is within the debt's payment period
           if (date >= firstInstallmentDate && date <= lastInstallmentDate) {

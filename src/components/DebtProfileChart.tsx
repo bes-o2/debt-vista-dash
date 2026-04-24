@@ -16,6 +16,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
+import { parseLocalDate } from "@/lib/debtUtils";
 
 interface Debt {
   id: string;
@@ -46,10 +47,6 @@ interface ChartRow {
   totalAmount: number;
 }
 
-const parseDate = (value: string) => {
-  const parsedDate = new Date(value.includes("T") ? value : `${value}T00:00:00`);
-  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
-};
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", {
@@ -87,7 +84,7 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
           const debtInstallments = installmentsData[debt.id] || [];
 
           debtInstallments.forEach((installment) => {
-            const dueDate = parseDate(installment.due_date);
+            const dueDate = parseLocalDate(installment.due_date);
             const principalAmount = Number(installment.principal_amount);
 
             if (!dueDate || !Number.isFinite(principalAmount) || principalAmount <= 0) {
@@ -219,7 +216,7 @@ export const DebtProfileChart = ({ debts }: DebtProfileChartProps) => {
       </CardHeader>
 
       <CardContent>
-        {loading ? (
+        {loading || (!error && debts.length > 0 && Object.keys(installmentsData).length < debts.length) ? (
           <div className="flex h-[350px] items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Carregando parcelas...</span>

@@ -36,6 +36,13 @@ export interface NormalizedDebtForCalculation {
   cet_annual_rate?: number;
 }
 
+export const parseLocalDate = (value: string): Date | null => {
+  if (!value) return null;
+  const iso = value.includes("T") ? value : `${value}T00:00:00`;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
 const formatLocalDate = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

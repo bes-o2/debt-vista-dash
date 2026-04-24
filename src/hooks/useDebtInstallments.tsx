@@ -86,7 +86,10 @@ export const useDebtInstallments = (debts: Debt[]) => {
 
     await Promise.all(missingDebtIds.map(async (debtId) => {
       const debt = debtMap[debtId];
-      if (!debt || !debt.firstDueDate || !debt.dueDate) return;
+      if (!debt || !debt.firstDueDate || !debt.dueDate) {
+        console.warn('[useDebtInstallments] debt rejeitado por falta de firstDueDate/dueDate:', debt?.id, { firstDueDate: debt?.firstDueDate, dueDate: debt?.dueDate });
+        return;
+      }
 
       try {
         const { data, error: calculationError } = await supabase.functions.invoke('calculate-amortization', {

@@ -73,6 +73,8 @@ const Index = () => {
   // Convert database debts to legacy format for backward compatibility - memoized to prevent infinite recalculation
   const debts: LegacyDebt[] = useMemo(() => dbDebts.map(convertToLegacyFormat), [dbDebts, convertToLegacyFormat]);
 
+  const normalizedDebts = useMemo(() => debts.map(normalizeDebtForCalculation), [debts]);
+
   // Check for localStorage data and offer migration
   useEffect(() => {
     const legacyData = localStorage.getItem('debts');
@@ -320,15 +322,15 @@ const Index = () => {
               <DashboardStats debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} />
               
               {/* Outstanding Balance by Bank */}
-              <OutstandingBalanceChart debts={debts} />
-              
+              <OutstandingBalanceChart debts={normalizedDebts} />
+
               {/* Debt Profile Chart */}
-              <DebtProfileChart debts={debts.map(normalizeDebtForCalculation)} />
-              
+              <DebtProfileChart debts={normalizedDebts} />
+
               {/* Net Debt Calculation */}
               <NetDebtCard debts={debts} />
-              
-              <DebtChart debts={debts.map(normalizeDebtForCalculation)} />
+
+              <DebtChart debts={normalizedDebts} />
             </TabsContent>
 
           <TabsContent value="cfo-v2" className="space-y-6">
