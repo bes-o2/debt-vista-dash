@@ -30,6 +30,7 @@ export interface Debt {
 }
 
 export interface DebtInput {
+  bank?: string;
   title?: string;
   description?: string;
   financed_amount: number;
@@ -113,7 +114,7 @@ export function useDebts() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Debt;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['debts', selectedCompany?.id] });
@@ -152,7 +153,7 @@ export function useDebts() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Debt;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['debts', selectedCompany?.id] });
@@ -199,6 +200,7 @@ export function useDebts() {
   // Convert legacy debt format to new format
   const convertLegacyDebt = (legacyDebt: LegacyDebt): DebtInput => {
     return {
+      bank: legacyDebt.bank,
       title: legacyDebt.contractNumber || `Contrato ${legacyDebt.bank}`,
       description: `Contrato do ${legacyDebt.bank}`,
       financed_amount: legacyDebt.financedAmount,
@@ -275,8 +277,11 @@ export function useDebts() {
     isLoading,
     error,
     createDebt: createDebtMutation.mutate,
+    createDebtAsync: createDebtMutation.mutateAsync,
     updateDebt: updateDebtMutation.mutate,
+    updateDebtAsync: updateDebtMutation.mutateAsync,
     deleteDebt: deleteDebtMutation.mutate,
+    deleteDebtAsync: deleteDebtMutation.mutateAsync,
     isCreating: createDebtMutation.isPending,
     isUpdating: updateDebtMutation.isPending,
     isDeleting: deleteDebtMutation.isPending,

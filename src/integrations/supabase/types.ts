@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -83,6 +83,54 @@ export type Database = {
         }
         Relationships: []
       }
+      debt_guarantees: {
+        Row: {
+          company_id: string
+          created_at: string
+          debt_id: string
+          description: string | null
+          id: string
+          type: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          debt_id: string
+          description?: string | null
+          id?: string
+          type: string
+          updated_at?: string
+          value?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          debt_id?: string
+          description?: string | null
+          id?: string
+          type?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debt_guarantees_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debt_guarantees_debt_id_fkey"
+            columns: ["debt_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       debt_installments: {
         Row: {
           created_at: string
@@ -130,6 +178,7 @@ export type Database = {
       debts: {
         Row: {
           additional_fees: number | null
+          bank: string | null
           calculation_table: string
           cet_annual_rate: number | null
           cet_monthly_rate: number | null
@@ -154,6 +203,7 @@ export type Database = {
         }
         Insert: {
           additional_fees?: number | null
+          bank?: string | null
           calculation_table: string
           cet_annual_rate?: number | null
           cet_monthly_rate?: number | null
@@ -178,6 +228,7 @@ export type Database = {
         }
         Update: {
           additional_fees?: number | null
+          bank?: string | null
           calculation_table?: string
           cet_annual_rate?: number | null
           cet_monthly_rate?: number | null

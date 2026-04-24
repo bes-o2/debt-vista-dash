@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, ArrowLeft, LogOut, Building, Filter, X, CalendarIcon } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, LogOut, Building, Filter, X, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -29,6 +29,7 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { CompanySelector } from "@/components/CompanySelector";
 import { useCompany } from "@/hooks/useCompany";
 import { useDebts, type LegacyDebt } from "@/hooks/useDebts";
+import { useDebtGuarantees, type DebtGuaranteeInput } from "@/hooks/useDebtGuarantees";
 import { Logo } from "@/components/Logo";
 import { useDataInitialization } from "@/hooks/useDataInitialization";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
@@ -43,12 +44,13 @@ const Index = () => {
   const {
     debts: dbDebts,
     isLoading: isLoadingDebts,
-    createDebt,
-    updateDebt,
-    deleteDebt,
+    createDebtAsync,
+    updateDebtAsync,
+    deleteDebtAsync,
     convertToLegacyFormat,
     migrateLegacyData
   } = useDebts();
+  const { saveGuarantees } = useDebtGuarantees();
   
   const {
     isInitialized,
@@ -87,6 +89,7 @@ const Index = () => {
   const [selectedBank, setSelectedBank] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<LegacyDebt | null>(null);
+  const [draftDebtId, setDraftDebtId] = useState<string | null>(null);
 
   // Global filters state
   const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
@@ -112,23 +115,53 @@ const Index = () => {
   const {
     toast
   } = useToast();
-  const handleSaveDebt = (debtData: DebtInput) => {
+  const sanitizeGuarantees = (guarantees: DebtGuaranteeInput[]) => {
+    return guarantees
+      .map((guarantee) => ({
+        type: guarantee.type,
+        value: guarantee.value,
+        description: guarantee.description?.trim() || undefined,
+      }))
+      .filter((guarantee) => guarantee.value > 0);
+  };
+  const handleSaveDebt = async (debtData: DebtInput, guarantees: DebtGuaranteeInput[]) => {
     if (!selectedCompany) {
       toast({
         title: "Erro",
         description: "Selecione uma empresa antes de cadastrar dívidas.",
         variant: "destructive"
       });
-      return;
+      throw new Error("Selecione uma empresa antes de cadastrar dividas.");
     }
-    if (editingDebt) {
-      updateDebt({
-        id: editingDebt.id,
-        ...debtData
+
+    const sanitizedGuarantees = sanitizeGuarantees(guarantees);
+    const targetDebtId = editingDebt?.id || draftDebtId;
+    const savedDebt = targetDebtId
+      ? await updateDebtAsync({
+          id: targetDebtId,
+          ...debtData
+        })
+      : await createDebtAsync(debtData);
+
+    try {
+      await saveGuarantees({
+        debtId: savedDebt.id,
+        companyId: savedDebt.company_id,
+        guarantees: sanitizedGuarantees,
       });
-    } else {
-      createDebt(debtData);
+    } catch (error) {
+      if (!targetDebtId) {
+        setDraftDebtId(savedDebt.id);
+      }
+
+      throw new Error(
+        error instanceof Error
+          ? `A divida foi salva, mas houve um erro ao salvar as garantias: ${error.message}`
+          : "A divida foi salva, mas houve um erro ao salvar as garantias."
+      );
     }
+
+    setDraftDebtId(null);
     setEditingDebt(undefined);
     setIsFormOpen(false);
   };
@@ -136,6 +169,7 @@ const Index = () => {
     // Convert from legacy to database format
     const dbDebt = dbDebts.find(d => d.id === legacyDebt.id);
     if (dbDebt) {
+      setDraftDebtId(null);
       setEditingDebt(dbDebt);
       setIsFormOpen(true);
     }
@@ -152,7 +186,7 @@ const Index = () => {
   };
   const handleDeleteDebt = async (legacyDebt: LegacyDebt) => {
     try {
-      await deleteDebt(legacyDebt.id);
+      await deleteDebtAsync(legacyDebt.id);
       toast({
         title: "Sucesso",
         description: "Contrato excluído com sucesso.",
@@ -167,7 +201,13 @@ const Index = () => {
   };
   const handleNewDebt = () => {
     setEditingDebt(undefined);
+    setDraftDebtId(null);
     setIsFormOpen(true);
+  };
+  const handleCloseDebtForm = () => {
+    setIsFormOpen(false);
+    setEditingDebt(undefined);
+    setDraftDebtId(null);
   };
   const handleClearGlobalFilters = () => {
     setGlobalSelectedBank("all");
@@ -197,21 +237,16 @@ const Index = () => {
   return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Logo size="md" />
-              <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-                
+              <h1 className="text-lg font-semibold text-foreground">
                 Análise de Endividamento
               </h1>
             </div>
             <div className="flex items-center gap-3">
               <CompanySelector />
-              <Button onClick={() => setActiveTab("dashboard")} variant="outline" className="hover:bg-accent">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar ao Dashboard
-              </Button>
               <SettingsButton />
               <ThemeToggle />
               <Button onClick={signOut} variant="outline" className="hover:bg-accent">
@@ -224,9 +259,9 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <PieChart className="h-4 w-4" />
               Dashboard
@@ -271,7 +306,11 @@ const Index = () => {
                   {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90 shadow-elegant">
+              <Button
+                onClick={handleNewDebt}
+                variant="outline"
+                className="h-11 rounded-xl border-border/70 bg-card px-5 text-foreground shadow-sm hover:bg-accent/60 hover:text-foreground"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Nova Dívida
               </Button>
@@ -297,7 +336,11 @@ const Index = () => {
                 <p className="text-muted-foreground mb-6">
                   {selectedCompany ? "Comece adicionando suas primeiras dívidas para análise" : "Selecione uma empresa e comece adicionando dívidas"}
                 </p>
-                {selectedCompany && <Button onClick={handleNewDebt} className="bg-gradient-primary hover:opacity-90">
+                {selectedCompany && <Button
+                    onClick={handleNewDebt}
+                    variant="outline"
+                    className="h-11 rounded-xl border-border/70 bg-card px-5 text-foreground shadow-sm hover:bg-accent/60 hover:text-foreground"
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Adicionar Primeira Dívida
                   </Button>}
@@ -426,7 +469,7 @@ const Index = () => {
         </Tabs>
       </main>
 
-      <DebtForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} onSave={handleSaveDebt} debt={editingDebt} />
+      <DebtForm isOpen={isFormOpen} onClose={handleCloseDebtForm} onSave={handleSaveDebt} debt={editingDebt} />
     </div>;
 };
 export default Index;
