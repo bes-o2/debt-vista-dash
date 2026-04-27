@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "deploy:prod": "node scripts/deploy-production.mjs",
+    "verify:prod-env": "node scripts/deploy-production.mjs --verify-env",
+    "verify:vercel-output": "node scripts/deploy-production.mjs --verify-output",
     "lint": "eslint .",
     "preview": "vite preview"
   },

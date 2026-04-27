@@ -51,6 +51,34 @@ git commit -m "chore: remove env local do repositorio"
 
 ## Deploy pelo CLI
 
+Use o script guardrail do projeto. Ele puxa as variaveis de Production da
+Vercel, valida que as chaves do Supabase nao estao vazias, confere se o bundle
+gerado contem o project ID esperado e so entao publica o build prebuilt:
+
+```sh
+npm run deploy:prod
+```
+
+Para validar apenas as variaveis puxadas da Vercel:
+
+```sh
+npx vercel@latest pull --yes --environment=production
+npm run verify:prod-env
+```
+
+Para validar apenas o artefato ja gerado em `.vercel/output`:
+
+```sh
+npm run verify:vercel-output
+```
+
+Nao use `npx vercel@latest --prod` nem `npx vercel@latest build --prod`
+manualmente neste projeto. O app Vite embute `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_PROJECT_ID` no bundle; se a
+Vercel devolver essas variaveis vazias, o React quebra antes de montar a tela.
+
+### Primeiro setup
+
 Sem instalar globalmente:
 
 ```sh
@@ -62,7 +90,7 @@ npx vercel@latest env add VITE_SUPABASE_PROJECT_ID production
 npx vercel@latest env add VITE_SUPABASE_URL preview
 npx vercel@latest env add VITE_SUPABASE_PUBLISHABLE_KEY preview
 npx vercel@latest env add VITE_SUPABASE_PROJECT_ID preview
-npx vercel@latest --prod
+npm run deploy:prod
 ```
 
 Para um deploy de preview, use:
