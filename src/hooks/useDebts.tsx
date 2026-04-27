@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useCompany } from '@/hooks/useCompany';
 import { useAuth } from '@/hooks/useAuth';
+import { resolveDebtBankName } from '@/lib/debtBank';
 
 export interface Debt {
   id: string;
@@ -204,7 +205,7 @@ export function useDebts() {
       title: legacyDebt.contractNumber || `Contrato ${legacyDebt.bank}`,
       description: `Contrato do ${legacyDebt.bank}`,
       financed_amount: legacyDebt.financedAmount,
-      first_due_date: legacyDebt.releaseDate,
+      first_due_date: legacyDebt.firstDueDate,
       last_due_date: legacyDebt.dueDate,
       calculation_table: legacyDebt.calculationTable,
       interest_base: legacyDebt.indexer || 'Pré-fixado',
@@ -232,9 +233,9 @@ export function useDebts() {
       indexer: debt.interest_base,
       interestRate: debt.interest_rate,
       interestType: debt.interest_type,
-      iofAmount: debt.iof_rate || 0,
+      iofAmount: debt.iof_rate != null ? (debt.financed_amount * debt.iof_rate) / 100 : 0,
       tacAmount: debt.additional_fees || 0,
-      bank: debt.bank || 'Banco do Brasil',  // Mapped from bank column (soon to be added)
+      bank: resolveDebtBankName(debt),
       contractNumber: debt.description || debt.title,  // Prefer description, fallback to title
       cet_monthly_rate: debt.cet_monthly_rate,
       cet_annual_rate: debt.cet_annual_rate,

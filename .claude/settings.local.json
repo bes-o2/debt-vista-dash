@@ -34,7 +34,24 @@
       "Bash(supabase migration *)",
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(npx supabase *)",
+      "Bash(node_modules/.bin/tsc --noEmit -p tsconfig.app.json)",
+      "Bash(./node_modules/.bin/tsc --noEmit -p tsconfig.app.json)",
+      "Bash(./node_modules/.bin/eslint src/components/OutstandingBalanceChart.tsx)",
+      "Bash(mkdir -p /c/Users/mbesn/.claude/plans)",
+      "Read(//c/Users/mbesn/.claude/plans/**)",
+      "Bash(uv tool *)",
+      "Bash(graphify install *)",
+      "Bash(pipx install *)",
+      "Bash(python -m pip install graphifyy --upgrade)",
+      "Bash(python -m graphify.cli install)",
+      "Bash(export PATH=\"$PATH:C:/Users/mbesn/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts\")",
+      "PowerShell(tail *)",
+      "Bash(pip install *)",
+      "Bash(python 'C:\\\\Projetos\\\\debt-vista-dash\\\\.claude\\\\skills\\\\import-contracts\\\\extract.py' 'Contratos CEF\\\\Contrato 2.045.245.pdf' 'Contratos CEF\\\\Contrato 253476606000011363.pdf' 'Contratos CEF\\\\Contrato 2364881.pdf' 'Contratos CEF\\\\Contrato 253476606000011959.pdf' 'Contratos CEF\\\\Contrato 2599405.pdf' 'Contratos CEF\\\\Contrato 734-347612920005779731175.pdf' 'Contratos Bradesco\\\\EMPRESTIMO BRADESCO 1M 19.11.pdf' 'Contratos Bradesco\\\\EMPRESTIMO 1,5 12.0.2025.pdf' 'Contratos Bradesco\\\\EMPRESTIMO FGI 11.12.2025.pdf' 'Contratos Bradesco\\\\Contrato 20240814000040.pdf' 'Contratos Itau\\\\contrato emprestimo 12.2024.pdf' 'Contratos Itau\\\\ContratoCCB.pdf' 'Contratos Safra\\\\-_CCB DUVON _328429279 - CONTRATO 1,5 06.10.2025.pdf')",
+      "Bash(git *)"
     ]
   },
   "enabledMcpjsonServers": [

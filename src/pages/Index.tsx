@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -13,7 +13,6 @@ import { DashboardStats } from "@/components/DashboardStats";
 import { DebtChart } from "@/components/DebtChart";
 import { OutstandingBalanceChart } from "@/components/OutstandingBalanceChart";
 import { DebtProfileChart } from "@/components/DebtProfileChart";
-import { NetDebtCard } from "@/components/NetDebtCard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,11 +32,28 @@ import { useDebtGuarantees, type DebtGuaranteeInput } from "@/hooks/useDebtGuara
 import { Logo } from "@/components/Logo";
 import { useDataInitialization } from "@/hooks/useDataInitialization";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { getLowConfidenceFields, parseContractImportJson, type ContractImportDraft } from "@/lib/contractImport";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardWidgetShell } from "@/components/dashboard/DashboardWidgetShell";
+import type {
+  DashboardWidgetConfig,
+  DashboardWidgetDefinition,
+  DashboardWidgetHorizon,
+  DashboardWidgetViewMode,
+} from "@/components/dashboard/dashboardWidgetTypes";
+import { dashboardWidgetSizeClass } from "@/components/dashboard/dashboardWidgetTypes";
+import { useDashboardWidgets } from "@/hooks/useDashboardWidgets";
+
+const getWidgetHorizon = (config: DashboardWidgetConfig): DashboardWidgetHorizon =>
+  config.horizon === "24m" || config.horizon === "total" ? config.horizon : "12m";
+
+const getWidgetViewMode = (config: DashboardWidgetConfig): DashboardWidgetViewMode =>
+  config.viewMode === "atual" ? "atual" : "total";
 
 const Index = () => {
   const {
-    signOut
+    signOut,
+    user
   } = useAuth();
   const {
     selectedCompany
@@ -93,6 +109,10 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [preSelectedDebtForAnalysis, setPreSelectedDebtForAnalysis] = useState<LegacyDebt | null>(null);
   const [draftDebtId, setDraftDebtId] = useState<string | null>(null);
+  const [importDrafts, setImportDrafts] = useState<ContractImportDraft[]>([]);
+  const [currentImportIndex, setCurrentImportIndex] = useState(0);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
+  const currentImportDraft = importDrafts[currentImportIndex];
 
   // Global filters state
   const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
@@ -100,6 +120,10 @@ const Index = () => {
   const [globalSelectedDebts, setGlobalSelectedDebts] = useState<string[]>([]);
   const [globalStartDate, setGlobalStartDate] = useState<Date | undefined>(undefined);
   const [globalEndDate, setGlobalEndDate] = useState<Date | undefined>(undefined);
+  const [globalPeriodMode, setGlobalPeriodMode] = useState<"vigencia" | "vencimento">(() => {
+    if (!selectedCompany?.id) return "vigencia";
+    return (localStorage.getItem(`debt-vista-period-mode:${selectedCompany.id}`) as "vigencia" | "vencimento") ?? "vigencia";
+  });
 
   // Filter debts by selected bank
   const filteredDebts = useMemo(() => selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank), [debts, selectedBank]);
@@ -193,12 +217,31 @@ const Index = () => {
 
     setDraftDebtId(null);
     setEditingDebt(undefined);
+
+    const isImportReview = importDrafts.length > 0 && !editingDebt;
+    if (isImportReview && currentImportIndex < importDrafts.length - 1) {
+      setCurrentImportIndex((index) => index + 1);
+      setIsFormOpen(true);
+      toast({
+        title: "Contrato salvo",
+        description: "O próximo contrato importado foi carregado para revisão.",
+      });
+      return;
+    }
+
+    if (isImportReview) {
+      setImportDrafts([]);
+      setCurrentImportIndex(0);
+    }
+
     setIsFormOpen(false);
   };
   const handleEditDebt = (legacyDebt: LegacyDebt) => {
     // Convert from legacy to database format
     const dbDebt = dbDebts.find(d => d.id === legacyDebt.id);
     if (dbDebt) {
+      setImportDrafts([]);
+      setCurrentImportIndex(0);
       setDraftDebtId(null);
       setEditingDebt(dbDebt);
       setIsFormOpen(true);
@@ -230,6 +273,8 @@ const Index = () => {
     }
   };
   const handleNewDebt = () => {
+    setImportDrafts([]);
+    setCurrentImportIndex(0);
     setEditingDebt(undefined);
     setDraftDebtId(null);
     setIsFormOpen(true);
@@ -238,14 +283,229 @@ const Index = () => {
     setIsFormOpen(false);
     setEditingDebt(undefined);
     setDraftDebtId(null);
+    setImportDrafts([]);
+    setCurrentImportIndex(0);
   };
-  const handleClearGlobalFilters = () => {
+  const handleImportJsonClick = () => {
+    if (!selectedCompany) {
+      toast({
+        title: "Selecione uma empresa",
+        description: "Escolha a empresa ativa antes de importar contratos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    importFileInputRef.current?.click();
+  };
+  const handleImportJsonChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const drafts = parseContractImportJson(await file.text());
+      setImportDrafts(drafts);
+      setCurrentImportIndex(0);
+      setEditingDebt(undefined);
+      setDraftDebtId(null);
+      setActiveTab("debts");
+      setIsFormOpen(true);
+      toast({
+        title: "JSON importado",
+        description: `${drafts.length} contrato${drafts.length !== 1 ? "s" : ""} carregado${drafts.length !== 1 ? "s" : ""} para revisão.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao importar JSON",
+        description: error instanceof Error ? error.message : "Verifique o arquivo e tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+  const handleClearGlobalFilters = useCallback(() => {
     setGlobalSelectedBank("all");
     setGlobalSelectedCalculationType("all");
     setGlobalSelectedDebts([]);
     setGlobalStartDate(undefined);
     setGlobalEndDate(undefined);
-  };
+  }, []);
+
+  const handlePeriodModeChange = useCallback((mode: "vigencia" | "vencimento") => {
+    setGlobalPeriodMode(mode);
+    if (selectedCompany?.id) {
+      localStorage.setItem(`debt-vista-period-mode:${selectedCompany.id}`, mode);
+    }
+  }, [selectedCompany?.id]);
+
+  // Recarrega o modo de período quando a empresa muda
+  useEffect(() => {
+    if (!selectedCompany?.id) return;
+    const stored = localStorage.getItem(`debt-vista-period-mode:${selectedCompany.id}`) as "vigencia" | "vencimento" | null;
+    setGlobalPeriodMode(stored ?? "vigencia");
+  }, [selectedCompany?.id]);
+
+  const dashboardBankOptions = useMemo(
+    () =>
+      Array.from(new Set(debts.map((debt) => debt.bank).filter(Boolean))).sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [debts],
+  );
+
+  const applyDashboardWidgetFilters = useCallback(
+    (sourceDebts: LegacyDebt[], config: DashboardWidgetConfig) => {
+      const bankFilter = config.bankFilter ?? "all";
+      const calculationTypeFilter = config.calculationTypeFilter ?? "all";
+
+      return sourceDebts.filter((debt) => {
+        const globalBankMatch =
+          globalSelectedBank === "all" || debt.bank === globalSelectedBank;
+        const globalCalculationTypeMatch =
+          globalSelectedCalculationType === "all" ||
+          debt.calculationTable === globalSelectedCalculationType;
+        const globalDebtMatch =
+          globalSelectedDebts.length === 0 ||
+          globalSelectedDebts.includes(debt.id);
+        const localBankMatch =
+          bankFilter === "all" || debt.bank === bankFilter;
+        const localCalculationTypeMatch =
+          calculationTypeFilter === "all" ||
+          debt.calculationTable === calculationTypeFilter;
+
+        return (
+          globalBankMatch &&
+          globalCalculationTypeMatch &&
+          globalDebtMatch &&
+          localBankMatch &&
+          localCalculationTypeMatch
+        );
+      });
+    },
+    [globalSelectedBank, globalSelectedCalculationType, globalSelectedDebts],
+  );
+
+  const getWidgetNormalizedDebts = useCallback(
+    (config: DashboardWidgetConfig) => {
+      const visibleDebtIds = new Set(
+        applyDashboardWidgetFilters(debts, config).map((debt) => debt.id),
+      );
+
+      return normalizedDebts.filter((debt) => visibleDebtIds.has(debt.id));
+    },
+    [applyDashboardWidgetFilters, debts, normalizedDebts],
+  );
+
+  const dashboardWidgetDefinitions = useMemo<DashboardWidgetDefinition[]>(
+    () => [
+      {
+        id: "resumo-executivo",
+        title: "Resumo executivo",
+        description: "KPIs principais da carteira e composição financeira.",
+        defaultSize: "full",
+        allowedConfigs: ["title", "density", "filters"],
+        component: (state) => (
+          <DashboardStats
+            startDate={globalStartDate}
+            endDate={globalEndDate}
+            periodMode={globalPeriodMode}
+            selectedBank={state.config.bankFilter ?? globalSelectedBank}
+            selectedCalculationType={state.config.calculationTypeFilter ?? globalSelectedCalculationType}
+            selectedDebtIds={globalSelectedDebts.length > 0 ? globalSelectedDebts : undefined}
+            onClearFilters={handleClearGlobalFilters}
+            density={state.config.density ?? "default"}
+          />
+        ),
+      },
+      {
+        id: "saldo-devedor-banco",
+        title: "Saldo devedor por banco",
+        description: "Evolução do saldo, PMT e alívio de caixa por credor.",
+        defaultSize: "full",
+        allowedConfigs: ["title", "horizon", "density", "filters"],
+        defaultConfig: { horizon: "12m" },
+        component: (state, context) => (
+          <OutstandingBalanceChart
+            debts={getWidgetNormalizedDebts(state.config)}
+            startDate={globalStartDate}
+            endDate={globalEndDate}
+            horizon={getWidgetHorizon(state.config)}
+            density={state.config.density ?? "default"}
+            unstyled
+            hideTitle
+            onHorizonChange={(horizon) => context.updateConfig({ horizon })}
+          />
+        ),
+      },
+      {
+        id: "perfil-divida",
+        title: "Perfil da dívida",
+        description: "Distribuição de amortização em curto e longo prazo.",
+        defaultSize: "full",
+        allowedConfigs: ["title", "density", "filters"],
+        component: (state) => (
+          <DebtProfileChart
+            debts={getWidgetNormalizedDebts(state.config)}
+            startDate={globalStartDate}
+            endDate={globalEndDate}
+            density={state.config.density ?? "default"}
+            unstyled
+            hideTitle
+          />
+        ),
+      },
+      {
+        id: "comparativo-bancos",
+        title: "Comparativo por banco",
+        description: "Saldo, juros financiados e CET por instituição.",
+        defaultSize: "full",
+        allowedConfigs: ["title", "viewMode", "density", "filters"],
+        defaultConfig: { viewMode: "total" },
+        component: (state, context) => (
+          <DebtChart
+            debts={getWidgetNormalizedDebts(state.config)}
+            selectedBank="all"
+            startDate={globalStartDate}
+            endDate={globalEndDate}
+            viewType={getWidgetViewMode(state.config)}
+            density={state.config.density ?? "default"}
+            unstyled
+            hideTitle
+            onViewTypeChange={(viewMode) => context.updateConfig({ viewMode })}
+          />
+        ),
+      },
+    ],
+    [
+      applyDashboardWidgetFilters,
+      debts,
+      getWidgetNormalizedDebts,
+      globalEndDate,
+      globalStartDate,
+      handleClearGlobalFilters,
+    ],
+  );
+
+  const {
+    widgets: dashboardWidgets,
+    moveWidget: moveDashboardWidget,
+    updateWidget: updateDashboardWidget,
+    resetWidgetConfig,
+  } = useDashboardWidgets(
+    dashboardWidgetDefinitions,
+    user?.id,
+    selectedCompany?.id,
+  );
+
+  const visibleDashboardWidgets = dashboardWidgets.filter(
+    (widget) => widget.state.visible,
+  );
+  const hiddenDashboardWidgets = dashboardWidgets.filter(
+    (widget) => !widget.state.visible,
+  );
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
@@ -312,20 +572,73 @@ const Index = () => {
 
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
-              <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} startDate={globalStartDate} endDate={globalEndDate} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onStartDateChange={setGlobalStartDate} onEndDateChange={setGlobalEndDate} onClearFilters={handleClearGlobalFilters} />
-              
-              <DashboardStats debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} />
-              
-              {/* Outstanding Balance by Bank */}
-              <OutstandingBalanceChart debts={normalizedDebts} />
+              <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} startDate={globalStartDate} endDate={globalEndDate} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onStartDateChange={setGlobalStartDate} onEndDateChange={setGlobalEndDate} onClearFilters={handleClearGlobalFilters} periodMode={globalPeriodMode} onPeriodModeChange={handlePeriodModeChange} />
 
-              {/* Debt Profile Chart */}
-              <DebtProfileChart debts={normalizedDebts} />
+              {hiddenDashboardWidgets.length > 0 && (
+                <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Widgets ocultos
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Reative cards escondidos neste layout da empresa.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {hiddenDashboardWidgets.map((widget) => (
+                      <Button
+                        key={widget.definition.id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 transition-transform active:scale-[0.96]"
+                        onClick={() =>
+                          updateDashboardWidget(widget.state.id, { visible: true })
+                        }
+                      >
+                        <Eye className="h-4 w-4" />
+                        {widget.state.config.title?.trim() || widget.definition.title}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              {/* Net Debt Calculation */}
-              <NetDebtCard debts={debts} />
-
-              <DebtChart debts={normalizedDebts} />
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                {visibleDashboardWidgets.map((widget, index) => (
+                  <div
+                    key={widget.definition.id}
+                    className={dashboardWidgetSizeClass[widget.definition.defaultSize]}
+                  >
+                    <DashboardWidgetShell
+                      widget={widget}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < visibleDashboardWidgets.length - 1}
+                      unstyled={widget.definition.id === "resumo-executivo"}
+                      bankOptions={dashboardBankOptions}
+                      onMoveUp={() => moveDashboardWidget(widget.state.id, "up")}
+                      onMoveDown={() => moveDashboardWidget(widget.state.id, "down")}
+                      onToggleCollapsed={() =>
+                        updateDashboardWidget(widget.state.id, {
+                          collapsed: !widget.state.collapsed,
+                        })
+                      }
+                      onHide={() =>
+                        updateDashboardWidget(widget.state.id, { visible: false })
+                      }
+                      onConfigChange={(config) =>
+                        updateDashboardWidget(widget.state.id, { config })
+                      }
+                      onResetConfig={() => resetWidgetConfig(widget.state.id)}
+                    >
+                      {widget.definition.component(widget.state, {
+                        updateConfig: (config) =>
+                          updateDashboardWidget(widget.state.id, { config }),
+                      })}
+                    </DashboardWidgetShell>
+                  </div>
+                ))}
+              </div>
             </TabsContent>
 
           <TabsContent value="debts" className="space-y-6">
@@ -336,18 +649,35 @@ const Index = () => {
                   {debts.length} dívida{debts.length !== 1 ? 's' : ''} cadastrada{debts.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <Button
-                onClick={handleNewDebt}
-                variant="outline"
-                className="h-11 rounded-xl border-border/70 bg-card px-5 text-foreground shadow-sm hover:bg-accent/60 hover:text-foreground"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Dívida
-              </Button>
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <input
+                  ref={importFileInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={handleImportJsonChange}
+                />
+                <Button
+                  onClick={handleImportJsonClick}
+                  variant="outline"
+                  className="h-11 rounded-xl border-border/70 bg-card px-5 text-foreground shadow-sm hover:bg-accent/60 hover:text-foreground"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Importar JSON
+                </Button>
+                <Button
+                  onClick={handleNewDebt}
+                  variant="outline"
+                  className="h-11 rounded-xl border-border/70 bg-card px-5 text-foreground shadow-sm hover:bg-accent/60 hover:text-foreground"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Dívida
+                </Button>
+              </div>
             </div>
 
             {isLoadingDebts ? <div className="text-center py-12">
-                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-between mb-4">
+                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
                   <Calculator className="h-12 w-12 text-muted-foreground animate-pulse" />
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-2">
@@ -494,12 +824,30 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="analysis" className="space-y-6">
-            <CashFlowAnalysis debts={debts} preSelectedDebt={preSelectedDebtForAnalysis} onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} />
+            <CashFlowAnalysis debts={debts} preSelectedDebt={preSelectedDebtForAnalysis} onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} periodMode={globalPeriodMode} globalStartDate={globalStartDate} globalEndDate={globalEndDate} />
           </TabsContent>
         </Tabs>
       </main>
 
-      <DebtForm isOpen={isFormOpen} onClose={handleCloseDebtForm} onSave={handleSaveDebt} debt={editingDebt} />
+      <DebtForm
+        isOpen={isFormOpen}
+        onClose={handleCloseDebtForm}
+        onSave={handleSaveDebt}
+        debt={editingDebt}
+        initialDebt={!editingDebt ? currentImportDraft?.debt : undefined}
+        initialGuarantees={!editingDebt ? currentImportDraft?.guarantees : undefined}
+        importReview={
+          !editingDebt && currentImportDraft
+            ? {
+                current: currentImportIndex + 1,
+                total: importDrafts.length,
+                lowConfidenceFields: getLowConfidenceFields(currentImportDraft.confidence),
+                notes: currentImportDraft.notes,
+                sourceName: currentImportDraft.sourceName,
+              }
+            : undefined
+        }
+      />
     </div>;
 };
 export default Index;

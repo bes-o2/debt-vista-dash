@@ -57,40 +57,17 @@ export function calculateIRRFromCashFlows(
     ...payments.map(p => ({ date: new Date(p.date), amount: p.amount }))
   ];
 
-  console.log('📊 IRR Calculation from Actual Cash Flows:', {
-    initialAmount: initialAmount.toFixed(2),
-    paymentsCount: payments.length,
-    startDate: start.toISOString().split('T')[0],
-    firstPaymentDate: new Date(payments[0].date).toISOString().split('T')[0],
-    lastPaymentDate: new Date(payments[payments.length - 1].date).toISOString().split('T')[0],
-    totalPayments: payments.reduce((sum, p) => sum + p.amount, 0).toFixed(2),
-    effectiveCost: ((payments.reduce((sum, p) => sum + p.amount, 0) - initialAmount) / initialAmount * 100).toFixed(2) + '%'
-  });
-
   // Start with a reasonable initial guess (10% annual)
   let annualRate = 0.10;
   const tolerance = 0.000001;
   const maxIterations = 1000;
-  let converged = false;
 
   for (let i = 0; i < maxIterations; i++) {
     const npv = calculateNPV(cashFlows, annualRate, start);
-    
-    if (i < 5 || i % 100 === 0) {
-      console.log(`  Iteration ${i}: rate=${(annualRate * 100).toFixed(6)}%, NPV=${npv.toFixed(2)}`);
-    }
-    
+
     if (Math.abs(npv) < tolerance) {
-      converged = true;
       const monthlyRate = Math.pow(1 + annualRate, 1/12) - 1;
-      
-      console.log('✅ IRR Converged:', {
-        iterations: i,
-        annualRate: (annualRate * 100).toFixed(6) + '%',
-        monthlyRate: (monthlyRate * 100).toFixed(6) + '%',
-        finalNPV: npv.toFixed(8)
-      });
-      
+
       return {
         annualRate: annualRate * 100,
         monthlyRate: monthlyRate * 100,

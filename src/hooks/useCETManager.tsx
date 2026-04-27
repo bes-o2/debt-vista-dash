@@ -6,7 +6,8 @@ import {
   calculateCETByBank,
   calculateCETBySystem,
   calculatePortfolioCET,
-  DebtForCET 
+  DebtForCET,
+  InstallmentForCET,
 } from '@/lib/cetCalculator';
 
 interface Debt {
@@ -74,8 +75,6 @@ export function useCETManager(debts: Debt[]): CETManagerResult {
 
     setIsCalculating(true);
 
-    console.log('🔄 CET Manager: Starting batch CET calculation for', debts.length, 'debts');
-
     // Prepare data for batch calculation
     const debtsForCET: DebtForCET[] = debts.map(debt => ({
       id: debt.id,
@@ -84,7 +83,7 @@ export function useCETManager(debts: Debt[]): CETManagerResult {
       tacAmount: debt.tacAmount
     }));
 
-    const installmentsMap: Record<string, any[]> = {};
+    const installmentsMap: Record<string, InstallmentForCET[]> = {};
     const startDatesMap: Record<string, string> = {};
 
     debts.forEach(debt => {
@@ -94,12 +93,6 @@ export function useCETManager(debts: Debt[]): CETManagerResult {
 
     // Calculate all CETs in batch
     const results = calculateBatchCET(debtsForCET, installmentsMap, startDatesMap);
-
-    console.log('✅ CET Manager: Batch calculation complete', {
-      total: debts.length,
-      calculated: Object.values(results).filter(r => r !== null).length,
-      failed: Object.values(results).filter(r => r === null).length
-    });
 
     setCETMap(results);
     setIsCalculating(false);

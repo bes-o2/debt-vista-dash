@@ -39,7 +39,7 @@ export const TOOLTIP_REGISTRY: Record<TooltipKeys, string> = {
   // Dashboard Stats
   [TooltipKeys.TOTAL_FINANCED]: "Soma de todos os valores financiados dos contratos selecionados",
   [TooltipKeys.CURRENT_PAYMENT]: "Valor total das parcelas mensais (PMT) dos contratos ativos no período atual",
-  [TooltipKeys.AVERAGE_RATE]: "Taxa de juros média mensal ponderada dos contratos selecionados",
+  [TooltipKeys.AVERAGE_RATE]: "CET mensal médio ponderado pelo saldo devedor atual dos contratos selecionados",
   [TooltipKeys.UPCOMING_DUE]: "Quantidade de contratos com vencimento nos próximos 30 dias",
   [TooltipKeys.AVERAGE_SPREAD]: "Diferença média entre o CET dos contratos e a taxa CDI atual",
   [TooltipKeys.CURRENT_OUTSTANDING_BALANCE]: "Saldo devedor total atual de todos os contratos selecionados",
@@ -92,7 +92,7 @@ export interface RequiresTooltip {
 /**
  * Higher-order component type that enforces tooltip documentation
  */
-export type WithTooltip<T = {}> = T & RequiresTooltip;
+export type WithTooltip<T = object> = T & RequiresTooltip;
 
 /**
  * Utility to validate tooltip registration at build time

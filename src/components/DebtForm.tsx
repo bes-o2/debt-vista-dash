@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,12 +6,13 @@ import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Plus, Info, Trash2 } from "lucide-react";
 import { useBanks } from "@/hooks/useBanks";
 import { toast } from "@/hooks/use-toast";
 import { Debt, DebtInput } from "@/hooks/useDebts";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveDebtBankName } from "@/lib/debtBank";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
 import {
   DebtGuaranteeInput,
@@ -25,6 +26,15 @@ interface DebtFormProps {
   onClose: () => void;
   onSave: (debt: DebtInput, guarantees: DebtGuaranteeInput[]) => Promise<void> | void;
   debt?: Debt;
+  initialDebt?: DebtInput;
+  initialGuarantees?: DebtGuaranteeInput[];
+  importReview?: {
+    current: number;
+    total: number;
+    lowConfidenceFields: string[];
+    notes?: string;
+    sourceName?: string;
+  };
 }
 
 const formatCurrency = (value: number): string => {
@@ -47,13 +57,36 @@ const formatDateForSave = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 };
 
+const parseLocalDate = (dateString?: string): Date => {
+  if (!dateString) {
+    return new Date();
+  }
+
+  const [year, month, day] = dateString.split("-").map(Number);
+  if (!year || !month || !day) {
+    return new Date();
+  }
+
+  return new Date(year, month - 1, day);
+};
+
+const releaseDateFromFirstDueDate = (firstDueDate?: string): Date => {
+  const firstDueDateObj = parseLocalDate(firstDueDate);
+  return new Date(firstDueDateObj.getFullYear(), firstDueDateObj.getMonth() - 1, firstDueDateObj.getDate());
+};
+
+const isPreFixedInterestBase = (interestBase?: string): boolean => {
+  const normalized = interestBase?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() ?? "";
+  return !normalized || normalized === "pre" || normalized.includes("pre-fix") || normalized.includes("prefix");
+};
+
 const createEmptyGuarantee = (): DebtGuaranteeInput => ({
   type: "imovel",
   value: 0,
   description: "",
 });
 
-export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
+export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGuarantees, importReview }: DebtFormProps) => {
   const { banks, addBank } = useBanks();
   const { latestRates, isLoading: isLoadingRates } = useEconomicIndices();
   const { guarantees: existingGuarantees } = useDebtGuarantees(debt?.id);
@@ -84,6 +117,12 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
   const [guarantees, setGuarantees] = useState<DebtGuaranteeInput[]>([]);
   const [guaranteeValueDisplays, setGuaranteeValueDisplays] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const bankOptions = formData.bank && !banks.some((bank) => bank.name.toLowerCase() === formData.bank.toLowerCase())
+    ? [{ id: "imported-bank", name: formData.bank, created_at: "", updated_at: "" }, ...banks]
+    : banks;
+  const indexerOptions = formData.indexer && !["CDI", "SELIC", "IPCA"].includes(formData.indexer)
+    ? [formData.indexer, "CDI", "SELIC", "IPCA"]
+    : ["CDI", "SELIC", "IPCA"];
 
   const hasErrors =
     !formData.bank?.trim() ||
@@ -109,7 +148,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     };
   };
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       financedAmount: 0,
       releaseDate: new Date(),
@@ -134,7 +173,40 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
     setGuaranteeValueDisplays([]);
     setNewBankName("");
     setShowNewBankInput(false);
-  };
+  }, [banks]);
+
+  const applyDebtInput = useCallback((debtInput: DebtInput, nextGuarantees: DebtGuaranteeInput[]) => {
+    const isPreFixed = isPreFixedInterestBase(debtInput.interest_base);
+    const iofAmount =
+      debtInput.iof_rate != null && debtInput.financed_amount > 0
+        ? (debtInput.financed_amount * debtInput.iof_rate) / 100
+        : 0;
+
+    setFormData({
+      financedAmount: debtInput.financed_amount,
+      releaseDate: releaseDateFromFirstDueDate(debtInput.first_due_date),
+      dueDate: parseLocalDate(debtInput.last_due_date),
+      calculationTable: debtInput.calculation_table,
+      rateType: isPreFixed ? "pre" : "post",
+      indexer: isPreFixed ? "" : debtInput.interest_base || "",
+      spreadRate: debtInput.spread_rate || 0,
+      spreadType: "annual",
+      interestRate: debtInput.interest_rate,
+      interestType: debtInput.interest_type,
+      iofAmount,
+      tacAmount: debtInput.additional_fees || 0,
+      bank: debtInput.bank || banks[0]?.name || "Banco do Brasil",
+      contractNumber: debtInput.description || debtInput.title || "",
+      indexerStartDate: debtInput.indexer_start_date ? parseLocalDate(debtInput.indexer_start_date) : undefined,
+    });
+    setFinancedAmountDisplay(formatCurrency(debtInput.financed_amount * 100));
+    setIofAmountDisplay(iofAmount ? formatCurrency(iofAmount * 100) : "R$ 0,00");
+    setTacAmountDisplay(debtInput.additional_fees ? formatCurrency(debtInput.additional_fees * 100) : "R$ 0,00");
+    setGuarantees(nextGuarantees);
+    setGuaranteeValueDisplays(nextGuarantees.map((guarantee) => formatCurrency(guarantee.value * 100)));
+    setNewBankName("");
+    setShowNewBankInput(false);
+  }, [banks]);
 
   useEffect(() => {
     if (debt) {
@@ -156,7 +228,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
         interestType: debt.interest_type,
         iofAmount: debt.iof_rate || 0,
         tacAmount: debt.additional_fees || 0,
-        bank: debt.bank || debt.title || "Banco do Brasil",
+        bank: resolveDebtBankName(debt),
         contractNumber: debt.description || "",
         indexerStartDate: debt.indexer_start_date ? new Date(debt.indexer_start_date) : undefined,
       });
@@ -166,8 +238,13 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       return;
     }
 
+    if (initialDebt) {
+      applyDebtInput(initialDebt, initialGuarantees ?? []);
+      return;
+    }
+
     resetForm();
-  }, [debt]);
+  }, [debt, initialDebt, initialGuarantees, applyDebtInput, resetForm]);
 
   useEffect(() => {
     if (!debt?.id) {
@@ -345,11 +422,28 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
       <DialogContent className="sm:max-w-lg bg-background max-h-[90vh] overflow-y-auto border-border shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-foreground">
-            {debt ? "Editar Dívida" : "Cadastro de Nova Dívida"}
+            {debt ? "Editar Dívida" : importReview ? "Revisar Dívida Importada" : "Cadastro de Nova Dívida"}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {importReview && (
+            <Alert className="border-amber-500/30 bg-amber-500/10">
+              <Info className="h-4 w-4" />
+              <AlertTitle>
+                Contrato {importReview.current} de {importReview.total}
+                {importReview.sourceName ? ` · ${importReview.sourceName}` : ""}
+              </AlertTitle>
+              <AlertDescription className="space-y-1">
+                <p>Revise os campos extraídos antes de salvar.</p>
+                {importReview.lowConfidenceFields.length > 0 && (
+                  <p>Baixa confiança: {importReview.lowConfidenceFields.join(", ")}.</p>
+                )}
+                {importReview.notes && <p>Notas: {importReview.notes}</p>}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label className="text-sm font-medium">
               Banco <span className="text-red-500">*</span>
@@ -371,7 +465,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
                   <SelectValue placeholder="Selecione o banco" />
                 </SelectTrigger>
                 <SelectContent>
-                  {banks.map((bank) => (
+                  {bankOptions.map((bank) => (
                     <SelectItem key={bank.id} value={bank.name}>
                       {bank.name}
                     </SelectItem>
@@ -537,9 +631,11 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt }: DebtFormProps) => {
                     <SelectValue placeholder="Selecione o indexador" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CDI">CDI</SelectItem>
-                    <SelectItem value="SELIC">SELIC</SelectItem>
-                    <SelectItem value="IPCA">IPCA</SelectItem>
+                    {indexerOptions.map((indexer) => (
+                      <SelectItem key={indexer} value={indexer}>
+                        {indexer}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

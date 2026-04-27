@@ -39,6 +39,8 @@ interface GlobalFiltersProps {
   onEndDateChange: (date: Date | undefined) => void;
   onClearFilters: () => void;
   hideDateFilters?: boolean;
+  periodMode?: "vigencia" | "vencimento";
+  onPeriodModeChange?: (mode: "vigencia" | "vencimento") => void;
 }
 
 export const GlobalFilters = ({
@@ -54,7 +56,9 @@ export const GlobalFilters = ({
   onStartDateChange,
   onEndDateChange,
   onClearFilters,
-  hideDateFilters = false
+  hideDateFilters = false,
+  periodMode,
+  onPeriodModeChange,
 }: GlobalFiltersProps) => {
   const [debtSelectorOpen, setDebtSelectorOpen] = useState(false);
 
@@ -221,8 +225,8 @@ export const GlobalFilters = ({
 
             {/* Clear Dates Button */}
             <div className="flex items-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   onStartDateChange(undefined);
                   onEndDateChange(undefined);
@@ -237,6 +241,36 @@ export const GlobalFilters = ({
           </>
         )}
       </div>
+
+      {/* Period Mode Toggle */}
+      {!hideDateFilters && onPeriodModeChange && (
+        <div className="mt-3 pt-3 border-t border-border/40 space-y-1.5">
+          <label className="text-sm font-medium text-foreground">Semântica do período</label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={periodMode === "vigencia" ? "default" : "outline"}
+              onClick={() => onPeriodModeChange("vigencia")}
+            >
+              Vigência do contrato
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={periodMode === "vencimento" ? "default" : "outline"}
+              onClick={() => onPeriodModeChange("vencimento")}
+            >
+              Vencimento de parcelas
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {periodMode === "vigencia"
+              ? "Contratos com vigência que inclui o período"
+              : "Contratos com parcelas vencendo no período"}
+          </p>
+        </div>
+      )}
 
       {/* Active Filters Display */}
       {hasActiveFilters && (

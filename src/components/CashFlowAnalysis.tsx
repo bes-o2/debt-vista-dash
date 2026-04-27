@@ -10,7 +10,7 @@ import { TrendingUp, TrendingDown, Calendar, DollarSign, BarChart3, Filter, Refr
 import { useToast } from '@/hooks/use-toast';
 import { PaymentScheduleTable } from '@/components/PaymentScheduleTable';
 import { useDebtInstallments } from '@/hooks/useDebtInstallments';
-import { normalizeDebtForCalculation } from '@/lib/debtUtils';
+import { normalizeDebtForCalculation, debtIntersectsDateRange } from '@/lib/debtUtils';
 
 interface Debt {
   id: string;
@@ -40,6 +40,9 @@ interface CashFlowAnalysisProps {
   debts: Debt[];
   preSelectedDebt?: Debt | null;
   onClearPreSelection?: () => void;
+  periodMode?: "vigencia" | "vencimento";
+  globalStartDate?: Date;
+  globalEndDate?: Date;
 }
 
 interface ChartDataPoint {
@@ -52,7 +55,7 @@ interface ChartDataPoint {
   monthNumber: number;
 }
 
-export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }: CashFlowAnalysisProps) {
+export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, periodMode, globalStartDate, globalEndDate }: CashFlowAnalysisProps) {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedDebts, setSelectedDebts] = useState<string[]>([]);
   const [analysisType, setAnalysisType] = useState<'absolute' | 'accumulated'>('absolute');
@@ -102,11 +105,14 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection }
     return [...new Set(debts.map(debt => debt.bank))];
   }, [debts]);
 
-  // Filter debts based on selected banks
+  // Filter debts based on selected banks (+ vigencia mode applies global date range)
   const filteredDebts = useMemo(() => {
-    if (selectedBanks.length === 0) return debts;
-    return debts.filter(debt => selectedBanks.includes(debt.bank));
-  }, [debts, selectedBanks]);
+    let result = selectedBanks.length === 0 ? debts : debts.filter(debt => selectedBanks.includes(debt.bank));
+    if (periodMode === "vigencia" && (globalStartDate || globalEndDate)) {
+      result = result.filter(debt => debtIntersectsDateRange(debt, globalStartDate, globalEndDate));
+    }
+    return result;
+  }, [debts, selectedBanks, periodMode, globalStartDate, globalEndDate]);
 
   // Get final debt selection
   const finalDebts = useMemo(() => {

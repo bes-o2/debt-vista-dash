@@ -1,0 +1,4 @@
+interface:
+  display_name: "Handoff to Claude"
+  short_description: "Finalize Codex work for Claude Code"
+  default_prompt: "Use $handoff-to-claude to finalize this Codex session and prepare Claude Code to continue."

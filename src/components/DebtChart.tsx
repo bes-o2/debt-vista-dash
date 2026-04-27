@@ -1,16 +1,47 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, ComposedChart } from "recharts";
-import { useState, useMemo } from "react";
-import React from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { TrendingUp, PieChart as PieChartIcon, BarChart3, Filter, Building, ChevronDown, Calendar, Receipt } from "lucide-react";
-import { getBankColor } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  AlertCircle,
+  Calendar,
+  ChevronDown,
+  Filter,
+  Landmark,
+  Receipt,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
+import { debtIntersectsDateRange } from "@/lib/debtUtils";
+import { cn } from "@/lib/utils";
+import type {
+  DashboardWidgetDensity,
+  DashboardWidgetViewMode,
+} from "@/components/dashboard/dashboardWidgetTypes";
 
 interface Debt {
   id: string;
@@ -18,10 +49,10 @@ interface Debt {
   releaseDate: string;
   firstDueDate: string;
   dueDate: string;
-  calculationTable: 'SAC' | 'PRICE';
+  calculationTable: "SAC" | "PRICE";
   indexer?: string;
   interestRate: number;
-  interestType: 'monthly' | 'annual';
+  interestType: "monthly" | "annual";
   bank: string;
   iofAmount?: number;
   tacAmount?: number;
@@ -32,196 +63,193 @@ interface Debt {
 
 interface DebtChartProps {
   debts: Debt[];
+  selectedBank?: string;
+  startDate?: Date;
+  endDate?: Date;
+  viewType?: DashboardWidgetViewMode;
+  density?: DashboardWidgetDensity;
+  unstyled?: boolean;
+  hideTitle?: boolean;
+  onViewTypeChange?: (viewType: DashboardWidgetViewMode) => void;
 }
 
-// Component for debt visualization with real bank colors
-export const DebtChart = ({ debts }: DebtChartProps) => {
+type ViewType = DashboardWidgetViewMode;
+
+type ComparisonTooltipItem = {
+  dataKey?: string;
+  payload?: BankComparisonRow;
+};
+
+type BankComparisonRow = {
+  name: string;
+  principalAmount: number;
+  financedInterest: number;
+  totalAmount: number;
+  avgCET: number;
+  count: number;
+};
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+
+const formatCurrencyShort = (value: number) => {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `R$ ${(value / 1_000).toFixed(0)}K`;
+  return `R$ ${value.toFixed(0)}`;
+};
+
+const formatPercent = (value: number) => `${value.toFixed(2)}%`;
+
+const getPrimaryMetricLabel = (viewType: ViewType) =>
+  viewType === "total" ? "Valor financiado" : "Saldo devedor";
+
+const getInterestMetricLabel = (viewType: ViewType) =>
+  viewType === "total" ? "Juros financiados" : "Juros futuros";
+
+const isPreFixedIndexer = (indexer?: string) => {
+  if (!indexer) return true;
+
+  const normalized = indexer
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  return ["pre-fixado", "pre fixado", "prefixado", "pre_fixado"].includes(normalized);
+};
+
+const calculateWeightedAnnualCET = (debts: Debt[]) => {
+  const debtsWithCET = debts.filter(
+    (debt) =>
+      debt.cet_annual_rate !== null &&
+      debt.cet_annual_rate !== undefined &&
+      !Number.isNaN(debt.cet_annual_rate),
+  );
+
+  const totalWeight = debtsWithCET.reduce(
+    (sum, debt) => sum + debt.financedAmount,
+    0,
+  );
+
+  return totalWeight > 0
+    ? debtsWithCET.reduce(
+        (sum, debt) => sum + (debt.cet_annual_rate || 0) * debt.financedAmount,
+        0,
+      ) / totalWeight
+    : 0;
+};
+
+const calculateApproximateInterest = (debt: Debt) => {
+  const months = Math.ceil(
+    (new Date(debt.dueDate).getTime() - new Date(debt.firstDueDate).getTime()) /
+      (1000 * 60 * 60 * 24 * 30),
+  );
+  const monthlyRate =
+    debt.interestType === "annual"
+      ? Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1
+      : debt.interestRate / 100;
+
+  return debt.financedAmount * monthlyRate * months * 0.5;
+};
+
+// Component for debt visualization focused on bank comparison
+export const DebtChart = ({
+  debts,
+  selectedBank = "all",
+  startDate,
+  endDate,
+  viewType: controlledViewType,
+  density = "default",
+  unstyled = false,
+  hideTitle = false,
+  onViewTypeChange,
+}: DebtChartProps) => {
   const [selectedBanks, setSelectedBanks] = useState<string[]>([]);
   const [selectedIndexerType, setSelectedIndexerType] = useState<string>("all");
-  const [chartType, setChartType] = useState<string>("comparison");
-  const [viewType, setViewType] = useState<'atual' | 'total'>('total');
+  const [internalViewType, setInternalViewType] = useState<ViewType>("total");
+  const viewType = controlledViewType ?? internalViewType;
+  const setViewType = onViewTypeChange ?? setInternalViewType;
+  const chartHeight = density === "compact" ? 280 : 350;
 
-  // Fetch installments data for calculating current remaining values
-  const { installmentsData, loading: installmentsLoading } = useDebtInstallments(debts);
+  useEffect(() => {
+    setSelectedBanks([]);
+  }, [selectedBank]);
 
-  // Get unique banks
+  const baseDebts = useMemo(() => {
+    return debts.filter((debt) => {
+      const bankMatch = selectedBank === "all" || debt.bank === selectedBank;
+      const dateMatch = debtIntersectsDateRange(debt, startDate, endDate);
+      return bankMatch && dateMatch;
+    });
+  }, [debts, selectedBank, startDate, endDate]);
+
+  const {
+    installmentsData,
+    loading: installmentsLoading,
+    error: installmentsError,
+  } = useDebtInstallments(baseDebts);
+
   const availableBanks = useMemo(() => {
-    return [...new Set(debts.map(debt => debt.bank))];
-  }, [debts]);
+    return [...new Set(baseDebts.map((debt) => debt.bank))];
+  }, [baseDebts]);
 
-  // Filter debts based on selections
   const filteredDebts = useMemo(() => {
-    return debts.filter(debt => {
-      const bankMatch = selectedBanks.length === 0 || selectedBanks.includes(debt.bank);
-      
-      const indexerTypeMatch = selectedIndexerType === "all" || 
-        (selectedIndexerType === "pre" && !debt.indexer) ||
-        (selectedIndexerType === "pos" && debt.indexer);
-      
+    return baseDebts.filter((debt) => {
+      const bankMatch =
+        selectedBank !== "all" ||
+        selectedBanks.length === 0 ||
+        selectedBanks.includes(debt.bank);
+      const isPreFixado = isPreFixedIndexer(debt.indexer);
+
+      const indexerTypeMatch =
+        selectedIndexerType === "all" ||
+        (selectedIndexerType === "pre" && isPreFixado) ||
+        (selectedIndexerType === "pos" && !isPreFixado);
+
       return bankMatch && indexerTypeMatch;
     });
-  }, [debts, selectedBanks, selectedIndexerType]);
+  }, [baseDebts, selectedBank, selectedBanks, selectedIndexerType]);
 
-  // Note: CET is now stored in database, no dynamic calculation needed
-  // For backward compatibility with charts that may still reference cetManager,
-  // we'll use stored values directly from debt objects
-
-  const formatCurrency = (value: number) => 
-    new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(value);
-
-  // Dados por banco para o gráfico de pizza
-  const bankData = useMemo(() => {
-    return filteredDebts.reduce((acc, debt) => {
-      const existing = acc.find(item => item.name === debt.bank);
-      if (existing) {
-        existing.value += debt.financedAmount;
-        existing.count += 1;
-      } else {
-        acc.push({ 
-          name: debt.bank, 
-          value: debt.financedAmount,
-          count: 1
-        });
-      }
-      return acc;
-    }, [] as { name: string; value: number; count: number }[]);
-  }, [filteredDebts]);
-
-  // Dados por sistema de amortização
-  const systemData = useMemo(() => {
-    return filteredDebts.reduce((acc, debt) => {
-      const existing = acc.find(item => item.name === debt.calculationTable);
-      if (existing) {
-        existing.value += debt.financedAmount;
-        existing.count += 1;
-      } else {
-        acc.push({ 
-          name: debt.calculationTable, 
-          value: debt.financedAmount,
-          count: 1
-        });
-      }
-      return acc;
-    }, [] as { name: string; value: number; count: number }[]);
-  }, [filteredDebts]);
-
-  // Dados comparativos de bancos (valor principal vs juros financiados)
   const bankComparisonData = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return availableBanks.map(bank => {
-      const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
-      
-      let principalAmount = 0;
-      let financedInterest = 0;
+    return availableBanks
+      .map((bank) => {
+        const bankDebts = filteredDebts.filter((debt) => debt.bank === bank);
 
-      if (viewType === 'total') {
-        // TOTAL: Valor financiado original e juros totais do contrato
-        principalAmount = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
-        
-        // Calcular juros totais do contrato inteiro
-        financedInterest = bankDebts.reduce((sum, debt) => {
-          const installments = installmentsData[debt.id];
-          if (installments && installments.length > 0) {
-            // Somar todos os juros de todas as parcelas
-            const totalInterest = installments.reduce((interestSum, inst) => 
-              interestSum + inst.interest_amount, 0
-            );
-            return sum + totalInterest;
-          } else {
-            // Fallback: aproximação
-            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.firstDueDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
-            const monthlyRate = debt.interestType === 'annual' 
-              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-              : debt.interestRate / 100;
-            const totalInterest = debt.financedAmount * monthlyRate * months * 0.5;
-            return sum + totalInterest;
-          }
-        }, 0);
-      } else {
-        // ATUAL: Saldo devedor atual e juros futuros remanescentes
-        bankDebts.forEach(debt => {
-          const installments = installmentsData[debt.id];
-          if (installments && installments.length > 0) {
-            // Filtrar parcelas futuras (a partir de hoje)
-            const futureInstallments = installments.filter(inst => {
-              const dueDate = new Date(inst.due_date);
-              dueDate.setHours(0, 0, 0, 0);
-              return dueDate >= today;
-            });
-
-            if (futureInstallments.length > 0) {
-              // Saldo devedor = remaining_balance da primeira parcela futura
-              principalAmount += futureInstallments[0].remaining_balance;
-              
-              // Juros futuros = soma dos juros de todas as parcelas futuras
-              const futureInterest = futureInstallments.reduce((sum, inst) => 
-                sum + inst.interest_amount, 0
-              );
-              financedInterest += futureInterest;
-            }
-          } else {
-            // Fallback se não tiver installments calculados ainda
-            principalAmount += debt.financedAmount;
-            const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.firstDueDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
-            const monthlyRate = debt.interestType === 'annual' 
-              ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-              : debt.interestRate / 100;
-            financedInterest += debt.financedAmount * monthlyRate * months * 0.5;
-          }
-        });
-      }
-
-      return {
-        name: bank,
-        principalAmount: principalAmount,
-        financedInterest: financedInterest,
-        count: bankDebts.length,
-        bankDebts: bankDebts // Adicionar as dívidas para cálculo do CET
-      };
-    }).filter(item => item.count > 0);
-  }, [availableBanks, filteredDebts, viewType, installmentsData]);
-
-  // Calculate max Y value across both views for consistent axis scale
-  const maxYValue = useMemo(() => {
-    const calculateMaxForView = (viewMode: 'atual' | 'total') => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      return availableBanks.reduce((maxValue, bank) => {
-        const bankDebts = filteredDebts.filter(debt => debt.bank === bank);
-        
         let principalAmount = 0;
         let financedInterest = 0;
 
-        if (viewMode === 'total') {
-          principalAmount = bankDebts.reduce((sum, debt) => sum + debt.financedAmount, 0);
-          
+        if (viewType === "total") {
+          principalAmount = bankDebts.reduce(
+            (sum, debt) => sum + debt.financedAmount,
+            0,
+          );
+
           financedInterest = bankDebts.reduce((sum, debt) => {
             const installments = installmentsData[debt.id];
             if (installments && installments.length > 0) {
-              const totalInterest = installments.reduce((interestSum, inst) => 
-                interestSum + inst.interest_amount, 0
+              const totalInterest = installments.reduce(
+                (interestSum, inst) => interestSum + inst.interest_amount,
+                0,
               );
               return sum + totalInterest;
-            } else {
-              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.firstDueDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
-              const monthlyRate = debt.interestType === 'annual' 
-                ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-                : debt.interestRate / 100;
-              const totalInterest = debt.financedAmount * monthlyRate * months * 0.5;
-              return sum + totalInterest;
             }
+
+            return sum + calculateApproximateInterest(debt);
           }, 0);
         } else {
-          bankDebts.forEach(debt => {
+          bankDebts.forEach((debt) => {
             const installments = installmentsData[debt.id];
             if (installments && installments.length > 0) {
-              const futureInstallments = installments.filter(inst => {
+              const futureInstallments = installments.filter((inst) => {
                 const dueDate = new Date(inst.due_date);
                 dueDate.setHours(0, 0, 0, 0);
                 return dueDate >= today;
@@ -229,124 +257,168 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
 
               if (futureInstallments.length > 0) {
                 principalAmount += futureInstallments[0].remaining_balance;
-                const futureInterest = futureInstallments.reduce((sum, inst) => 
-                  sum + inst.interest_amount, 0
+                const futureInterest = futureInstallments.reduce(
+                  (sum, inst) => sum + inst.interest_amount,
+                  0,
                 );
                 financedInterest += futureInterest;
               }
             } else {
               principalAmount += debt.financedAmount;
-              const months = Math.ceil((new Date(debt.dueDate).getTime() - new Date(debt.firstDueDate).getTime()) / (1000 * 60 * 60 * 24 * 30));
-              const monthlyRate = debt.interestType === 'annual' 
-                ? Math.pow(1 + debt.interestRate / 100, 1/12) - 1
-                : debt.interestRate / 100;
-              financedInterest += debt.financedAmount * monthlyRate * months * 0.5;
+              financedInterest += calculateApproximateInterest(debt);
             }
           });
         }
 
-        const bankTotal = principalAmount + financedInterest;
-        return Math.max(maxValue, bankTotal);
+        return {
+          name: bank,
+          principalAmount,
+          financedInterest,
+          totalAmount: principalAmount + financedInterest,
+          count: bankDebts.length,
+        };
+      })
+      .filter((item) => item.count > 0);
+  }, [availableBanks, filteredDebts, viewType, installmentsData]);
+
+  // Calculate max Y value across both views for consistent axis scale.
+  const maxYValue = useMemo(() => {
+    const calculateMaxForView = (viewMode: ViewType) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return availableBanks.reduce((maxValue, bank) => {
+        const bankDebts = filteredDebts.filter((debt) => debt.bank === bank);
+
+        let principalAmount = 0;
+        let financedInterest = 0;
+
+        if (viewMode === "total") {
+          principalAmount = bankDebts.reduce(
+            (sum, debt) => sum + debt.financedAmount,
+            0,
+          );
+
+          financedInterest = bankDebts.reduce((sum, debt) => {
+            const installments = installmentsData[debt.id];
+            if (installments && installments.length > 0) {
+              const totalInterest = installments.reduce(
+                (interestSum, inst) => interestSum + inst.interest_amount,
+                0,
+              );
+              return sum + totalInterest;
+            }
+
+            return sum + calculateApproximateInterest(debt);
+          }, 0);
+        } else {
+          bankDebts.forEach((debt) => {
+            const installments = installmentsData[debt.id];
+            if (installments && installments.length > 0) {
+              const futureInstallments = installments.filter((inst) => {
+                const dueDate = new Date(inst.due_date);
+                dueDate.setHours(0, 0, 0, 0);
+                return dueDate >= today;
+              });
+
+              if (futureInstallments.length > 0) {
+                principalAmount += futureInstallments[0].remaining_balance;
+                const futureInterest = futureInstallments.reduce(
+                  (sum, inst) => sum + inst.interest_amount,
+                  0,
+                );
+                financedInterest += futureInterest;
+              }
+            } else {
+              principalAmount += debt.financedAmount;
+              financedInterest += calculateApproximateInterest(debt);
+            }
+          });
+        }
+
+        return Math.max(maxValue, principalAmount + financedInterest);
       }, 0);
     };
 
-    const maxTotal = calculateMaxForView('total');
-    const maxAtual = calculateMaxForView('atual');
-    
+    const maxTotal = calculateMaxForView("total");
+    const maxAtual = calculateMaxForView("atual");
+
     return Math.max(maxTotal, maxAtual);
   }, [availableBanks, filteredDebts, installmentsData]);
 
-  // Calculate bank comparison data with CET from stored values
-  const bankComparisonDataWithCET = useMemo(() => {
-    return bankComparisonData.map(item => {
-      // Calculate average CET for this bank from stored debt values
-      const bankDebts = filteredDebts.filter(d => d.bank === item.name);
-      const debtsWithCET = bankDebts.filter(d => 
-        d.cet_annual_rate !== null && 
-        d.cet_annual_rate !== undefined && 
-        !isNaN(d.cet_annual_rate)
-      );
-      
-      const avgCET = debtsWithCET.length > 0
-        ? debtsWithCET.reduce((sum, d) => sum + (d.cet_annual_rate || 0), 0) / debtsWithCET.length
-        : 0;
-      
-      return {
-        name: item.name,
-        principalAmount: item.principalAmount,
-        financedInterest: item.financedInterest,
-        avgCET: avgCET,
-        count: item.count
-      };
-    });
+  const bankComparisonDataWithCET = useMemo<BankComparisonRow[]>(() => {
+    return bankComparisonData
+      .map((item) => {
+        const bankDebts = filteredDebts.filter((d) => d.bank === item.name);
+        const avgCET = calculateWeightedAnnualCET(bankDebts);
+
+        return {
+          ...item,
+          avgCET,
+        };
+      })
+      .sort((a, b) => b.totalAmount - a.totalAmount);
   }, [bankComparisonData, filteredDebts]);
 
-  // Dados de indexadores
-  const indexerData = useMemo(() => {
-    return filteredDebts
-      .filter(debt => debt.indexer)
-      .reduce((acc, debt) => {
-        const existing = acc.find(item => item.name === debt.indexer);
-        if (existing) {
-          existing.value += debt.financedAmount;
-          existing.count += 1;
-        } else {
-          acc.push({ 
-            name: debt.indexer!, 
-            value: debt.financedAmount,
-            count: 1
-          });
-        }
-        return acc;
-      }, [] as { name: string; value: number; count: number }[]);
-  }, [filteredDebts]);
+  const chartConfig = useMemo<ChartConfig>(
+    () => ({
+      principalAmount: {
+        label: getPrimaryMetricLabel(viewType),
+        color: "hsl(var(--chart-1))",
+      },
+      financedInterest: {
+        label: getInterestMetricLabel(viewType),
+        color: "hsl(var(--chart-3))",
+      },
+      avgCET: {
+        label: "CET médio",
+        color: "hsl(var(--chart-5))",
+      },
+    }),
+    [viewType],
+  );
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-semibold text-foreground">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.dataKey === 'principalAmount' && 'Valor Principal: '}
-              {entry.dataKey === 'financedInterest' && 'Juros Financiados: '}
-              {entry.dataKey === 'avgCET' && 'CET Médio: '}
-              {entry.dataKey === 'value' && 'Valor: '}
-              {entry.dataKey === 'avgCET' 
-                ? `${entry.value.toFixed(2)}%`
-                : formatCurrency(entry.value)
-              }
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
+  const comparisonTotals = useMemo(() => {
+    const principalAmount = bankComparisonDataWithCET.reduce(
+      (sum, bank) => sum + bank.principalAmount,
+      0,
+    );
+    const financedInterest = bankComparisonDataWithCET.reduce(
+      (sum, bank) => sum + bank.financedInterest,
+      0,
+    );
+    const avgCET = calculateWeightedAnnualCET(filteredDebts);
 
-  const CustomPieTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0];
-      return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-semibold text-foreground">{data.payload.name}</p>
-          <p className="text-sm text-muted-foreground">
-            {data.payload.count} contrato{data.payload.count !== 1 ? 's' : ''}
-          </p>
-          <p className="text-sm font-medium" style={{ color: data.color }}>
-            {formatCurrency(data.value)}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+    return {
+      principalAmount,
+      financedInterest,
+      avgCET,
+      bankCount: bankComparisonDataWithCET.length,
+      contractCount: filteredDebts.length,
+    };
+  }, [bankComparisonDataWithCET, filteredDebts]);
+
+  const chartLayout = useMemo(() => {
+    const barCount = Math.max(bankComparisonDataWithCET.length, 1);
+    const barSize =
+      barCount <= 3 ? 92 : barCount <= 5 ? 72 : barCount <= 8 ? 54 : 38;
+
+    return {
+      barSize,
+      categoryGap: barCount <= 3 ? "14%" : barCount <= 7 ? "10%" : "8%",
+    };
+  }, [bankComparisonDataWithCET.length]);
+
+  const primaryMetricLabel = getPrimaryMetricLabel(viewType);
+  const interestMetricLabel = getInterestMetricLabel(viewType);
+  const hasActiveFilters =
+    selectedBanks.length > 0 || selectedIndexerType !== "all";
+  const isChartLoading =
+    installmentsLoading && Object.keys(installmentsData).length === 0;
 
   const handleBankToggle = (bank: string) => {
-    setSelectedBanks(prev => 
-      prev.includes(bank) 
-        ? prev.filter(b => b !== bank)
-        : [...prev, bank]
+    setSelectedBanks((prev) =>
+      prev.includes(bank) ? prev.filter((b) => b !== bank) : [...prev, bank],
     );
   };
 
@@ -356,105 +428,194 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
   };
 
   if (debts.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="rounded-3xl bg-card p-8 border border-border">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 rounded-2xl bg-primary/10">
-              <PieChartIcon className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold text-foreground">
-                Gráficos e Análises
-              </h2>
-              <p className="text-muted-foreground">
-                Visualize a distribuição e comparação de suas dívidas
-              </p>
-            </div>
-          </div>
+    const emptyHeader = !hideTitle && (
+      <div className="flex items-center gap-3">
+        <div className="rounded-lg bg-primary/10 p-2">
+          <TrendingUp className="h-5 w-5 text-primary" />
         </div>
-
-        <Card className="border-2 border-dashed border-muted-foreground/25">
-          <CardContent className="pt-6">
-            <div className="text-center py-12">
-              <PieChartIcon className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-                Nenhum contrato cadastrado
-              </h3>
-              <p className="text-muted-foreground">
-                Cadastre suas dívidas para visualizar gráficos e análises
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">
+            Gráficos e Análises
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Comparativo de bancos por saldo, juros e CET.
+          </p>
+        </div>
       </div>
+    );
+    const emptyContent = (
+      <div
+        className="flex flex-col items-center justify-center gap-2 text-center"
+        style={{ height: chartHeight }}
+      >
+        <TrendingUp className="h-10 w-10 text-muted-foreground/50" />
+        <h3 className="text-lg font-semibold text-muted-foreground">
+          Nenhum contrato cadastrado
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Cadastre suas dívidas para visualizar o comparativo por bancos.
+        </p>
+      </div>
+    );
+
+    if (unstyled) {
+      return (
+        <div className={cn("space-y-4", density === "compact" && "space-y-3")}>
+          {emptyHeader}
+          {emptyContent}
+        </div>
+      );
+    }
+
+    return (
+      <Card className="bg-card border hover:shadow-lg transition-shadow duration-300">
+        {emptyHeader && <CardHeader>{emptyHeader}</CardHeader>}
+        <CardContent>{emptyContent}</CardContent>
+      </Card>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header com Material 3 styling e filtros */}
-      <div className="rounded-3xl bg-card p-8 border border-border">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 rounded-2xl bg-primary/10">
-            <PieChartIcon className="h-8 w-8 text-primary" />
+  const header = (
+    <div className="space-y-5">
+      <div className={cn("flex flex-col gap-4 xl:flex-row xl:items-start", hideTitle ? "xl:justify-end" : "xl:justify-between")}>
+        {!hideTitle && (
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                Gráficos e Análises
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Comparativo de bancos por saldo, juros financiados e CET.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-3xl font-bold text-foreground">
-              Gráficos e Análises
-            </h2>
-            <p className="text-muted-foreground">
-              Visualize a distribuição e comparação de suas dívidas
-            </p>
-          </div>
+        )}
+
+          <TooltipProvider delayDuration={150}>
+            <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/40 p-1">
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewType === "atual" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewType("atual")}
+                    className="h-8 gap-1.5 px-3 text-xs transition-transform active:scale-[0.96]"
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    Atual
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-xs">
+                  <p className="mb-1 font-semibold">Visão atual</p>
+                  <p className="text-muted-foreground">
+                    Saldo devedor remanescente e juros das parcelas futuras.
+                  </p>
+                </TooltipContent>
+              </UITooltip>
+
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={viewType === "total" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setViewType("total")}
+                    className="h-8 gap-1.5 px-3 text-xs transition-transform active:scale-[0.96]"
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    Total
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-xs">
+                  <p className="mb-1 font-semibold">Visão total do contrato</p>
+                  <p className="text-muted-foreground">
+                    Valor financiado original e juros de toda a vigência.
+                  </p>
+                </TooltipContent>
+              </UITooltip>
+            </div>
+          </TooltipProvider>
+      </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <KpiBlock
+            label={primaryMetricLabel}
+            value={formatCurrency(comparisonTotals.principalAmount)}
+            detail={`${comparisonTotals.contractCount} contrato${
+              comparisonTotals.contractCount !== 1 ? "s" : ""
+            }`}
+          />
+          <KpiBlock
+            label={interestMetricLabel}
+            value={formatCurrency(comparisonTotals.financedInterest)}
+            detail={`${formatCurrency(
+              comparisonTotals.principalAmount + comparisonTotals.financedInterest,
+            )} no total`}
+          />
+          <KpiBlock
+            label="CET médio"
+            value={comparisonTotals.avgCET > 0 ? formatPercent(comparisonTotals.avgCET) : "Sem CET"}
+            detail={`${comparisonTotals.bankCount} banco${
+              comparisonTotals.bankCount !== 1 ? "s" : ""
+            } no comparativo`}
+          />
         </div>
 
-        {/* Filters Section */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Filtrar por Bancos</label>
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Filtrar por bancos
+            </label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-between bg-popover hover:bg-accent hover:text-accent-foreground"
+                <Button
+                  variant="outline"
+                  className="h-10 w-full justify-between bg-popover transition-transform hover:bg-accent hover:text-accent-foreground active:scale-[0.96]"
                 >
-                  {selectedBanks.length === 0 
-                    ? "Selecione os bancos" 
-                    : `${selectedBanks.length} banco${selectedBanks.length !== 1 ? 's' : ''} selecionado${selectedBanks.length !== 1 ? 's' : ''}`
-                  }
+                  {selectedBanks.length === 0
+                    ? "Todos os bancos"
+                    : `${selectedBanks.length} banco${
+                        selectedBanks.length !== 1 ? "s" : ""
+                      } selecionado${selectedBanks.length !== 1 ? "s" : ""}`}
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 bg-popover border border-border shadow-lg z-50">
+              <PopoverContent className="w-80 border border-border bg-popover shadow-lg">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-foreground">Selecionar Bancos</h4>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <h4 className="font-medium text-foreground">
+                      Selecionar bancos
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setSelectedBanks([])}
-                      className="h-6 px-2 text-xs"
+                      className="h-7 px-2 text-xs transition-transform active:scale-[0.96]"
                     >
                       Limpar
                     </Button>
                   </div>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="max-h-48 space-y-2 overflow-y-auto">
                     {availableBanks.map((bank) => (
-                      <div key={bank} className="flex items-center space-x-2 p-2 rounded hover:bg-accent">
+                      <div
+                        key={bank}
+                        className="flex items-center gap-2 rounded-md p-2 transition-colors hover:bg-accent"
+                      >
                         <Checkbox
                           id={bank}
                           checked={selectedBanks.includes(bank)}
                           onCheckedChange={() => handleBankToggle(bank)}
                         />
-                        <label 
-                          htmlFor={bank} 
-                          className="text-sm font-medium cursor-pointer flex-1"
+                        <label
+                          htmlFor={bank}
+                          className="flex-1 cursor-pointer text-sm font-medium"
                         >
                           {bank}
                         </label>
-                        <Badge variant="outline" className="text-xs">
-                          {debts.filter(d => d.bank === bank).length}
+                        <Badge variant="outline" className="text-xs tabular-nums">
+                          {baseDebts.filter((d) => d.bank === bank).length}
                         </Badge>
                       </div>
                     ))}
@@ -465,430 +626,380 @@ export const DebtChart = ({ debts }: DebtChartProps) => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Pré/Pós Fixado</label>
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Pré/Pós fixado
+            </label>
             <Select value={selectedIndexerType} onValueChange={setSelectedIndexerType}>
-              <SelectTrigger className="bg-popover">
+              <SelectTrigger className="h-10 bg-popover">
                 <SelectValue placeholder="Todos os tipos" />
               </SelectTrigger>
-              <SelectContent className="bg-popover border border-border shadow-lg z-50">
+              <SelectContent className="border border-border bg-popover shadow-lg">
                 <SelectItem value="all">Todos os tipos</SelectItem>
-                <SelectItem value="pre">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    Pré-fixado
-                  </div>
-                </SelectItem>
-                <SelectItem value="pos">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    Pós-fixado
-                  </div>
-                </SelectItem>
+                <SelectItem value="pre">Pré-fixado</SelectItem>
+                <SelectItem value="pos">Pós-fixado</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Tipo de Visualização</label>
-            <Select value={chartType} onValueChange={setChartType}>
-              <SelectTrigger className="bg-popover">
-                <SelectValue placeholder="Selecione o tipo" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border border-border shadow-lg z-50">
-                <SelectItem value="bank">Distribuição por Banco</SelectItem>
-                <SelectItem value="system">Sistema de Amortização</SelectItem>
-                <SelectItem value="comparison">Comparativo de Bancos</SelectItem>
-                <SelectItem value="indexer">Por Indexador</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <Button 
-              variant="outline" 
+          <div className="flex items-end">
+            <Button
+              variant="outline"
               onClick={clearFilters}
-              className="w-full"
+              className="h-10 w-full gap-2 transition-transform active:scale-[0.96] lg:w-auto"
             >
-              <Filter className="h-4 w-4 mr-2" />
-              Limpar Filtros
+              <Filter className="h-4 w-4" />
+              Limpar filtros
             </Button>
           </div>
         </div>
 
-        {/* Active Filters */}
-        {(selectedBanks.length > 0 || selectedIndexerType !== "all") && (
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-sm text-muted-foreground">Filtros ativos:</span>
-            {selectedBanks.map((bank) => (
-              <Badge key={bank} variant="secondary" className="flex items-center gap-1">
-                {bank}
-                <button 
-                  onClick={() => handleBankToggle(bank)}
-                  className="ml-1 text-muted-foreground hover:text-foreground"
-                >
-                  ×
-                </button>
-              </Badge>
-            ))}
-            {selectedIndexerType !== "all" && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <div className={`w-2 h-2 rounded-full ${selectedIndexerType === 'pre' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
-                {selectedIndexerType === 'pre' ? 'Pré-fixado' : 'Pós-fixado'}
-                <button 
-                  onClick={() => setSelectedIndexerType("all")}
-                  className="ml-1 text-muted-foreground hover:text-foreground"
-                >
-                  ×
-                </button>
-              </Badge>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {chartType === "bank" && (
-          <>
-            {/* Gráfico de Pizza - Distribuição por Banco */}
-            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Building className="h-5 w-5 text-primary" />
-                  </div>
-                  Distribuição por Banco
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={350}>
-                  <PieChart>
-                    <Pie
-                      data={bankData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={110}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {bankData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={getBankColor(entry.name)} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomPieTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Resumo por Banco */}
-            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20">
-                    <BarChart3 className="h-5 w-5 text-blue-600" />
-                  </div>
-                  Resumo por Banco
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {bankData.map((bank, index) => (
-                  <div key={bank.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: getBankColor(bank.name) }}
-                      />
-                      <span className="font-medium text-foreground">{bank.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-foreground">{formatCurrency(bank.value)}</p>
-                      <p className="text-xs text-muted-foreground">{bank.count} contrato{bank.count !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {chartType === "system" && (
-          <>
-            {/* Gráfico de Pizza - Sistema de Amortização */}
-            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/20">
-                    <PieChartIcon className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  Sistema de Amortização
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={350}>
-                  <PieChart>
-                    <Pie
-                      data={systemData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      outerRadius={110}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {systemData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index === 0 ? 'hsl(358 85% 55%)' : 'hsl(205 90% 45%)'} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomPieTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Resumo por Sistema */}
-            <Card className="bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/20">
-                    <BarChart3 className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  Detalhes do Sistema
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {systemData.map((system, index) => (
-                  <div key={system.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: index === 0 ? 'hsl(358 85% 55%)' : 'hsl(205 90% 45%)' }}
-                      />
-                      <span className="font-medium text-foreground">{system.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-foreground">{formatCurrency(system.value)}</p>
-                      <p className="text-xs text-muted-foreground">{system.count} contrato{system.count !== 1 ? 's' : ''}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {chartType === "comparison" && (
-          <>
-            {/* CET values are now stored in database and retrieved from debt objects */}
-            
-            <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/20">
-                      <TrendingUp className="h-5 w-5 text-purple-600" />
-                    </div>
-                    Comparativo de Bancos
-                  </CardTitle>
-                  
-                  <TooltipProvider>
-                    <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
-                      <UITooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant={viewType === 'atual' ? 'default' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewType('atual')}
-                            className="gap-2"
-                          >
-                            <Calendar className="h-4 w-4" />
-                            Atual
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="font-semibold mb-1">Visão Atual</p>
-                          <p className="text-sm">
-                            <strong>Valor Principal:</strong> Saldo devedor remanescente considerando a data de hoje
-                          </p>
-                          <p className="text-sm mt-1">
-                            <strong>Juros Financiados:</strong> Total de juros a pagar nas parcelas futuras
-                          </p>
-                        </TooltipContent>
-                      </UITooltip>
-                      
-                      <UITooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant={viewType === 'total' ? 'default' : 'ghost'}
-                            size="sm"
-                            onClick={() => setViewType('total')}
-                            className="gap-2"
-                          >
-                            <Receipt className="h-4 w-4" />
-                            Total
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="font-semibold mb-1">Visão Total do Contrato</p>
-                          <p className="text-sm">
-                            <strong>Valor Principal:</strong> Valor total financiado no início do contrato
-                          </p>
-                          <p className="text-sm mt-1">
-                            <strong>Juros Financiados:</strong> Total de juros pagos durante toda a vigência do contrato
-                          </p>
-                        </TooltipContent>
-                      </UITooltip>
-                    </div>
-                  </TooltipProvider>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <ComposedChart data={bankComparisonDataWithCET}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="name" 
-                      fontSize={12}
-                      stroke="hsl(var(--muted-foreground))"
-                    />
-                    <YAxis 
-                      yAxisId="left"
-                      domain={[0, maxYValue * 1.1]}
-                      tickFormatter={(value) => `R$ ${(value / 1000000).toFixed(1)}M`}
-                      fontSize={12}
-                      stroke="hsl(var(--muted-foreground))"
-                    />
-                    <YAxis 
-                      yAxisId="right"
-                      orientation="right"
-                      tickFormatter={(value) => `${value.toFixed(2)}%`}
-                      fontSize={12}
-                      stroke="hsl(var(--muted-foreground))"
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="principalAmount" 
-                      stackId="a"
-                      fill="hsl(var(--chart-1))" 
-                      name="Valor Principal"
-                      radius={[0, 0, 0, 0]}
-                       label={{
-                        position: 'center',
-                        fill: 'hsl(var(--primary-foreground))',
-                        fontSize: 14,
-                        fontWeight: 600,
-                        formatter: (value: number) => value > 0 ? new Intl.NumberFormat('pt-BR', { 
-                          style: 'currency', 
-                          currency: 'BRL',
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0
-                        }).format(value) : ''
-                      }}
-                    />
-                    <Bar 
-                      yAxisId="left"
-                      dataKey="financedInterest" 
-                      stackId="a"
-                      fill="hsl(var(--chart-3))" 
-                      name="Juros Financiados"
-                      radius={[4, 4, 0, 0]}
-                       label={{
-                        position: 'center',
-                        fill: 'hsl(var(--primary-foreground))',
-                        fontSize: 14,
-                        fontWeight: 600,
-                        formatter: (value: number) => value > 0 ? new Intl.NumberFormat('pt-BR', { 
-                          style: 'currency', 
-                          currency: 'BRL',
-                          minimumFractionDigits: 0,
-                          maximumFractionDigits: 0
-                        }).format(value) : ''
-                      }}
-                    />
-                    <Line 
-                      yAxisId="right"
-                      type="monotone" 
-                      dataKey="avgCET" 
-                      stroke="hsl(var(--chart-5))" 
-                      strokeWidth={3}
-                      name="CET Médio (%)"
-                      dot={{ fill: "white", strokeWidth: 2, r: 5, stroke: "hsl(var(--chart-5))" }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {chartType === "indexer" && indexerData.length > 0 && (
-          <Card className="md:col-span-2 bg-card border-2 border-border hover:shadow-lg transition-all duration-300">
-            <CardHeader>
-              <CardTitle className="text-lg text-foreground flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/20">
-                  <BarChart3 className="h-5 w-5 text-amber-600" />
-                </div>
-                Distribuição por Indexador
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart
-                  data={indexerData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                  layout="horizontal"
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    type="number"
-                    tickFormatter={(value) => formatCurrency(value)}
-                    fontSize={12}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis 
-                    type="category"
-                    dataKey="name"
-                    fontSize={12}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <Tooltip content={<CustomPieTooltip />} />
-                  <Bar 
-                    dataKey="value" 
-                    fill="hsl(var(--chart-2))" 
-                    radius={[0, 8, 8, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {chartType === "indexer" && indexerData.length === 0 && (
-          <Card className="md:col-span-2 bg-card border-2 border-dashed border-muted-foreground/25">
-            <CardContent className="pt-6">
-              <div className="text-center py-8">
-                <BarChart3 className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-muted-foreground mb-2">
-                  Nenhum indexador encontrado
-                </h3>
-                <p className="text-muted-foreground">
-                  Os contratos filtrados não possuem indexadores cadastrados
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+        <div className="flex min-h-7 flex-wrap items-center gap-2">
+          {hasActiveFilters && (
+            <>
+              <span className="text-sm text-muted-foreground">Filtros ativos:</span>
+              {selectedBanks.map((bank) => (
+                <Badge key={bank} variant="secondary" className="gap-1">
+                  {bank}
+                  <button
+                    type="button"
+                    onClick={() => handleBankToggle(bank)}
+                    className="rounded-sm text-muted-foreground hover:text-foreground"
+                    aria-label={`Remover filtro ${bank}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              {selectedIndexerType !== "all" && (
+                <Badge variant="secondary" className="gap-1">
+                  {selectedIndexerType === "pre" ? "Pré-fixado" : "Pós-fixado"}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIndexerType("all")}
+                    className="rounded-sm text-muted-foreground hover:text-foreground"
+                    aria-label="Remover filtro de indexador"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+            </>
+          )}
+        </div>
     </div>
   );
+
+  const content = (
+    <div>
+        {installmentsError && !isChartLoading && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Não foi possível carregar todas as parcelas. O comparativo pode usar
+              estimativas para contratos sem cronograma calculado.
+            </p>
+          </div>
+        )}
+
+        {isChartLoading ? (
+          <ChartSkeleton height={chartHeight} />
+        ) : bankComparisonDataWithCET.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center gap-2 text-center"
+            style={{ height: chartHeight }}
+          >
+            <Landmark className="h-10 w-10 text-muted-foreground/50" />
+            <h3 className="text-lg font-semibold text-muted-foreground">
+              Nenhum banco encontrado
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Ajuste os filtros para visualizar o comparativo.
+            </p>
+          </div>
+        ) : (
+          <>
+            <ChartContainer
+              config={chartConfig}
+              className="w-full aspect-auto"
+              style={{ height: chartHeight }}
+            >
+              <ComposedChart
+                data={bankComparisonDataWithCET}
+                margin={{ top: 10, right: 12, left: 0, bottom: 0 }}
+                barCategoryGap={chartLayout.categoryGap}
+                barGap={0}
+              >
+                <defs>
+                  <linearGradient id="debt-bank-principal" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor="hsl(var(--chart-1))"
+                      stopOpacity={0.92}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="hsl(var(--chart-1))"
+                      stopOpacity={0.68}
+                    />
+                  </linearGradient>
+                  <linearGradient id="debt-bank-interest" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="0%"
+                      stopColor="hsl(var(--chart-3))"
+                      stopOpacity={0.9}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor="hsl(var(--chart-3))"
+                      stopOpacity={0.58}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  vertical={false}
+                  stroke="hsl(var(--border))"
+                  strokeDasharray="3 3"
+                />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                  tickMargin={8}
+                  height={bankComparisonDataWithCET.length > 5 ? 48 : 32}
+                  interval={0}
+                  tickFormatter={(value: string) =>
+                    value.length > 14 ? `${value.slice(0, 12)}...` : value
+                  }
+                />
+                <YAxis
+                  yAxisId="amount"
+                  domain={[0, maxYValue > 0 ? maxYValue * 1.1 : 1]}
+                  tickLine={false}
+                  axisLine={false}
+                  width={58}
+                  fontSize={11}
+                  tickFormatter={(value: number) => formatCurrencyShort(value)}
+                />
+                <YAxis
+                  yAxisId="cet"
+                  orientation="right"
+                  tickLine={false}
+                  axisLine={false}
+                  width={44}
+                  fontSize={11}
+                  stroke="hsl(var(--chart-5))"
+                  tickFormatter={(value: number) => `${value.toFixed(1)}%`}
+                />
+                <ChartTooltip
+                  cursor={{ fill: "hsl(var(--muted) / 0.22)" }}
+                  content={
+                    <ChartTooltipContent
+                      indicator="dot"
+                      labelFormatter={(_, payload) =>
+                        String(payload?.[0]?.payload?.name ?? "")
+                      }
+                      formatter={(value, name, item) => {
+                        const tooltipItem = item as ComparisonTooltipItem;
+                        const dataKey = String(tooltipItem.dataKey ?? name);
+                        const row = tooltipItem.payload;
+
+                        if (dataKey === "avgCET") {
+                          return (
+                            <TooltipRow
+                              color="hsl(var(--chart-5))"
+                              label="CET médio"
+                              value={formatPercent(Number(value))}
+                            />
+                          );
+                        }
+
+                        const label =
+                          dataKey === "principalAmount"
+                            ? primaryMetricLabel
+                            : interestMetricLabel;
+                        const color =
+                          dataKey === "principalAmount"
+                            ? "hsl(var(--chart-1))"
+                            : "hsl(var(--chart-3))";
+
+                        return (
+                          <TooltipRow
+                            color={color}
+                            label={label}
+                            value={formatCurrency(Number(value))}
+                            detail={
+                              dataKey === "financedInterest" && row
+                                ? `${formatCurrency(row.totalAmount)} total`
+                                : undefined
+                            }
+                          />
+                        );
+                      }}
+                    />
+                  }
+                />
+                <Bar
+                  yAxisId="amount"
+                  dataKey="principalAmount"
+                  stackId="bank"
+                  name={primaryMetricLabel}
+                  fill="url(#debt-bank-principal)"
+                  radius={[0, 0, 6, 6]}
+                  barSize={chartLayout.barSize}
+                  animationDuration={500}
+                />
+                <Bar
+                  yAxisId="amount"
+                  dataKey="financedInterest"
+                  stackId="bank"
+                  name={interestMetricLabel}
+                  fill="url(#debt-bank-interest)"
+                  radius={[6, 6, 0, 0]}
+                  barSize={chartLayout.barSize}
+                  animationBegin={80}
+                  animationDuration={500}
+                />
+                <Line
+                  yAxisId="cet"
+                  type="monotone"
+                  dataKey="avgCET"
+                  name="CET médio"
+                  stroke="hsl(var(--chart-5))"
+                  strokeWidth={2.5}
+                  dot={{
+                    r: 4,
+                    fill: "hsl(var(--background))",
+                    stroke: "hsl(var(--chart-5))",
+                    strokeWidth: 2,
+                  }}
+                  activeDot={{ r: 5 }}
+                  animationDuration={500}
+                />
+              </ComposedChart>
+            </ChartContainer>
+
+            <div className="mt-4 border-t border-border/50 pt-3">
+              <p className="mb-2 text-center text-xs uppercase tracking-wide text-muted-foreground">
+                Comparativo por banco
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+                <LegendItem
+                  color="hsl(var(--chart-1))"
+                  label={primaryMetricLabel}
+                />
+                <LegendItem
+                  color="hsl(var(--chart-3))"
+                  label={interestMetricLabel}
+                />
+                <LegendItem color="hsl(var(--chart-5))" label="CET médio" line />
+              </div>
+            </div>
+          </>
+        )}
+    </div>
+  );
+
+  if (unstyled) {
+    return (
+      <div className={cn("space-y-4", density === "compact" && "space-y-3")}>
+        {header}
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Card className="bg-card border hover:shadow-lg transition-shadow duration-300">
+      <CardHeader className="space-y-5">{header}</CardHeader>
+      <CardContent>{content}</CardContent>
+    </Card>
+  );
 };
+
+interface KpiBlockProps {
+  label: string;
+  value: string;
+  detail: string;
+}
+
+const KpiBlock = ({ label, value, detail }: KpiBlockProps) => (
+  <div className="rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+      {label}
+    </p>
+    <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
+      {value}
+    </p>
+    <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+      {detail}
+    </p>
+  </div>
+);
+
+const ChartSkeleton = ({ height }: { height: number }) => (
+  <div
+    className="rounded-lg border border-border/60 bg-muted/20 px-5 py-6"
+    style={{ height }}
+  >
+    <div className="flex h-full items-end justify-center gap-4">
+      {[66, 88, 54, 76, 62, 92].map((height, index) => (
+        <div
+          key={`${height}-${index}`}
+          className="flex w-10 flex-col items-center justify-end gap-2 sm:w-14"
+        >
+          <div
+            className="w-full animate-pulse rounded-t-md bg-muted"
+            style={{ height: `${height}%` }}
+          />
+          <div className="h-2 w-10 animate-pulse rounded-full bg-muted sm:w-12" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+interface TooltipRowProps {
+  color: string;
+  label: string;
+  value: string;
+  detail?: string;
+}
+
+const TooltipRow = ({ color, label, value, detail }: TooltipRowProps) => (
+  <div className="flex w-full min-w-[240px] items-center justify-between gap-4">
+    <div className="flex items-center gap-2">
+      <span
+        className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-muted-foreground">{label}</span>
+    </div>
+    <div className="text-right">
+      <span className="font-mono font-medium tabular-nums text-foreground">
+        {value}
+      </span>
+      {detail && (
+        <p className="text-[11px] text-muted-foreground tabular-nums">
+          {detail}
+        </p>
+      )}
+    </div>
+  </div>
+);
+
+interface LegendItemProps {
+  color: string;
+  label: string;
+  line?: boolean;
+}
+
+const LegendItem = ({ color, label, line = false }: LegendItemProps) => (
+  <div className="flex items-center gap-2 text-xs">
+    <span
+      className={line ? "h-0.5 w-4 rounded-full" : "h-2.5 w-2.5 rounded-[2px]"}
+      style={{ backgroundColor: color }}
+    />
+    <span className="font-medium text-foreground">{label}</span>
+  </div>
+);

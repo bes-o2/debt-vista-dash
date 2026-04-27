@@ -54,18 +54,24 @@ Substitua o conteúdo existente com o seguinte template preenchido:
 <3-5 regras do projeto que o Codex sempre esquece ou costuma violar — com exemplo prático>
 ```
 
-## Passo 4 — Git: commit e push
+## Passo 4 — Git: revisar, commit e push
 
-Depois de escrever o arquivo, execute:
+Depois de escrever o arquivo, revise o estado do repositório:
+
+```bash
+git status --short
+git diff -- docs/AGENT_SYNC.md
+```
+
+Por padrão, considere seguro stagear apenas:
 
 ```bash
 git add docs/AGENT_SYNC.md
-git add -A  # somente se houver código modificado que deve ser commitado
 ```
 
-Pergunte ao usuário se quer commitar só o sync ou também o código modificado. Se quiser código também, monte uma mensagem de commit adequada seguindo Conventional Commits em português.
+Não use `git add -A` automaticamente. Antes de incluir qualquer outra alteração, pergunte ao usuário se quer commitar só o sync ou também o código modificado. Nunca inclua `.env`, credenciais, `supabase/.temp/`, permissões locais ou settings locais sem confirmação explícita depois de avisar o risco.
 
-Depois faça push:
+Se o usuário quiser commitar, monte uma mensagem adequada seguindo Conventional Commits em português. Se quiser push, confirme antes e então execute:
 
 ```bash
 git push origin main

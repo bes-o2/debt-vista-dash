@@ -130,13 +130,15 @@ serve(async (req) => {
       // Continue with calculated data
     }
 
+    const releaseDate = shiftMonthISO(firstDueDate, -1);
+
     // Calculate CET (Custo Efetivo Total)
     const cet = calculateCET({
       initialAmount: financedAmount,
       iofAmount,
       tacAmount,
       installments,
-      startDate: firstDueDate
+      startDate: releaseDate
     });
 
     // Persist CET to database
@@ -174,6 +176,19 @@ serve(async (req) => {
     });
   }
 });
+
+function shiftMonthISO(dateString: string, months: number): string {
+  const [year, month, day] = dateString.split('-').map(Number);
+  if (!year || !month || !day) return dateString;
+
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDayOfTargetMonth));
+
+  return target.toISOString().split('T')[0];
+}
 
 // Function to map indexer names and get the latest rate
 function mapIndexerName(indexer?: string): string | null {

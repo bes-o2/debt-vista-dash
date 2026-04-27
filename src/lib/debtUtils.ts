@@ -1,4 +1,5 @@
 import { type LegacyDebt } from "@/hooks/useDebts";
+import { resolveDebtBankName } from "@/lib/debtBank";
 
 type DebtSource = Partial<LegacyDebt> & {
   financed_amount?: number;
@@ -43,6 +44,38 @@ export const parseLocalDate = (value: string): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d;
 };
 
+type DateRangeDebt = {
+  releaseDate?: string;
+  dueDate?: string;
+};
+
+const normalizeRangeDate = (value: Date | string | undefined, endOfDay = false): Date | null => {
+  if (!value) return null;
+  const date = value instanceof Date ? new Date(value) : parseLocalDate(value);
+  if (!date || Number.isNaN(date.getTime())) return null;
+  date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return date;
+};
+
+export const debtIntersectsDateRange = (
+  debt: DateRangeDebt,
+  startDate?: Date | string,
+  endDate?: Date | string,
+) => {
+  if (!startDate && !endDate) return true;
+
+  const debtStart = normalizeRangeDate(debt.releaseDate);
+  const debtEnd = normalizeRangeDate(debt.dueDate, true);
+  if (!debtStart || !debtEnd) return false;
+
+  const rangeStart = normalizeRangeDate(startDate);
+  const rangeEnd = normalizeRangeDate(endDate, true);
+
+  if (rangeStart && debtEnd < rangeStart) return false;
+  if (rangeEnd && debtStart > rangeEnd) return false;
+  return true;
+};
+
 const formatLocalDate = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -68,7 +101,7 @@ export const normalizeDebtForCalculation = (debt: DebtSource): NormalizedDebtFor
     ?? debt.first_due_date
     ?? (releaseDate ? addMonthsLocal(releaseDate, 1) : '');
   const dueDate = debt.dueDate ?? debt.last_due_date ?? '';
-  const bank = debt.bank ?? debt.title ?? debt.description ?? '';
+  const bank = resolveDebtBankName(debt);
   const calculationTable = debt.calculationTable ?? debt.calculation_table ?? 'SAC';
   const interestRate = debt.interestRate ?? debt.interest_rate ?? 0;
   const interestType = debt.interestType ?? debt.interest_type ?? 'monthly';

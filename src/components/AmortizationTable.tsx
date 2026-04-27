@@ -125,14 +125,6 @@ export function AmortizationTable({
 
       // Get current installment (PMT) - assuming first installment for PRICE or average for SAC
       const currentInstallment = debt.calculationTable === 'PRICE' ? calculatedInstallments[0]?.installment_amount || 0 : calculatedInstallments.reduce((sum: number, inst: Installment) => sum + inst.installment_amount, 0) / calculatedInstallments.length;
-      console.log('Summary calculations:', {
-        totalPaid,
-        totalInterest,
-        totalPrincipal,
-        currentInstallment,
-        financedAmount: debt.financedAmount,
-        installmentCount: calculatedInstallments.length
-      });
       setSummary({
         totalPaid,
         totalInterest,
@@ -302,7 +294,7 @@ export function AmortizationTable({
                         {formatDate(installment.due_date)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(Math.max(0, installment.principal_balance - installment.amortization))}
+                        {formatCurrency(installment.principal_balance)}
                       </TableCell>
                       <TableCell className="text-right font-mono">
                         {formatCurrency(installment.amortization)}

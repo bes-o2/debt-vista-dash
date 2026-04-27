@@ -34,16 +34,6 @@ export function calculateCET(
     amount: inst.installment_amount
   }));
 
-  console.log('📊 CET Calculation:', {
-    debtId: debt.id,
-    financedAmount: debt.financedAmount,
-    iofAmount: debt.iofAmount || 0,
-    tacAmount: debt.tacAmount || 0,
-    netAmountReceived,
-    paymentsCount: payments.length,
-    totalPayments: payments.reduce((sum, p) => sum + p.amount, 0)
-  });
-
   // Calculate IRR using the date-based calculator
   const result = calculateIRRFromCashFlows(netAmountReceived, payments, startDate);
 
@@ -98,7 +88,6 @@ export function calculateWeightedAverageCET(
   cetMap: Record<string, { monthlyRate: number; annualRate: number } | null>
 ): { monthlyRate: number; annualRate: number } | null {
   let totalWeightedMonthly = 0;
-  let totalWeightedAnnual = 0;
   let totalWeight = 0;
 
   debts.forEach(debt => {
@@ -106,7 +95,6 @@ export function calculateWeightedAverageCET(
     if (cetData) {
       const weight = debt.financedAmount;
       totalWeightedMonthly += cetData.monthlyRate * weight;
-      totalWeightedAnnual += cetData.annualRate * weight;
       totalWeight += weight;
     }
   });
@@ -115,9 +103,11 @@ export function calculateWeightedAverageCET(
     return null;
   }
 
+  const weightedMonthly = totalWeightedMonthly / totalWeight;
+
   return {
-    monthlyRate: totalWeightedMonthly / totalWeight,
-    annualRate: totalWeightedAnnual / totalWeight
+    monthlyRate: weightedMonthly,
+    annualRate: (Math.pow(1 + weightedMonthly / 100, 12) - 1) * 100
   };
 }
 

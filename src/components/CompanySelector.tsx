@@ -235,21 +235,23 @@ export const CompanySelector: React.FC = () => {
               <Trash2 className="h-5 w-5" />
               Excluir Empresa
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p className="font-semibold">
-                Você está prestes a excluir a empresa "{companyToDelete?.name}".
-              </p>
-              <p>
-                ⚠️ <strong>ATENÇÃO:</strong> Esta ação é permanente após 30 dias.
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>Todas as dívidas e dados associados serão excluídos</li>
-                <li>A empresa será arquivada por 30 dias</li>
-                <li>Após 30 dias, os dados serão permanentemente excluídos</li>
-              </ul>
-              <p className="font-semibold mt-4">
-                Tem certeza que deseja continuar?
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p className="font-semibold">
+                  Você está prestes a excluir a empresa "{companyToDelete?.name}".
+                </p>
+                <p>
+                  ⚠️ <strong>ATENÇÃO:</strong> Esta ação é permanente após 30 dias.
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>Todas as dívidas e dados associados serão excluídos</li>
+                  <li>A empresa será arquivada por 30 dias</li>
+                  <li>Após 30 dias, os dados serão permanentemente excluídos</li>
+                </ul>
+                <p className="font-semibold mt-4">
+                  Tem certeza que deseja continuar?
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

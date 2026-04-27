@@ -18,7 +18,6 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (savedCompany) {
       try {
         const parsedCompany = JSON.parse(savedCompany);
-        console.log('Loading saved company from localStorage:', parsedCompany);
         setSelectedCompany(parsedCompany);
       } catch (error) {
         console.error('Error parsing saved company:', error);
@@ -33,7 +32,6 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       // Procurar pela empresa selecionada atual na nova lista
       const updatedCompany = companies.find(c => c.id === selectedCompany.id);
       if (updatedCompany) {
-        console.log('Updating selected company with fresh data:', updatedCompany);
         setSelectedCompany(updatedCompany);
         localStorage.setItem('selectedCompany', JSON.stringify(updatedCompany));
       }
@@ -41,7 +39,6 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const handleSetSelectedCompany = (company: Company | null) => {
-    console.log('Setting selected company:', company);
     setSelectedCompany(company);
     if (company) {
       localStorage.setItem('selectedCompany', JSON.stringify(company));

@@ -128,8 +128,6 @@ export const useCompanies = () => {
       return null;
     }
 
-    console.log('Adding company with user:', user.id, 'company data:', companyData);
-
     try {
       // Criar empresa no banco de dados
       const { data: newCompany, error: createError } = await supabase

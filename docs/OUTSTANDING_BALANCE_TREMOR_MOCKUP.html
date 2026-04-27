@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Saldo Devedor por Banco — Recharts atual vs. Tremor (mockup)</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", system-ui, sans-serif;
+    background: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 700; }
+  .lede { color: #64748b; margin: 0 0 32px; font-size: 14px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 1700px;
+  }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin-bottom: 8px; font-weight: 600; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* ====== RECHARTS (atual, dark theme app) ====== */
+  .recharts-card {
+    background: hsl(220 18% 10%);
+    border: 2px solid hsl(220 14% 22%);
+    border-radius: 12px;
+    padding: 20px;
+    color: hsl(210 20% 92%);
+  }
+  .rc-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .rc-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+  .rc-icon-bg { background: hsla(217 91% 60% / 0.15); padding: 8px; border-radius: 8px; display: inline-flex; }
+  .rc-toggles { display: flex; gap: 8px; }
+  .rc-toggle-pill { display: flex; gap: 4px; background: hsla(220 14% 18% / 0.7); padding: 4px; border-radius: 8px; border: 1px solid hsl(220 14% 22%); }
+  .rc-tog { padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: default; color: hsl(210 14% 60%); }
+  .rc-tog.active { background: hsl(217 91% 60%); color: white; }
+  .rc-tog-cash { padding: 4px 12px; border-radius: 6px; font-size: 12px; border: 1px solid hsl(220 14% 25%); display: inline-flex; align-items: center; gap: 6px; color: hsl(210 14% 60%); }
+  .rc-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .rc-kpi { background: hsla(220 14% 18% / 0.5); border: 1px solid hsl(220 14% 22%); border-radius: 8px; padding: 12px 16px; }
+  .rc-kpi .k-label { font-size: 10.5px; letter-spacing: .07em; color: hsl(210 14% 60%); text-transform: uppercase; }
+  .rc-kpi .k-value { font-size: 24px; font-weight: 700; margin-top: 2px; }
+  .rc-kpi .k-delta { font-size: 11.5px; color: hsl(0 75% 60%); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .rc-legend { display: flex; gap: 16px; justify-content: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid hsl(220 14% 22%); flex-wrap: wrap; }
+  .rc-legend .lh { width: 100%; text-align: center; font-size: 10.5px; letter-spacing: .07em; color: hsl(210 14% 60%); text-transform: uppercase; margin-bottom: 6px; }
+  .rc-legend-item { font-size: 12px; display: flex; align-items: center; gap: 8px; }
+
+  /* ====== TREMOR-STYLE MOCKUP ====== */
+  .tremor-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .tr-eyebrow { font-size: 11px; color: #64748b; letter-spacing: .04em; margin-bottom: 4px; }
+  .tr-title { font-size: 15px; font-weight: 600; color: #0f172a; margin: 0 0 4px; }
+  .tr-sub { font-size: 13px; color: #64748b; margin: 0 0 20px; }
+  .tr-kpi-row { display: flex; gap: 32px; margin-bottom: 8px; align-items: baseline; }
+  .tr-kpi-block .kl { font-size: 12px; color: #64748b; margin-bottom: 2px; }
+  .tr-kpi-block .kv { font-size: 28px; font-weight: 700; color: #0f172a; line-height: 1.1; }
+  .tr-kpi-block .kd { font-size: 12px; color: #dc2626; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .tr-controls { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; }
+  .tr-segmented { display: inline-flex; background: #f1f5f9; padding: 2px; border-radius: 8px; }
+  .tr-segmented button { background: transparent; border: 0; padding: 4px 14px; font-size: 12px; color: #64748b; border-radius: 6px; cursor: default; font-family: inherit; }
+  .tr-segmented button.on { background: white; color: #0f172a; box-shadow: 0 1px 2px rgba(0,0,0,0.06); font-weight: 500; }
+  .tr-cash-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; background: white; border: 1px solid #e2e8f0; padding: 5px 12px; border-radius: 8px; }
+  .tr-legend { display: flex; gap: 20px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f1f5f9; flex-wrap: wrap; align-items: center; }
+  .tr-legend-item { font-size: 12px; display: flex; align-items: center; gap: 8px; color: #475569; }
+  .tr-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .tr-pct { color: #94a3b8; font-variant-numeric: tabular-nums; }
+
+  .axis-text { font: 10.5px -apple-system, "Inter", system-ui, sans-serif; fill: #94a3b8; }
+  .axis-text-rc { font: 10.5px -apple-system, "Inter", system-ui, sans-serif; fill: hsl(210 14% 55%); }
+
+  .notes {
+    margin-top: 32px; padding: 20px; background: #f1f5f9; border-radius: 12px; max-width: 1700px;
+    font-size: 13px; line-height: 1.6;
+  }
+  .notes strong { color: #0f172a; }
+  .notes ul { margin: 8px 0 0; padding-left: 20px; }
+  .notes li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Saldo Devedor por Banco — Recharts (atual) vs. Tremor (mockup)</h1>
+<p class="lede">Mesmo dado, mesma estrutura, duas linguagens visuais. Tremor é mostrado como referência — não foi adicionado ao projeto.</p>
+
+<div class="grid">
+
+  <!-- ============ RECHARTS (LADO ESQUERDO) ============ -->
+  <div>
+    <p class="label">Recharts + shadcn (implementação atual)</p>
+    <div class="recharts-card">
+      <div class="rc-header">
+        <div class="rc-title">
+          <span class="rc-icon-bg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(217 91% 60%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+          </span>
+          Saldo Devedor por Banco
+        </div>
+        <div class="rc-toggles">
+          <span class="rc-tog-cash">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+            Caixa liberado
+          </span>
+          <div class="rc-toggle-pill">
+            <span class="rc-tog active">12m</span>
+            <span class="rc-tog">24m</span>
+            <span class="rc-tog">Total</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rc-kpis">
+        <div class="rc-kpi">
+          <div class="k-label">PMT este mês</div>
+          <div class="k-value tabular">R$ 218.237</div>
+          <div class="k-delta tabular">▼ R$ 0 vs mês anterior</div>
+        </div>
+        <div class="rc-kpi">
+          <div class="k-label">Saldo total atual</div>
+          <div class="k-value tabular">R$ 12.847.500</div>
+          <div class="k-delta tabular">▼ -R$ 312K vs mês anterior</div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <svg viewBox="0 0 600 240" style="width: 100%; height: auto;">
+        <defs>
+          <linearGradient id="rc-itau" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="hsl(20 85% 45%)" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="hsl(20 85% 45%)" stop-opacity="0.15"/>
+          </linearGradient>
+          <linearGradient id="rc-brad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="hsl(8 75% 45%)" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="hsl(8 75% 45%)" stop-opacity="0.15"/>
+          </linearGradient>
+          <linearGradient id="rc-sant" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="hsl(358 75% 50%)" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="hsl(358 75% 50%)" stop-opacity="0.15"/>
+          </linearGradient>
+          <linearGradient id="rc-bndes" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="hsl(145 65% 35%)" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="hsl(145 65% 35%)" stop-opacity="0.15"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Horizontal grid -->
+        <g stroke="hsl(220 14% 22%)" stroke-dasharray="3 3">
+          <line x1="50" y1="20" x2="590" y2="20"/>
+          <line x1="50" y1="70" x2="590" y2="70"/>
+          <line x1="50" y1="120" x2="590" y2="120"/>
+          <line x1="50" y1="170" x2="590" y2="170"/>
+          <line x1="50" y1="210" x2="590" y2="210"/>
+        </g>
+
+        <!-- Y axis labels -->
+        <g class="axis-text-rc" text-anchor="end">
+          <text x="44" y="24">R$ 13M</text>
+          <text x="44" y="74">R$ 10M</text>
+          <text x="44" y="124">R$ 7M</text>
+          <text x="44" y="174">R$ 3M</text>
+          <text x="44" y="214">R$ 0</text>
+        </g>
+
+        <!-- Stacked areas — 12 month forecast descending -->
+        <!-- BNDES (bottom) -->
+        <path d="M50,135 L95,138 L140,141 L185,144 L230,147 L275,150 L320,153 L365,156 L410,159 L455,162 L500,165 L545,168 L590,171 L590,210 L50,210 Z" fill="url(#rc-bndes)" stroke="hsl(145 65% 35%)" stroke-width="1.5"/>
+        <!-- Santander -->
+        <path d="M50,100 L95,105 L140,110 L185,115 L230,120 L275,125 L320,130 L365,135 L410,140 L455,145 L500,150 L545,155 L590,160 L590,171 L545,168 L500,165 L455,162 L410,159 L365,156 L320,153 L275,150 L230,147 L185,144 L140,141 L95,138 L50,135 Z" fill="url(#rc-sant)" stroke="hsl(358 75% 50%)" stroke-width="1.5"/>
+        <!-- Bradesco -->
+        <path d="M50,60 L95,67 L140,74 L185,81 L230,88 L275,95 L320,102 L365,109 L410,116 L455,123 L500,130 L545,137 L590,144 L590,160 L545,155 L500,150 L455,145 L410,140 L365,135 L320,130 L275,125 L230,120 L185,115 L140,110 L95,105 L50,100 Z" fill="url(#rc-brad)" stroke="hsl(8 75% 45%)" stroke-width="1.5"/>
+        <!-- Itaú (top) -->
+        <path d="M50,28 L95,35 L140,42 L185,49 L230,56 L275,63 L320,70 L365,77 L410,84 L455,91 L500,98 L545,105 L590,112 L590,144 L545,137 L500,130 L455,123 L410,116 L365,109 L320,102 L275,95 L230,88 L185,81 L140,74 L95,67 L50,60 Z" fill="url(#rc-itau)" stroke="hsl(20 85% 45%)" stroke-width="1.5"/>
+
+        <!-- X axis labels -->
+        <g class="axis-text-rc" text-anchor="middle">
+          <text x="50" y="226">abr/26</text>
+          <text x="140" y="226">jul/26</text>
+          <text x="230" y="226">out/26</text>
+          <text x="320" y="226">jan/27</text>
+          <text x="410" y="226">abr/27</text>
+          <text x="500" y="226">jul/27</text>
+          <text x="590" y="226">out/27</text>
+        </g>
+      </svg>
+
+      <div class="rc-legend">
+        <div class="lh">Composição atual da dívida por credor</div>
+        <div class="rc-legend-item"><span class="tr-dot" style="background: hsl(20 85% 45%)"></span>Itaú <span class="tr-pct">38%</span></div>
+        <div class="rc-legend-item"><span class="tr-dot" style="background: hsl(8 75% 45%)"></span>Bradesco <span class="tr-pct">28%</span></div>
+        <div class="rc-legend-item"><span class="tr-dot" style="background: hsl(358 75% 50%)"></span>Santander <span class="tr-pct">20%</span></div>
+        <div class="rc-legend-item"><span class="tr-dot" style="background: hsl(145 65% 35%)"></span>BNDES <span class="tr-pct">14%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TREMOR (LADO DIREITO) ============ -->
+  <div>
+    <p class="label">Tremor (visual de referência)</p>
+    <div class="tremor-card">
+      <p class="tr-eyebrow">Endividamento</p>
+      <h2 class="tr-title">Saldo Devedor por Banco</h2>
+      <p class="tr-sub">Trajetória mensal por credor + caixa liberado opcional</p>
+
+      <div class="tr-kpi-row">
+        <div class="tr-kpi-block">
+          <div class="kl">PMT este mês</div>
+          <div class="kv tabular">R$ 218.237</div>
+          <div class="kd tabular">↘ R$ 0 vs mês anterior</div>
+        </div>
+        <div class="tr-kpi-block">
+          <div class="kl">Saldo total atual</div>
+          <div class="kv tabular">R$ 12.847.500</div>
+          <div class="kd tabular">↘ -R$ 312K vs mês anterior</div>
+        </div>
+      </div>
+
+      <div class="tr-controls">
+        <span class="tr-cash-toggle">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+          Caixa liberado
+        </span>
+        <div class="tr-segmented">
+          <button class="on">12m</button>
+          <button>24m</button>
+          <button>Total</button>
+        </div>
+      </div>
+
+      <!-- Tremor-flavored chart -->
+      <svg viewBox="0 0 600 240" style="width: 100%; height: auto;">
+        <defs>
+          <linearGradient id="tr-itau" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f97316" stop-opacity="0.55"/>
+            <stop offset="100%" stop-color="#f97316" stop-opacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="tr-brad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#dc2626" stop-opacity="0.55"/>
+            <stop offset="100%" stop-color="#dc2626" stop-opacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="tr-sant" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ef4444" stop-opacity="0.55"/>
+            <stop offset="100%" stop-color="#ef4444" stop-opacity="0.05"/>
+          </linearGradient>
+          <linearGradient id="tr-bndes" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0.55"/>
+            <stop offset="100%" stop-color="#10b981" stop-opacity="0.05"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Subtle grid -->
+        <g stroke="#f1f5f9" stroke-dasharray="0">
+          <line x1="50" y1="20" x2="590" y2="20"/>
+          <line x1="50" y1="70" x2="590" y2="70"/>
+          <line x1="50" y1="120" x2="590" y2="120"/>
+          <line x1="50" y1="170" x2="590" y2="170"/>
+          <line x1="50" y1="210" x2="590" y2="210"/>
+        </g>
+
+        <!-- Y axis labels (lighter, simpler) -->
+        <g class="axis-text" text-anchor="end">
+          <text x="44" y="24">13M</text>
+          <text x="44" y="74">10M</text>
+          <text x="44" y="124">7M</text>
+          <text x="44" y="174">3M</text>
+          <text x="44" y="214">0</text>
+        </g>
+
+        <!-- Smoother curves via cubic Bezier — Tremor uses softer interpolation -->
+        <!-- BNDES -->
+        <path d="M50,135 C95,138 95,138 140,141 C185,144 185,144 230,147 C275,150 275,150 320,153 C365,156 365,156 410,159 C455,162 455,162 500,165 C545,168 545,168 590,171 L590,210 L50,210 Z" fill="url(#tr-bndes)" stroke="#10b981" stroke-width="2"/>
+        <!-- Santander -->
+        <path d="M50,100 C95,105 95,105 140,110 C185,115 185,115 230,120 C275,125 275,125 320,130 C365,135 365,135 410,140 C455,145 455,145 500,150 C545,155 545,155 590,160 L590,171 C545,168 545,168 500,165 C455,162 455,162 410,159 C365,156 365,156 320,153 C275,150 275,150 230,147 C185,144 185,144 140,141 C95,138 95,138 50,135 Z" fill="url(#tr-sant)" stroke="#ef4444" stroke-width="2"/>
+        <!-- Bradesco -->
+        <path d="M50,60 C95,67 95,67 140,74 C185,81 185,81 230,88 C275,95 275,95 320,102 C365,109 365,109 410,116 C455,123 455,123 500,130 C545,137 545,137 590,144 L590,160 C545,155 545,155 500,150 C455,145 455,145 410,140 C365,135 365,135 320,130 C275,125 275,125 230,120 C185,115 185,115 140,110 C95,105 95,105 50,100 Z" fill="url(#tr-brad)" stroke="#dc2626" stroke-width="2"/>
+        <!-- Itaú -->
+        <path d="M50,28 C95,35 95,35 140,42 C185,49 185,49 230,56 C275,63 275,63 320,70 C365,77 365,77 410,84 C455,91 455,91 500,98 C545,105 545,105 590,112 L590,144 C545,137 545,137 500,130 C455,123 455,123 410,116 C365,109 365,109 320,102 C275,95 275,95 230,88 C185,81 185,81 140,74 C95,67 95,67 50,60 Z" fill="url(#tr-itau)" stroke="#f97316" stroke-width="2"/>
+
+        <!-- X axis labels -->
+        <g class="axis-text" text-anchor="middle">
+          <text x="50" y="228">abr 26</text>
+          <text x="140" y="228">jul 26</text>
+          <text x="230" y="228">out 26</text>
+          <text x="320" y="228">jan 27</text>
+          <text x="410" y="228">abr 27</text>
+          <text x="500" y="228">jul 27</text>
+          <text x="590" y="228">out 27</text>
+        </g>
+      </svg>
+
+      <div class="tr-legend">
+        <div class="tr-legend-item"><span class="tr-dot" style="background: #f97316"></span>Itaú <span class="tr-pct">38%</span></div>
+        <div class="tr-legend-item"><span class="tr-dot" style="background: #dc2626"></span>Bradesco <span class="tr-pct">28%</span></div>
+        <div class="tr-legend-item"><span class="tr-dot" style="background: #ef4444"></span>Santander <span class="tr-pct">20%</span></div>
+        <div class="tr-legend-item"><span class="tr-dot" style="background: #10b981"></span>BNDES <span class="tr-pct">14%</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="notes">
+  <strong>Diferenças principais que valem registro:</strong>
+  <ul>
+    <li><strong>Tema:</strong> Tremor nasce em light-mode com bordas suaves e tipografia mais "produto SaaS"; sua app vive em dark-mode com bordas mais marcadas e tom mais corporativo. O Tremor pode ser tematizado pra dark, mas o "feel default" é sempre mais arejado.</li>
+    <li><strong>Curvas:</strong> Tremor suaviza ainda mais as áreas (cubic-bezier) e usa gradientes com top mais leve (~0.55) e fundo praticamente transparente. Recharts no padrão shadcn deixa o gradiente mais marcado.</li>
+    <li><strong>Cores das marcas:</strong> Tremor usa paleta interna (laranja/vermelho/verde do design system Tremor). No nosso caso, as cores oficiais dos bancos (Itaú laranja corporativo, Santander vermelho específico) são preservadas no Recharts via <code>getBankColor</code> — perderíamos isso ao migrar.</li>
+    <li><strong>Eixos:</strong> Tremor remove linhas de eixo e usa labels mais leves (sem prefixo "R$ "). Mais clean, menos informativo num primeiro olhar.</li>
+    <li><strong>Toggle segmentado:</strong> Tremor usa pill flutuante (fundo cinza-100, item ativo branco com sombra). Recharts/shadcn variant "default" usa cor primária sólida — chama mais atenção.</li>
+    <li><strong>Custo de migração:</strong> ~45kb gzip extra no bundle, perda de consistência com <code>DebtProfileChart</code> e <code>DebtChart</code> (que continuariam Recharts), retrabalho pra mapear paleta de bancos no theme do Tremor.</li>
+  </ul>
+</div>
+
+</body>
+</html>

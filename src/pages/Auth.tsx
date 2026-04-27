@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -20,11 +20,14 @@ export default function Auth() {
   } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
-  if (user) {
-    navigate('/');
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
+
+  if (user) return null;
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -56,7 +59,7 @@ export default function Auth() {
         <Card className="border border-border/50 shadow-lg">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-semibold">Gestor de Dívidas O2</CardTitle>
-            <CardDescription>Produto em estado de teste.</CardDescription>
+            <CardDescription>Acesse o gestor de dívidas e financiamentos da sua empresa.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
@@ -69,7 +72,7 @@ export default function Auth() {
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signin-email">Email</Label>
-                    <Input id="signin-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                    <Input id="signin-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signin-password">Senha</Label>
@@ -90,6 +93,7 @@ export default function Auth() {
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
                     <Input id="signup-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
+                    <p className="text-xs text-muted-foreground">Apenas emails @o2inc.com.br são aceitos.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Senha</Label>

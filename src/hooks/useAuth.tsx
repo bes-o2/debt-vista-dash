@@ -1,18 +1,32 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+
+type AuthResultError = AuthError | { message: string } | null;
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: AuthResultError }>;
+  signIn: (email: string, password: string) => Promise<{ error: AuthResultError }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const getAuthErrorMessage = (message?: string) => {
+  if (message === "Invalid login credentials") {
+    return "Email ou senha inválidos.";
+  }
+
+  if (message === "User already registered") {
+    return "Este email já tem cadastro.";
+  }
+
+  return "Não foi possível concluir a operação. Tente novamente.";
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -74,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       toast({
         title: "Erro no cadastro",
-        description: error.message,
+        description: getAuthErrorMessage(error.message),
         variant: "destructive"
       });
     } else {
@@ -96,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       toast({
         title: "Erro no login",
-        description: error.message,
+        description: getAuthErrorMessage(error.message),
         variant: "destructive"
       });
     }
