@@ -54,12 +54,14 @@ git commit -m "feat(dashboard): centralizar métricas em useDashboardMetrics e t
 
 Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 
-### DSH-004 — Bloco "Resumo executivo"
+### DSH-004 — Bloco "Resumo executivo" ✅ ENTREGUE (2026-04-27)
 
-- Novo bloco no topo do dashboard (antes do `DashboardStats`)
-- Consome `useDashboardMetrics` (já pronto)
-- Mostra: saldo devedor, PMT 30/90d, pico mensal 12m, maior concentração por banco, CET/spread, contratos sem garantia
-- Sem nova aba; todo texto pt-BR; estados vazio/loading/erro
+- `DashboardStats.tsx` ampliado com duas novas seções:
+  - "Fluxo de caixa próximo": PMT 30d, PMT 90d, Pico mensal 12m (com alerta amber se pico > 1,5× PMT atual)
+  - "Concentração e garantias": maior credor (com badge de risco por threshold), contratos sem garantia (badge verde/amber)
+- Consome `useDashboardMetrics` (sem nova query)
+- Estados vazio/loading tratados; texto pt-BR; moeda BRL
+- Build passou, sem regressão nos outros 4 widgets
 
 ### DSH-005 — Pontos de atenção determinísticos
 

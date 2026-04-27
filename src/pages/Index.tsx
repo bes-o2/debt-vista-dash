@@ -118,12 +118,8 @@ const Index = () => {
   const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
   const [globalSelectedCalculationType, setGlobalSelectedCalculationType] = useState<string>("all");
   const [globalSelectedDebts, setGlobalSelectedDebts] = useState<string[]>([]);
-  const [globalStartDate, setGlobalStartDate] = useState<Date | undefined>(undefined);
-  const [globalEndDate, setGlobalEndDate] = useState<Date | undefined>(undefined);
-  const [globalPeriodMode, setGlobalPeriodMode] = useState<"vigencia" | "vencimento">(() => {
-    if (!selectedCompany?.id) return "vigencia";
-    return (localStorage.getItem(`debt-vista-period-mode:${selectedCompany.id}`) as "vigencia" | "vencimento") ?? "vigencia";
-  });
+  const [globalStartDate] = useState<Date | undefined>(undefined);
+  const [globalEndDate] = useState<Date | undefined>(undefined);
 
   // Filter debts by selected bank
   const filteredDebts = useMemo(() => selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank), [debts, selectedBank]);
@@ -330,23 +326,7 @@ const Index = () => {
     setGlobalSelectedBank("all");
     setGlobalSelectedCalculationType("all");
     setGlobalSelectedDebts([]);
-    setGlobalStartDate(undefined);
-    setGlobalEndDate(undefined);
   }, []);
-
-  const handlePeriodModeChange = useCallback((mode: "vigencia" | "vencimento") => {
-    setGlobalPeriodMode(mode);
-    if (selectedCompany?.id) {
-      localStorage.setItem(`debt-vista-period-mode:${selectedCompany.id}`, mode);
-    }
-  }, [selectedCompany?.id]);
-
-  // Recarrega o modo de período quando a empresa muda
-  useEffect(() => {
-    if (!selectedCompany?.id) return;
-    const stored = localStorage.getItem(`debt-vista-period-mode:${selectedCompany.id}`) as "vigencia" | "vencimento" | null;
-    setGlobalPeriodMode(stored ?? "vigencia");
-  }, [selectedCompany?.id]);
 
   const dashboardBankOptions = useMemo(
     () =>
@@ -411,7 +391,7 @@ const Index = () => {
           <DashboardStats
             startDate={globalStartDate}
             endDate={globalEndDate}
-            periodMode={globalPeriodMode}
+            periodMode="vigencia"
             selectedBank={state.config.bankFilter ?? globalSelectedBank}
             selectedCalculationType={state.config.calculationTypeFilter ?? globalSelectedCalculationType}
             selectedDebtIds={globalSelectedDebts.length > 0 ? globalSelectedDebts : undefined}
@@ -572,7 +552,7 @@ const Index = () => {
 
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
-              <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} startDate={globalStartDate} endDate={globalEndDate} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onStartDateChange={setGlobalStartDate} onEndDateChange={setGlobalEndDate} onClearFilters={handleClearGlobalFilters} periodMode={globalPeriodMode} onPeriodModeChange={handlePeriodModeChange} />
+              <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onClearFilters={handleClearGlobalFilters} />
 
               {hiddenDashboardWidgets.length > 0 && (
                 <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -824,7 +804,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="analysis" className="space-y-6">
-            <CashFlowAnalysis debts={debts} preSelectedDebt={preSelectedDebtForAnalysis} onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} periodMode={globalPeriodMode} globalStartDate={globalStartDate} globalEndDate={globalEndDate} />
+            <CashFlowAnalysis debts={debts} preSelectedDebt={preSelectedDebtForAnalysis} onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} periodMode="vigencia" globalStartDate={globalStartDate} globalEndDate={globalEndDate} />
           </TabsContent>
         </Tabs>
       </main>

@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, BarChart3, Filter, HelpCircle } from "lucide-react";
+import { DollarSign, BarChart3, Filter, HelpCircle, Building2, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -99,6 +99,11 @@ export const DashboardStats = ({
       maximumFractionDigits: 0,
     }).format(value);
 
+  const formatMonth = (ym: string): string => {
+    const [y, m] = ym.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+  };
+
   const currentOutstandingBalance = metrics?.currentOutstandingBalance ?? 0;
   const totalCurrentPMT = metrics?.currentPMT ?? 0;
   const averageMonthlyCET = metrics?.averageMonthlyCET ?? 0;
@@ -111,6 +116,14 @@ export const DashboardStats = ({
     (s, _) => s,
     sacCount + priceCount,
   ) ?? 0);
+
+  const pmtNext30d = metrics?.pmtNext30d ?? 0;
+  const pmtNext90d = metrics?.pmtNext90d ?? 0;
+  const peakMonthlyPmt12m = metrics?.peakMonthlyPmt12m ?? null;
+  const topConcentrationBank = metrics?.concentrationByBank[0] ?? null;
+  const contractsWithoutGuaranteeCount =
+    (metrics?.guaranteeCoverage as { contractsWithoutGuaranteeCount?: number } | null)
+      ?.contractsWithoutGuaranteeCount ?? null;
 
   const stats: Array<{
     title: string;
@@ -270,6 +283,128 @@ export const DashboardStats = ({
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* Fluxo de caixa próximo */}
+      {metrics != null && (
+        <div className={`grid ${gridGapClass} md:grid-cols-3`}>
+          <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                PMT 30 dias
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="h-8 w-20 rounded bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <div className={`${isCompact ? "text-xl" : "text-2xl"} font-bold text-foreground tabular-nums mb-1`}>
+                    {formatCurrency(pmtNext30d)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">acumulado / 30 dias</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                PMT 90 dias
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="h-8 w-20 rounded bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <div className={`${isCompact ? "text-xl" : "text-2xl"} font-bold text-foreground tabular-nums mb-1`}>
+                    {formatCurrency(pmtNext90d)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">acumulado / 90 dias</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className={`bg-card border ${peakMonthlyPmt12m && peakMonthlyPmt12m.total > totalCurrentPMT * 1.5 ? "border-amber-500/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                Pico mensal 12m
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="h-8 w-20 rounded bg-muted animate-pulse" />
+              ) : peakMonthlyPmt12m ? (
+                <>
+                  <div className={`${isCompact ? "text-xl" : "text-2xl"} font-bold text-foreground tabular-nums mb-1`}>
+                    {formatCurrency(peakMonthlyPmt12m.total)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{formatMonth(peakMonthlyPmt12m.month)}</p>
+                </>
+              ) : (
+                <div className={`${isCompact ? "text-xl" : "text-2xl"} font-bold text-muted-foreground tabular-nums mb-1`}>—</div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Concentração e garantias */}
+      {metrics != null && (topConcentrationBank != null || contractsWithoutGuaranteeCount != null) && (
+        <div className={`grid ${gridGapClass} ${topConcentrationBank != null && contractsWithoutGuaranteeCount != null ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+          {topConcentrationBank != null && (
+            <Card className={`bg-card border ${topConcentrationBank.share > 0.55 ? "border-destructive/20" : topConcentrationBank.share > 0.35 ? "border-amber-500/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-primary/10">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  Maior credor
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                  <span className="text-sm font-medium text-foreground">{topConcentrationBank.bank}</span>
+                  <Badge variant={topConcentrationBank.share > 0.55 ? "destructive" : topConcentrationBank.share > 0.35 ? "outline" : "secondary"}>
+                    {(topConcentrationBank.share * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(topConcentrationBank.balance)} do saldo total
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {contractsWithoutGuaranteeCount != null && (
+            <Card className={`bg-card border ${contractsWithoutGuaranteeCount > 0 ? "border-amber-500/30" : "border-emerald-500/30"} hover:shadow-card transition-shadow duration-300`}>
+              <CardHeader>
+                <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <div className={`p-1.5 rounded-md ${contractsWithoutGuaranteeCount > 0 ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
+                    <ShieldAlert className={`h-4 w-4 ${contractsWithoutGuaranteeCount > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+                  </div>
+                  Contratos sem garantia
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                  <span className="text-sm font-medium text-foreground">Sem cobertura</span>
+                  <Badge
+                    variant={contractsWithoutGuaranteeCount > 0 ? "outline" : "secondary"}
+                    className={contractsWithoutGuaranteeCount > 0 ? "text-amber-600 border-amber-400/50" : ""}
+                  >
+                    {contractsWithoutGuaranteeCount} contrato{contractsWithoutGuaranteeCount !== 1 ? "s" : ""}
+                  </Badge>
+                </div>
+                {contractsWithoutGuaranteeCount === 0 && (
+                  <p className="text-xs text-emerald-600">Todos os contratos têm garantia</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
