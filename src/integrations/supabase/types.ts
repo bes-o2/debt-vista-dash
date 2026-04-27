@@ -50,6 +50,62 @@ export type Database = {
         }
         Relationships: []
       }
+      card_feedback: {
+        Row: {
+          analysis_area: string
+          card_id: string
+          card_title: string
+          category: string
+          company_id: string
+          created_at: string
+          created_by: string
+          id: string
+          message: string
+          metadata: Json
+          status: string
+          task_title: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_area: string
+          card_id: string
+          card_title: string
+          category?: string
+          company_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          message: string
+          metadata?: Json
+          status?: string
+          task_title: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_area?: string
+          card_id?: string
+          card_title?: string
+          category?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          message?: string
+          metadata?: Json
+          status?: string
+          task_title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_feedback_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           cnpj: string | null

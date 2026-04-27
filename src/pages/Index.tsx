@@ -35,6 +35,7 @@ import { normalizeDebtForCalculation } from "@/lib/debtUtils";
 import { getLowConfidenceFields, parseContractImportJson, type ContractImportDraft } from "@/lib/contractImport";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardWidgetShell } from "@/components/dashboard/DashboardWidgetShell";
+import { CardFeedbackMenu, type FeedbackTarget } from "@/components/CardFeedbackMenu";
 import type {
   DashboardWidgetConfig,
   DashboardWidgetDefinition,
@@ -118,8 +119,8 @@ const Index = () => {
   const [globalSelectedBank, setGlobalSelectedBank] = useState<string>("all");
   const [globalSelectedCalculationType, setGlobalSelectedCalculationType] = useState<string>("all");
   const [globalSelectedDebts, setGlobalSelectedDebts] = useState<string[]>([]);
-  const [globalStartDate] = useState<Date | undefined>(undefined);
-  const [globalEndDate] = useState<Date | undefined>(undefined);
+  const [globalStartDate, setGlobalStartDate] = useState<Date | undefined>(undefined);
+  const [globalEndDate, setGlobalEndDate] = useState<Date | undefined>(undefined);
 
   // Filter debts by selected bank
   const filteredDebts = useMemo(() => selectedBank === "all" ? debts : debts.filter(debt => debt.bank === selectedBank), [debts, selectedBank]);
@@ -486,6 +487,60 @@ const Index = () => {
   const hiddenDashboardWidgets = dashboardWidgets.filter(
     (widget) => !widget.state.visible,
   );
+  const feedbackTargets = useMemo<FeedbackTarget[]>(
+    () => [
+      ...dashboardWidgets.map((widget) => ({
+        id: `dashboard:${widget.definition.id}`,
+        title: widget.state.config.title?.trim() || widget.definition.title,
+        area: "Dashboard",
+        description: widget.definition.description,
+        metadata: {
+          source: "dashboard_widget",
+          widget_id: widget.definition.id,
+          visible: widget.state.visible,
+          collapsed: widget.state.collapsed,
+          global_bank_filter: globalSelectedBank,
+          global_calculation_type_filter: globalSelectedCalculationType,
+          global_selected_debts_count: globalSelectedDebts.length,
+        },
+      })),
+      {
+        id: "dashboard:filtros-globais",
+        title: "Filtros globais",
+        area: "Dashboard",
+        metadata: {
+          source: "dashboard_filter",
+          global_bank_filter: globalSelectedBank,
+          global_calculation_type_filter: globalSelectedCalculationType,
+          global_selected_debts_count: globalSelectedDebts.length,
+        },
+      },
+      {
+        id: "cadastros:contratos",
+        title: "Cards de dívidas cadastradas",
+        area: "Cadastros",
+        metadata: { source: "debt_cards" },
+      },
+      {
+        id: "tabela:amortizacao",
+        title: "Tabela de amortização",
+        area: "Tabela",
+        metadata: { source: "amortization_table" },
+      },
+      {
+        id: "analise:fluxo-pagamento",
+        title: "Fluxo de pagamento",
+        area: "Fluxo de Pagamento",
+        metadata: { source: "cash_flow_analysis" },
+      },
+    ],
+    [
+      dashboardWidgets,
+      globalSelectedBank,
+      globalSelectedCalculationType,
+      globalSelectedDebts.length,
+    ],
+  );
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL'
@@ -827,6 +882,13 @@ const Index = () => {
               }
             : undefined
         }
+      />
+      <CardFeedbackMenu
+        activeTab={activeTab}
+        companyId={selectedCompany?.id}
+        companyName={selectedCompany?.name}
+        targets={feedbackTargets}
+        userId={user?.id}
       />
     </div>;
 };
