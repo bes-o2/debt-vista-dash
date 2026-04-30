@@ -12,6 +12,7 @@ import { normalizeDebtForCalculation } from "@/lib/debtUtils";
 import { generateCfoAlerts, type CfoAlertCategory, type CfoAlertSeverity } from "@/lib/cfoAlerts";
 import { useMemo } from "react";
 import type { DashboardWidgetDensity } from "@/components/dashboard/dashboardWidgetTypes";
+import type { GuaranteeMetrics } from "@/lib/guaranteeMetrics";
 
 interface DashboardStatsProps {
   startDate?: Date;
@@ -155,6 +156,8 @@ export const DashboardStats = ({
     const [y, m] = ym.split("-").map(Number);
     return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
   };
+  const formatPercentage = (value: number) =>
+    `${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
   const currentOutstandingBalance = metrics?.currentOutstandingBalance ?? 0;
   const totalCurrentPMT = metrics?.currentPMT ?? 0;
@@ -173,9 +176,18 @@ export const DashboardStats = ({
   const pmtNext90d = metrics?.pmtNext90d ?? 0;
   const peakMonthlyPmt12m = metrics?.peakMonthlyPmt12m ?? null;
   const topConcentrationBank = metrics?.concentrationByBank[0] ?? null;
+  const guaranteeMetrics = metrics?.guaranteeCoverage as GuaranteeMetrics | null;
   const contractsWithoutGuaranteeCount =
-    (metrics?.guaranteeCoverage as { contractsWithoutGuaranteeCount?: number } | null)
-      ?.contractsWithoutGuaranteeCount ?? null;
+    guaranteeMetrics?.contractsWithoutGuaranteeCount ?? null;
+  const guaranteeGapsByBank =
+    guaranteeMetrics?.coverageByBank
+      .map((item) => ({
+        ...item,
+        gap: Math.max(0, item.debtBalance - item.guaranteeValue),
+      }))
+      .filter((item) => item.gap > 0)
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 3) ?? [];
   const cfoAlerts = useMemo(() => {
     if (metrics == null) return [];
 
@@ -506,8 +518,8 @@ export const DashboardStats = ({
       )}
 
       {/* Concentração e garantias */}
-      {metrics != null && (topConcentrationBank != null || contractsWithoutGuaranteeCount != null) && (
-        <div id="dashboard-garantias" className={`grid ${gridGapClass} ${topConcentrationBank != null && contractsWithoutGuaranteeCount != null ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+      {metrics != null && (topConcentrationBank != null || guaranteeMetrics != null) && (
+        <div id="dashboard-garantias" className={`grid ${gridGapClass} ${topConcentrationBank != null && guaranteeMetrics != null ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
           {topConcentrationBank != null && (
             <Card className={`bg-card border ${topConcentrationBank.share > 0.55 ? "border-destructive/20" : topConcentrationBank.share > 0.35 ? "border-amber-500/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
               <CardHeader>
@@ -531,28 +543,73 @@ export const DashboardStats = ({
               </CardContent>
             </Card>
           )}
-          {contractsWithoutGuaranteeCount != null && (
-            <Card className={`bg-card border ${contractsWithoutGuaranteeCount > 0 ? "border-amber-500/30" : "border-emerald-500/30"} hover:shadow-card transition-shadow duration-300`}>
+          {guaranteeMetrics != null && (
+            <Card className={`bg-card border ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "border-amber-500/30" : "border-emerald-500/30"} hover:shadow-card transition-shadow duration-300`}>
               <CardHeader>
                 <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <div className={`p-1.5 rounded-md ${contractsWithoutGuaranteeCount > 0 ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
-                    <ShieldAlert className={`h-4 w-4 ${contractsWithoutGuaranteeCount > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+                  <div className={`p-1.5 rounded-md ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
+                    <ShieldAlert className={`h-4 w-4 ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "text-amber-500" : "text-emerald-500"}`} />
                   </div>
-                  Contratos sem garantia
+                  Garantias
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <span className="text-xs text-muted-foreground">Valor total</span>
+                    <div className="mt-1 font-bold text-foreground tabular-nums">
+                      {formatCurrency(guaranteeMetrics.totalGuaranteeValue)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-muted/30 p-2.5">
+                    <span className="text-xs text-muted-foreground">Cobertura sobre saldo</span>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="font-bold text-foreground tabular-nums">
+                        {formatPercentage(guaranteeMetrics.coveragePercentage)}
+                      </span>
+                      <Badge
+                        variant={guaranteeMetrics.coverageRatio >= 1 ? "secondary" : "outline"}
+                        className={guaranteeMetrics.coverageRatio < 1 ? "text-amber-600 border-amber-400/50" : ""}
+                      >
+                        {guaranteeMetrics.coverageRatio >= 1 ? "Coberto" : "Gap"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
-                  <span className="text-sm font-medium text-foreground">Sem cobertura</span>
+                  <span className="text-sm font-medium text-foreground">Contratos sem garantia</span>
                   <Badge
-                    variant={contractsWithoutGuaranteeCount > 0 ? "outline" : "secondary"}
-                    className={contractsWithoutGuaranteeCount > 0 ? "text-amber-600 border-amber-400/50" : ""}
+                    variant={(contractsWithoutGuaranteeCount ?? 0) > 0 ? "outline" : "secondary"}
+                    className={(contractsWithoutGuaranteeCount ?? 0) > 0 ? "text-amber-600 border-amber-400/50" : ""}
                   >
-                    {contractsWithoutGuaranteeCount} contrato{contractsWithoutGuaranteeCount !== 1 ? "s" : ""}
+                    {contractsWithoutGuaranteeCount ?? 0} contrato{(contractsWithoutGuaranteeCount ?? 0) !== 1 ? "s" : ""}
                   </Badge>
                 </div>
-                {contractsWithoutGuaranteeCount === 0 && (
-                  <p className="text-xs text-emerald-600">Todos os contratos têm garantia</p>
+
+                <div className="rounded-lg bg-muted/30 p-2.5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-sm font-medium text-foreground">Gap por banco</span>
+                    <Badge variant="outline">{guaranteeGapsByBank.length}</Badge>
+                  </div>
+                  {guaranteeGapsByBank.length > 0 ? (
+                    <div className="space-y-2">
+                      {guaranteeGapsByBank.map((item) => (
+                        <div key={item.bank} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="truncate text-muted-foreground">{item.bank}</span>
+                          <span className="font-semibold text-amber-600 tabular-nums">
+                            {formatCurrency(item.gap)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-emerald-600">Sem gap de garantia por banco</p>
+                  )}
+                </div>
+
+                {(contractsWithoutGuaranteeCount ?? 0) === 0 && (
+                  <p className="text-xs text-emerald-600">Todos os contratos têm garantia cadastrada</p>
                 )}
               </CardContent>
             </Card>
