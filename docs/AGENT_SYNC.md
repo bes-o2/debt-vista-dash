@@ -6,7 +6,7 @@
 
 - **Data:** 2026-04-30
 - **Agente:** Codex
-- **Resumo:** Codex abriu o branch `feat/codex-session-2026-04-30`, salvou o prompt em `docs/CODEX_SESSION_PROMPT.md`, registrou o plano em `docs/CODEX_SESSION_PLAN.md`, criou a seed idempotente da "Empresa Demo O2" e entregou DSH-005/DSH-006 no `DashboardStats`. `npm run build` passou no encerramento.
+- **Resumo:** Codex abriu o branch `feat/codex-session-2026-04-30`, salvou o prompt em `docs/CODEX_SESSION_PROMPT.md`, registrou o plano em `docs/CODEX_SESSION_PLAN.md`, criou a seed idempotente da "Empresa Demo O2", entregou DSH-005/DSH-006 e avancou DSH-007 a DSH-011. `npm run build` passou no encerramento.
 
 ## O que esta funcionando
 
@@ -22,11 +22,16 @@
 - `supabase/migrations/20260430002841_seed_demo_company.sql` cria a "Empresa Demo O2", vincula usuarios `@o2inc.com.br`, insere 5 contratos ficticios e 3 garantias sem inserir parcelas manualmente.
 - `src/components/DashboardStats.tsx` exibe ate 5 pontos de atencao deterministicos via `generateCfoAlerts`, com evidencias numericas e links para widgets/areas do dashboard.
 - `src/components/DashboardStats.tsx` mostra garantias no resumo executivo: valor total, cobertura sobre saldo, contratos sem garantia e top 3 gaps por banco.
+- Dashboard widgets agora tem registry formal com `defaultOrder`, `canCollapse`, `canHide` e `settingsSchema`; o layout padrao respeita `defaultOrder`.
+- Cards do dashboard podem ser colapsados, ocultados, reativados, reordenados por botoes e restaurados para o layout padrao com persistencia por usuario+empresa.
+- Configuracoes por card usam `settingsSchema` e continuam reversiveis por "Restaurar padroes".
+- `docs/DASHBOARD_DRAG_DROP_EVALUATION.md` documenta a decisao de nao adicionar `@dnd-kit` agora.
 
 ## Em andamento / incompleto
 
 - Validacao visual no browser ainda nao foi feita nesta sessao. Conferir dashboard com a "Empresa Demo O2" depois de gerar as parcelas.
 - A migration da empresa demo precisa ser aplicada no Supabase. Depois disso, as parcelas devem ser geradas acessando cada contrato pelo app ou chamando manualmente a edge function `calculate-amortization`.
+- DSH-012 ainda nao foi iniciado. Proxima entrega funcional e drill-down de KPI/alerta para tabela ou fluxo ja filtrado.
 - Recalcular uma divida de referencia pela edge function para confirmar a diferenca esperada no CET salvo apos mudar o t=0 para `releaseDate`.
 - `npm run lint` continua falhando por debitos existentes do projeto, incluindo `no-explicit-any`, interface vazia em `src/components/ui/textarea.tsx`, `require()` em `tailwind.config.ts` e warnings de hooks/Fast Refresh.
 - A worktree segue suja com muitas alteracoes anteriores e nao relacionadas. Revisar `git status --short` antes de qualquer commit.
@@ -48,13 +53,14 @@
 - O UUID sugerido no prompt para a empresa demo continha `demo`, que nao e hexadecimal e falha como UUID no Postgres. A migration usa `a0000000-de00-0000-0000-000000000001` e documenta a decisao no SQL.
 - O prompt usava `interest_type = pre/pos`, mas o schema atual usa `interest_type` como periodicidade (`monthly`/`annual`) e representa pre/pos via `interest_base`, `indexer` e `spread_rate`. A seed segue o schema atual para manter calculos do app.
 - O alerta de divida liquida gerado por `generateCfoAlerts` ficou filtrado no dashboard porque ainda nao existe dado de caixa; mostrar caixa zero como critico seria enganoso.
+- Drag-and-drop foi adiado: manter botoes por acessibilidade, simplicidade e bundle ate haver friccao real ou mais widgets.
 
 ## Proximo agente deve fazer
 
 1. Rodar `git status --short` e manter stage seletivo; ha alteracoes nao relacionadas na worktree.
 2. Aplicar/verificar a migration `20260430002841_seed_demo_company.sql` no Supabase e gerar parcelas dos 5 contratos demo pela edge function ou pelo app.
 3. Validar no browser a "Empresa Demo O2": pontos de atencao, links/ancoras, card de garantias, filtros globais e mobile 390px.
-4. Continuar DSH-007 a DSH-010 ou tratar DSH-016 em commit separado, conforme prioridade.
+4. Iniciar DSH-012: drill-down de KPI/alerta para tabela/fluxo com filtros preservados e botao claro para limpar filtros.
 5. Se for commitar, nao incluir `.claude/settings.local.json`, `supabase/.temp/`, `graphify-out/` ou outros artefatos locais sem confirmacao explicita.
 
 ## Nao tocar
