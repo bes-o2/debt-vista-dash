@@ -9,8 +9,8 @@
 
 ## Tarefas desta sessão
 
-- [ ] SEED-DEMO — Criar migration SQL idempotente para "Empresa Demo O2" com vínculos automáticos para usuários `@o2inc.com.br` e contratos fictícios realistas. Prioridade: obrigatória para QA e demonstrações sem dados reais. Risco: baixo.
-- [ ] DSH-005 — Exibir pontos de atenção determinísticos no dashboard principal usando `generateCfoAlerts`, com evidência numérica e destino de drill-down quando já existir rota/âncora viável. Prioridade: próxima entrega do Epic 2 e baixo acoplamento. Risco: médio.
+- [x] SEED-DEMO — Concluído. Migration SQL idempotente criada para "Empresa Demo O2"; parcelas não são inseridas pela migration e precisam ser geradas acessando cada contrato pelo app ou chamando manualmente a edge function `calculate-amortization`.
+- [ ] DSH-005 — Próxima. Exibir pontos de atenção determinísticos no dashboard principal usando `generateCfoAlerts`, com evidência numérica e destino de drill-down quando já existir rota/âncora viável. Prioridade: próxima entrega do Epic 2 e baixo acoplamento. Risco: médio.
 - [ ] DSH-006 — Incluir garantias no dashboard principal com total, cobertura, contratos sem garantia e gap por banco, consumindo dados já expostos por `useDashboardMetrics`. Prioridade: completa o bloco executivo do Epic 2 sem nova query. Risco: médio.
 
 ## Tarefas puladas nesta sessão
