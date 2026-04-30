@@ -105,6 +105,13 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - Dashboard mostra área de "Widgets ocultos" para reativar cards escondidos
 - Ainda falta QA manual no browser para confirmar recarga, teclado e mobile
 
+### DSH-009 — Implementar reordenação simples ✅ ENTREGUE (2026-04-30)
+
+- `DashboardWidgetShell` expõe botões "mover para cima/baixo" com `aria-label`
+- `useDashboardWidgets` reordena apenas widgets visíveis e persiste a ordem por usuário e empresa
+- Dashboard ganhou botão "Restaurar layout" para voltar ao padrão
+- Build passou; ainda falta QA manual em desktop/mobile
+
 ---
 
 ## Lint pré-existente (DSH-016)

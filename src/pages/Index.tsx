@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -491,6 +491,7 @@ const Index = () => {
     moveWidget: moveDashboardWidget,
     updateWidget: updateDashboardWidget,
     resetWidgetConfig,
+    resetLayout: resetDashboardLayout,
   } = useDashboardWidgets(
     dashboardWidgetDefinitions,
     user?.id,
@@ -624,6 +625,19 @@ const Index = () => {
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
               <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onClearFilters={handleClearGlobalFilters} />
+
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 transition-transform active:scale-[0.96]"
+                  onClick={resetDashboardLayout}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Restaurar layout
+                </Button>
+              </div>
 
               {hiddenDashboardWidgets.length > 0 && (
                 <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
