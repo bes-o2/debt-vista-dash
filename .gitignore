@@ -16,6 +16,8 @@ node_modules
 dist
 dist-ssr
 .vercel
+graphify-out/
+supabase/.temp/
 *.local
 
 # Editor directories and files
