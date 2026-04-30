@@ -25,6 +25,7 @@ import { ConsolidatedAmortizationTable } from "@/components/ConsolidatedAmortiza
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { CompanySelector } from "@/components/CompanySelector";
 import { useCompany } from "@/hooks/useCompany";
 import { useDebts, type LegacyDebt } from "@/hooks/useDebts";
@@ -591,6 +592,7 @@ const Index = () => {
               <CompanySelector />
               <SettingsButton />
               <ThemeToggle />
+              <ChangePasswordDialog />
               <Button onClick={signOut} variant="outline" className="hover:bg-accent">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair

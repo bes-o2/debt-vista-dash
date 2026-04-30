@@ -10,6 +10,7 @@ interface AuthContextType {
   session: Session | null;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: AuthResultError }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthResultError }>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<{ error: AuthResultError }>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -26,6 +27,24 @@ const getAuthErrorMessage = (message?: string) => {
   }
 
   return "Não foi possível concluir a operação. Tente novamente.";
+};
+
+const getPasswordUpdateErrorMessage = (message?: string) => {
+  const normalizedMessage = message?.toLowerCase();
+
+  if (message === "Invalid login credentials") {
+    return "Senha atual incorreta.";
+  }
+
+  if (normalizedMessage?.includes("same password") || normalizedMessage?.includes("different")) {
+    return "A nova senha deve ser diferente da senha atual.";
+  }
+
+  if (normalizedMessage?.includes("password")) {
+    return "Não foi possível alterar a senha. Confira os requisitos e tente novamente.";
+  }
+
+  return "Não foi possível alterar a senha. Tente novamente.";
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -118,6 +137,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user?.email) {
+      const error = { message: "Não foi possível identificar o email do usuário." };
+      toast({
+        title: "Erro ao alterar senha",
+        description: error.message,
+        variant: "destructive"
+      });
+      return { error };
+    }
+
+    const { error: currentPasswordError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword
+    });
+
+    if (currentPasswordError) {
+      toast({
+        title: "Erro ao alterar senha",
+        description: getPasswordUpdateErrorMessage(currentPasswordError.message),
+        variant: "destructive"
+      });
+      return { error: currentPasswordError };
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) {
+      toast({
+        title: "Erro ao alterar senha",
+        description: getPasswordUpdateErrorMessage(error.message),
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Senha alterada",
+        description: "Use a nova senha no próximo acesso."
+      });
+    }
+
+    return { error };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     toast({
@@ -132,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       signUp,
       signIn,
+      updatePassword,
       signOut,
       loading
     }}>
