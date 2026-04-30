@@ -31,3 +31,4 @@
 ## Extensão solicitada pelo usuário
 
 - [x] DSH-007 — Concluído. Registry de widgets formalizado com `defaultOrder`, `canCollapse`, `canHide` e `settingsSchema`; `useDashboardWidgets` respeita `defaultOrder` para layout padrão e novos widgets; `DashboardWidgetShell` respeita permissões de colapsar/ocultar. Build passou após a alteração.
+- [x] DSH-008 — Concluído por verificação. O código atual já permite colapsar/expandir e ocultar cards, com `aria-label`, botões de 40px, estado persistido por usuário+empresa e reativação de widgets ocultos. Sem mudança de código necessária nesta tarefa.

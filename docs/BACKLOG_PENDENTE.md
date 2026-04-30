@@ -97,6 +97,14 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - `DashboardWidgetShell` respeita `canCollapse` e `canHide`
 - Build passou; ainda falta QA visual no browser
 
+### DSH-008 — Implementar colapsar/expandir e ocultar cards ✅ ENTREGUE (2026-04-30)
+
+- `DashboardWidgetShell` já expõe controles de colapsar/expandir e ocultar com `aria-label`
+- Botões usam `h-10 w-10`, atendendo hit area mínima de 40px
+- `useDashboardWidgets` persiste `collapsed` e `visible` por usuário e empresa no `localStorage`
+- Dashboard mostra área de "Widgets ocultos" para reativar cards escondidos
+- Ainda falta QA manual no browser para confirmar recarga, teclado e mobile
+
 ---
 
 ## Lint pré-existente (DSH-016)
