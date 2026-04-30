@@ -37,9 +37,17 @@ export interface DashboardMetrics {
   period: { start: Date | null; end: Date | null; mode: "vigencia" | "vencimento" };
 }
 
+type DashboardInstallment = {
+  due_date: string;
+  principal_amount?: number;
+  total_amount?: number;
+  remaining_balance?: number;
+  installment_amount?: number;
+};
+
 export interface ComputeDashboardMetricsInput {
   debts: NormalizedDebtForCalculation[];
-  installmentsByDebtId: Record<string, any[]>;
+  installmentsByDebtId: Record<string, DashboardInstallment[]>;
   guaranteeMetrics: any | null;
   cdiAnnualRate: number | null;
   today: Date;
@@ -55,6 +63,45 @@ function getMonthlyRate(debt: NormalizedDebtForCalculation): number {
       : Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1;
   const spread = debt.spreadRate ? debt.spreadRate / 100 : 0;
   return base + spread;
+}
+
+function sortInstallments(installments: DashboardInstallment[]): DashboardInstallment[] {
+  return [...installments].sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+}
+
+function getNextInstallment(installments: DashboardInstallment[], today: Date): DashboardInstallment | null {
+  return sortInstallments(installments).find((inst) => {
+    const due = parseLocalDate(inst.due_date);
+    if (!due) return false;
+    due.setHours(0, 0, 0, 0);
+    return due >= today;
+  }) ?? null;
+}
+
+function calculateOutstandingBalanceFromInstallments(
+  debt: NormalizedDebtForCalculation,
+  installments: DashboardInstallment[],
+  today: Date,
+): number {
+  const releaseDate = parseLocalDate(debt.releaseDate);
+  if (releaseDate) {
+    releaseDate.setHours(0, 0, 0, 0);
+    if (today < releaseDate) return 0;
+  }
+
+  const nextInstallment = getNextInstallment(installments, today);
+  if (!nextInstallment) return 0;
+
+  const remainingBalance = Number(nextInstallment.remaining_balance);
+  return Number.isFinite(remainingBalance) ? Math.max(0, remainingBalance) : 0;
+}
+
+function calculateCurrentPMTFromInstallments(installments: DashboardInstallment[], today: Date): number {
+  const nextInstallment = getNextInstallment(installments, today);
+  if (!nextInstallment) return 0;
+
+  const totalAmount = Number(nextInstallment.total_amount);
+  return Number.isFinite(totalAmount) ? Math.max(0, totalAmount) : 0;
 }
 
 function calculateAnalyticalOutstandingBalance(
@@ -200,17 +247,26 @@ export function computeDashboardMetrics(
   const in180d = addDays(todayClean, 180);
   const in12m = addDays(todayClean, 365);
 
-  // ── Saldo analítico por contrato ──────────────────────────────────────────
+  // ── Saldo atual por contrato ──────────────────────────────────────────────
   const balanceByDebtId: Record<string, number> = {};
   for (const debt of debts) {
-    balanceByDebtId[debt.id] = calculateAnalyticalOutstandingBalance(debt, new Date(todayClean));
+    const installments = installmentsByDebtId[debt.id] ?? [];
+    balanceByDebtId[debt.id] = installments.length > 0
+      ? calculateOutstandingBalanceFromInstallments(debt, installments, new Date(todayClean))
+      : calculateAnalyticalOutstandingBalance(debt, new Date(todayClean));
   }
 
   const currentOutstandingBalance = Object.values(balanceByDebtId).reduce((s, v) => s + v, 0);
 
-  // ── PMT corrente (analítico) ──────────────────────────────────────────────
+  // ── PMT corrente ──────────────────────────────────────────────────────────
   const currentPMT = debts.reduce(
-    (sum, debt) => sum + calculateAnalyticalCurrentPMT(debt, new Date(todayClean)),
+    (sum, debt) => {
+      const installments = installmentsByDebtId[debt.id] ?? [];
+      const pmt = installments.length > 0
+        ? calculateCurrentPMTFromInstallments(installments, new Date(todayClean))
+        : calculateAnalyticalCurrentPMT(debt, new Date(todayClean));
+      return sum + pmt;
+    },
     0,
   );
 

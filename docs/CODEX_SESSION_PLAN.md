@@ -35,3 +35,7 @@
 - [x] DSH-009 — Concluído. Reordenação por botões já persistia por usuário+empresa; foi adicionado o botão "Restaurar layout" para voltar ao padrão. Build passou após a alteração.
 - [x] DSH-010 — Concluído por verificação. Configurações por card usam `settingsSchema`, são limitadas por controles tipados, reversíveis por "Restaurar padrões" e persistidas por usuário+empresa. Sem mudança de código necessária nesta tarefa.
 - [x] DSH-011 — Concluído. Decisão documentada em `docs/DASHBOARD_DRAG_DROP_EVALUATION.md`: não adicionar `@dnd-kit` agora; manter botões por acessibilidade, simplicidade e bundle. Nenhuma dependência adicionada.
+
+## Correcao sob demanda
+
+- [x] DEBUG-DEMO-INDUSTRIAL - Concluido. Comparadas `Demo Industrial Ltda` e `Construtora Modelo Dummy S.A.` no Supabase com RLS simulado; `Demo Industrial` tinha parcelas, mas os cards principais usavam calculo analitico que tratava `spread_rate` anual como mensal. `computeDashboardMetrics` agora usa `debt_installments` para saldo atual e parcela corrente quando as parcelas existem, mantendo calculo analitico apenas como fallback.
