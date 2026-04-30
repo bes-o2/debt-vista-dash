@@ -89,6 +89,14 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - Registrar widgets, implementar colapsar/expandir e reordenar com botões
 - Ver detalhes em `MAIN_DASHBOARD_CFO_REVIEW.md`
 
+### DSH-007 — Criar registry de widgets do dashboard ✅ ENTREGUE (2026-04-30)
+
+- Registry atual em `src/pages/Index.tsx` renderiza widgets por definição controlada
+- `DashboardWidgetDefinition` inclui `defaultOrder`, `defaultSize`, `canCollapse`, `canHide` e `settingsSchema`
+- `useDashboardWidgets` usa `defaultOrder` para layout padrão e para inserir novos widgets sem quebrar ordem existente
+- `DashboardWidgetShell` respeita `canCollapse` e `canHide`
+- Build passou; ainda falta QA visual no browser
+
 ---
 
 ## Lint pré-existente (DSH-016)

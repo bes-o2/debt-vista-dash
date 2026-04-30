@@ -386,7 +386,11 @@ const Index = () => {
         id: "resumo-executivo",
         title: "Resumo executivo",
         description: "KPIs principais da carteira e composição financeira.",
+        defaultOrder: 10,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "density", "filters"],
         allowedConfigs: ["title", "density", "filters"],
         component: (state) => (
           <DashboardStats
@@ -405,7 +409,11 @@ const Index = () => {
         id: "saldo-devedor-banco",
         title: "Saldo devedor por banco",
         description: "Evolução do saldo, PMT e alívio de caixa por credor.",
+        defaultOrder: 20,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "horizon", "density", "filters"],
         allowedConfigs: ["title", "horizon", "density", "filters"],
         defaultConfig: { horizon: "12m" },
         component: (state, context) => (
@@ -425,7 +433,11 @@ const Index = () => {
         id: "perfil-divida",
         title: "Perfil da dívida",
         description: "Distribuição de amortização em curto e longo prazo.",
+        defaultOrder: 30,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "density", "filters"],
         allowedConfigs: ["title", "density", "filters"],
         component: (state) => (
           <DebtProfileChart
@@ -442,7 +454,11 @@ const Index = () => {
         id: "comparativo-bancos",
         title: "Comparativo por banco",
         description: "Saldo, juros financiados e CET por instituição.",
+        defaultOrder: 40,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "viewMode", "density", "filters"],
         allowedConfigs: ["title", "viewMode", "density", "filters"],
         defaultConfig: { viewMode: "total" },
         component: (state, context) => (

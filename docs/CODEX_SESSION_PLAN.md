@@ -27,3 +27,7 @@
 - Após cada tarefa: atualizar este plano no mesmo commit da tarefa.
 - Antes do encerramento: rodar `npm run build`.
 - Se a build falhar por mudança desta sessão: documentar em `docs/AGENT_SYNC.md` e reverter apenas o commit causador.
+
+## Extensão solicitada pelo usuário
+
+- [x] DSH-007 — Concluído. Registry de widgets formalizado com `defaultOrder`, `canCollapse`, `canHide` e `settingsSchema`; `useDashboardWidgets` respeita `defaultOrder` para layout padrão e novos widgets; `DashboardWidgetShell` respeita permissões de colapsar/ocultar. Build passou após a alteração.

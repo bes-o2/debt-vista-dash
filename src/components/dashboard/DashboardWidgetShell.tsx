@@ -41,7 +41,7 @@ interface DashboardWidgetShellProps {
 }
 
 const hasConfig = (widget: DashboardWidgetModel, key: DashboardWidgetConfigKey) =>
-  widget.definition.allowedConfigs.includes(key);
+  widget.definition.settingsSchema.includes(key);
 
 export function DashboardWidgetShell({
   widget,
@@ -112,39 +112,43 @@ export function DashboardWidgetShell({
           >
             <ChevronDown className="h-4 w-4" />
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 transition-transform active:scale-[0.96]"
-            onClick={onToggleCollapsed}
-            aria-expanded={!state.collapsed}
-            aria-controls={contentId}
-            aria-label={state.collapsed ? `Expandir ${title}` : `Recolher ${title}`}
-          >
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 transition-transform duration-200",
-                !state.collapsed && "rotate-180",
-              )}
-            />
-          </Button>
+          {definition.canCollapse && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 transition-transform active:scale-[0.96]"
+              onClick={onToggleCollapsed}
+              aria-expanded={!state.collapsed}
+              aria-controls={contentId}
+              aria-label={state.collapsed ? `Expandir ${title}` : `Recolher ${title}`}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  !state.collapsed && "rotate-180",
+                )}
+              />
+            </Button>
+          )}
           <WidgetSettingsPopover
             widget={widget}
             bankOptions={bankOptions}
             onConfigChange={onConfigChange}
             onResetConfig={onResetConfig}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 text-muted-foreground transition-transform hover:text-foreground active:scale-[0.96]"
-            onClick={onHide}
-            aria-label={`Ocultar ${title}`}
-          >
-            <EyeOff className="h-4 w-4" />
-          </Button>
+          {definition.canHide && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-muted-foreground transition-transform hover:text-foreground active:scale-[0.96]"
+              onClick={onHide}
+              aria-label={`Ocultar ${title}`}
+            >
+              <EyeOff className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 

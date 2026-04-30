@@ -25,7 +25,11 @@ export interface DashboardWidgetDefinition {
   id: string;
   title: string;
   description: string;
+  defaultOrder: number;
   defaultSize: DashboardWidgetSize;
+  canCollapse: boolean;
+  canHide: boolean;
+  settingsSchema: DashboardWidgetConfigKey[];
   allowedConfigs: DashboardWidgetConfigKey[];
   defaultConfig?: DashboardWidgetConfig;
   component: (

@@ -27,6 +27,9 @@ const buildDefaultState = (
   },
 });
 
+const sortDefinitionsByDefaultOrder = (definitions: DashboardWidgetDefinition[]) =>
+  [...definitions].sort((a, b) => a.defaultOrder - b.defaultOrder);
+
 const mergeConfig = (
   definition: DashboardWidgetDefinition,
   savedConfig?: DashboardWidgetConfig,
@@ -43,7 +46,7 @@ const buildLayout = (
   storedWidgets?: DashboardWidgetState[],
 ) => {
   if (!storedWidgets) {
-    return definitions.map(buildDefaultState);
+    return sortDefinitionsByDefaultOrder(definitions).map(buildDefaultState);
   }
 
   const definitionsById = new Map(
@@ -52,7 +55,7 @@ const buildLayout = (
   const storedById = new Map(storedWidgets.map((widget) => [widget.id, widget]));
   const orderedIds = [
     ...storedWidgets.map((widget) => widget.id),
-    ...definitions
+    ...sortDefinitionsByDefaultOrder(definitions)
       .map((definition) => definition.id)
       .filter((id) => !storedById.has(id)),
   ];
