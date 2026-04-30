@@ -63,15 +63,17 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - Estados vazio/loading tratados; texto pt-BR; moeda BRL
 - Build passou, sem regressão nos outros 4 widgets
 
-### DSH-005 — Pontos de atenção determinísticos
+### DSH-005 — Pontos de atenção determinísticos ✅ ENTREGUE (2026-04-30)
 
-- Usa `generateCfoAlerts` em `src/lib/cfoAlerts.ts` (já existe, já recebe `DashboardMetrics`)
-- 3 a 5 alertas com evidência numérica + link de drill-down
+- `DashboardStats.tsx` renderiza até 5 alertas via `generateCfoAlerts`
+- Cada alerta mostra severidade, resumo, evidências numéricas, recomendação e link para widget/área relacionada
+- O alerta de dívida líquida foi filtrado porque o dashboard ainda não tem dado de caixa
 
-### DSH-006 — Garantias no dashboard principal
+### DSH-006 — Garantias no dashboard principal ✅ ENTREGUE (2026-04-30)
 
-- `useDashboardMetrics` já retorna `guaranteeCoverage` (passthrough de `useDebtGuarantees`)
-- Só montar a UI: total, cobertura, contratos sem garantia, gap por banco
+- `DashboardStats.tsx` usa `metrics.guaranteeCoverage`
+- UI mostra valor total de garantias, cobertura sobre saldo, contratos sem garantia e top 3 gaps por banco
+- Ainda precisa de QA visual com dados representativos e parcelas geradas
 
 ### Migração dos 4 widgets restantes (débito técnico do Epic 1)
 
