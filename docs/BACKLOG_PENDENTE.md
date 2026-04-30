@@ -120,6 +120,13 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - Saldo por banco, perfil da dívida e comparativo por banco consomem as preferências aplicáveis
 - Ainda falta QA manual no browser
 
+### DSH-011 — Avaliar drag-and-drop com carregamento sob demanda ✅ ENTREGUE (2026-04-30)
+
+- Decisão documentada em `docs/DASHBOARD_DRAG_DROP_EVALUATION.md`
+- `@dnd-kit` não foi adicionado neste momento
+- Baseline de bundle registrado a partir do build validado em 2026-04-30
+- Reavaliação condicionada a fricção real de uso, mais widgets ou tempo para QA completo de drag-and-drop
+
 ---
 
 ## Lint pré-existente (DSH-016)

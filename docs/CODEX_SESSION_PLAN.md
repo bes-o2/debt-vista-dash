@@ -34,3 +34,4 @@
 - [x] DSH-008 — Concluído por verificação. O código atual já permite colapsar/expandir e ocultar cards, com `aria-label`, botões de 40px, estado persistido por usuário+empresa e reativação de widgets ocultos. Sem mudança de código necessária nesta tarefa.
 - [x] DSH-009 — Concluído. Reordenação por botões já persistia por usuário+empresa; foi adicionado o botão "Restaurar layout" para voltar ao padrão. Build passou após a alteração.
 - [x] DSH-010 — Concluído por verificação. Configurações por card usam `settingsSchema`, são limitadas por controles tipados, reversíveis por "Restaurar padrões" e persistidas por usuário+empresa. Sem mudança de código necessária nesta tarefa.
+- [x] DSH-011 — Concluído. Decisão documentada em `docs/DASHBOARD_DRAG_DROP_EVALUATION.md`: não adicionar `@dnd-kit` agora; manter botões por acessibilidade, simplicidade e bundle. Nenhuma dependência adicionada.
