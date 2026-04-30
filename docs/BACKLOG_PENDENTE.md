@@ -112,6 +112,14 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - Dashboard ganhou botão "Restaurar layout" para voltar ao padrão
 - Build passou; ainda falta QA manual em desktop/mobile
 
+### DSH-010 — Implementar configurações editáveis por card ✅ ENTREGUE (2026-04-30)
+
+- Configurações são declaradas por card em `settingsSchema`
+- `DashboardWidgetShell` oferece título local, densidade, horizonte, visão e filtros conforme schema do widget
+- Ajustes são reversíveis por "Restaurar padrões" e persistidos por usuário e empresa
+- Saldo por banco, perfil da dívida e comparativo por banco consomem as preferências aplicáveis
+- Ainda falta QA manual no browser
+
 ---
 
 ## Lint pré-existente (DSH-016)
