@@ -17,6 +17,8 @@ export interface DashboardMetrics {
   pmtNext180d: number;
   peakMonthlyPmt12m: { month: string; total: number } | null;
   maturitiesNext12Months: number;
+  maturitiesNext12MonthsByMonth: { month: string; amount: number }[];
+  monthlyPmtProjection: { month: string; amount: number }[];
   upcomingDueDates: { debtId: string; bank: string; dueDate: Date; amount: number }[];
   // Custo
   averageMonthlyCET: number;
@@ -217,6 +219,7 @@ export function computeDashboardMetrics(
   let pmtNext90d = 0;
   let pmtNext180d = 0;
   let maturitiesNext12Months = 0;
+  const monthlyMaturityBuckets: Record<string, number> = {};
   const monthlyPmtBuckets: Record<string, number> = {};
   const upcomingByDebt: Record<string, { dueDate: Date; amount: number }> = {};
 
@@ -242,6 +245,7 @@ export function computeDashboardMetrics(
       if (due >= todayClean && due <= in12m) {
         maturitiesNext12Months += inst.principal_amount ?? 0;
         const ym = toYearMonth(due);
+        monthlyMaturityBuckets[ym] = (monthlyMaturityBuckets[ym] ?? 0) + (inst.principal_amount ?? 0);
         monthlyPmtBuckets[ym] = (monthlyPmtBuckets[ym] ?? 0) + (inst.total_amount ?? 0);
       }
     }
@@ -254,6 +258,12 @@ export function computeDashboardMetrics(
       peakMonthlyPmt12m = { month, total };
     }
   }
+  const maturitiesNext12MonthsByMonth = Object.entries(monthlyMaturityBuckets)
+    .map(([month, amount]) => ({ month, amount }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+  const monthlyPmtProjection = Object.entries(monthlyPmtBuckets)
+    .map(([month, amount]) => ({ month, amount }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 
   // ── upcomingDueDates ──────────────────────────────────────────────────────
   const upcomingDueDates = Object.entries(upcomingByDebt).map(([debtId, data]) => {
@@ -367,6 +377,8 @@ export function computeDashboardMetrics(
     pmtNext180d,
     peakMonthlyPmt12m,
     maturitiesNext12Months,
+    maturitiesNext12MonthsByMonth,
+    monthlyPmtProjection,
     upcomingDueDates,
     averageMonthlyCET,
     averageAnnualCET,

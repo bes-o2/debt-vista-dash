@@ -10,8 +10,8 @@
 ## Tarefas desta sessão
 
 - [x] SEED-DEMO — Concluído. Migration SQL idempotente criada para "Empresa Demo O2"; parcelas não são inseridas pela migration e precisam ser geradas acessando cada contrato pelo app ou chamando manualmente a edge function `calculate-amortization`.
-- [ ] DSH-005 — Próxima. Exibir pontos de atenção determinísticos no dashboard principal usando `generateCfoAlerts`, com evidência numérica e destino de drill-down quando já existir rota/âncora viável. Prioridade: próxima entrega do Epic 2 e baixo acoplamento. Risco: médio.
-- [ ] DSH-006 — Incluir garantias no dashboard principal com total, cobertura, contratos sem garantia e gap por banco, consumindo dados já expostos por `useDashboardMetrics`. Prioridade: completa o bloco executivo do Epic 2 sem nova query. Risco: médio.
+- [x] DSH-005 — Concluído. `DashboardStats` agora renderiza até 5 pontos de atenção determinísticos via `generateCfoAlerts`, com evidência numérica e links para widgets/áreas já disponíveis; build passou após a alteração.
+- [ ] DSH-006 — Próxima. Incluir garantias no dashboard principal com total, cobertura, contratos sem garantia e gap por banco, consumindo dados já expostos por `useDashboardMetrics`. Prioridade: completa o bloco executivo do Epic 2 sem nova query. Risco: médio.
 
 ## Tarefas puladas nesta sessão
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, BarChart3, Filter, HelpCircle, Building2, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ArrowRight, DollarSign, BarChart3, Filter, HelpCircle, Building2, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +9,7 @@ import { useTooltip } from "@/hooks/useTooltip";
 import { useDashboardMetrics, type PeriodMode } from "@/hooks/useDashboardMetrics";
 import { useDebts } from "@/hooks/useDebts";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { generateCfoAlerts, type CfoAlertCategory, type CfoAlertSeverity } from "@/lib/cfoAlerts";
 import { useMemo } from "react";
 import type { DashboardWidgetDensity } from "@/components/dashboard/dashboardWidgetTypes";
 
@@ -62,6 +63,57 @@ function SpreadValue({ cdiRate, spread }: { cdiRate: number | null; spread: numb
     </div>
   );
 }
+
+const alertSeverityMeta: Record<
+  CfoAlertSeverity,
+  { label: string; badgeClass: string; itemClass: string; iconClass: string }
+> = {
+  critical: {
+    label: "Crítico",
+    badgeClass: "border-destructive/40 bg-destructive/10 text-destructive",
+    itemClass: "border-destructive/25 bg-destructive/5",
+    iconClass: "text-destructive",
+  },
+  warning: {
+    label: "Atenção",
+    badgeClass: "border-amber-400/50 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    itemClass: "border-amber-500/25 bg-amber-500/5",
+    iconClass: "text-amber-500",
+  },
+  info: {
+    label: "Informativo",
+    badgeClass: "border-border bg-muted/40 text-muted-foreground",
+    itemClass: "border-border bg-muted/20",
+    iconClass: "text-muted-foreground",
+  },
+};
+
+const alertTargets: Record<CfoAlertCategory, { href: string; label: string }> = {
+  concentracao_banco: {
+    href: "#dashboard-widget-saldo-devedor-banco",
+    label: "Ver bancos",
+  },
+  concentracao_indexador: {
+    href: "#dashboard-widget-perfil-divida",
+    label: "Ver perfil",
+  },
+  vencimentos_12m: {
+    href: "#dashboard-widget-perfil-divida",
+    label: "Ver vencimentos",
+  },
+  pmt_mensal_maximo: {
+    href: "#dashboard-widget-perfil-divida",
+    label: "Ver fluxo",
+  },
+  cobertura_garantias: {
+    href: "#dashboard-garantias",
+    label: "Ver garantias",
+  },
+  divida_liquida: {
+    href: "#dashboard-widget-resumo-executivo",
+    label: "Ver resumo",
+  },
+};
 
 export const DashboardStats = ({
   startDate,
@@ -124,6 +176,38 @@ export const DashboardStats = ({
   const contractsWithoutGuaranteeCount =
     (metrics?.guaranteeCoverage as { contractsWithoutGuaranteeCount?: number } | null)
       ?.contractsWithoutGuaranteeCount ?? null;
+  const cfoAlerts = useMemo(() => {
+    if (metrics == null) return [];
+
+    const guaranteeCoverage =
+      metrics.guaranteeCoverage as
+        | { totalGuaranteeValue?: number; totalDebtBalance?: number }
+        | null;
+
+    return generateCfoAlerts({
+      concentrationByBank: metrics.concentrationByBank.map((item) => ({
+        label: item.bank,
+        amount: item.balance,
+      })),
+      concentrationByIndexer: metrics.concentrationByIndexer.map((item) => ({
+        label: item.indexer,
+        amount: item.balance,
+      })),
+      maturitiesNext12Months: metrics.maturitiesNext12MonthsByMonth,
+      monthlyPmtProjection: metrics.monthlyPmtProjection,
+      guaranteeCoverage: {
+        guaranteeValue: guaranteeCoverage?.totalGuaranteeValue ?? 0,
+        coveredDebtAmount: guaranteeCoverage?.totalDebtBalance ?? 0,
+      },
+      netDebt: {
+        grossDebtAmount: currentOutstandingBalance,
+        cashAndEquivalents: 0,
+        netDebtAmount: currentOutstandingBalance,
+      },
+    }).alerts
+      .filter((alert) => alert.category !== "divida_liquida")
+      .slice(0, 5);
+  }, [currentOutstandingBalance, metrics]);
 
   const stats: Array<{
     title: string;
@@ -232,6 +316,74 @@ export const DashboardStats = ({
           ))}
         </div>
       </TooltipProvider>
+
+      {metrics != null && cfoAlerts.length > 0 && (
+        <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <div className="p-1.5 rounded-md bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+              </div>
+              Pontos de atenção
+            </CardTitle>
+            <Badge variant="outline">
+              {cfoAlerts.length} alerta{cfoAlerts.length !== 1 ? "s" : ""}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className={`grid ${gridGapClass} lg:grid-cols-2`}>
+              {cfoAlerts.map((alert) => {
+                const meta = alertSeverityMeta[alert.severity];
+                const target = alertTargets[alert.category];
+
+                return (
+                  <div
+                    key={alert.id}
+                    className={`rounded-lg border p-3 ${meta.itemClass}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className={meta.badgeClass}>
+                            {meta.label}
+                          </Badge>
+                          <span className="text-sm font-semibold text-foreground">
+                            {alert.title}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {alert.summary}
+                        </p>
+                      </div>
+                      <AlertTriangle className={`h-4 w-4 shrink-0 ${meta.iconClass}`} />
+                    </div>
+
+                    <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      {alert.evidence.slice(0, 2).map((evidence) => (
+                        <li key={evidence} className="leading-relaxed">
+                          {evidence}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        {alert.recommendation}
+                      </p>
+                      <Button asChild variant="ghost" size="sm" className="h-8 shrink-0 px-2">
+                        <a href={target.href}>
+                          {target.label}
+                          <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Portfolio Breakdown */}
       {metrics != null && (
@@ -355,7 +507,7 @@ export const DashboardStats = ({
 
       {/* Concentração e garantias */}
       {metrics != null && (topConcentrationBank != null || contractsWithoutGuaranteeCount != null) && (
-        <div className={`grid ${gridGapClass} ${topConcentrationBank != null && contractsWithoutGuaranteeCount != null ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+        <div id="dashboard-garantias" className={`grid ${gridGapClass} ${topConcentrationBank != null && contractsWithoutGuaranteeCount != null ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
           {topConcentrationBank != null && (
             <Card className={`bg-card border ${topConcentrationBank.share > 0.55 ? "border-destructive/20" : topConcentrationBank.share > 0.35 ? "border-amber-500/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
               <CardHeader>
