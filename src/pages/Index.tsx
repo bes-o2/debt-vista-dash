@@ -149,7 +149,7 @@ const Index = () => {
       }))
       .filter((guarantee) => guarantee.value > 0);
   };
-  const syncDebtInstallments = async (debtId: string, debtData: DebtInput) => {
+  const syncDebtInstallments = async (debtId: string, debtData: DebtInput, companyId: string) => {
     const iofAmount = debtData.iof_rate != null
       ? (debtData.financed_amount * debtData.iof_rate) / 100
       : 0;
@@ -157,6 +157,7 @@ const Index = () => {
     const { error } = await supabase.functions.invoke("calculate-amortization", {
       body: {
         debtId,
+        companyId,
         financedAmount: debtData.financed_amount,
         firstDueDate: debtData.first_due_date,
         lastDueDate: debtData.last_due_date,
@@ -168,6 +169,7 @@ const Index = () => {
         indexerStartDate: debtData.indexer_start_date,
         iofAmount,
         tacAmount: debtData.additional_fees || 0,
+        persist: true,
       }
     });
 
@@ -195,7 +197,7 @@ const Index = () => {
       : await createDebtAsync(debtData);
 
     try {
-      await syncDebtInstallments(savedDebt.id, debtData);
+      await syncDebtInstallments(savedDebt.id, debtData, selectedCompany.id);
       await saveGuarantees({
         debtId: savedDebt.id,
         companyId: savedDebt.company_id,

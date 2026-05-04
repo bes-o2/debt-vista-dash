@@ -1,157 +1,237 @@
 /**
- * Get effective monthly rate for a post-fixed debt on a specific date
- * Fetches historical rates or projections based on the target date
- * 
- * @param supabaseClient - Supabase client instance
- * @param indexer - Indexer name (CDI, IPCA, SELIC, etc.)
- * @param targetDate - Date for which to get the rate (YYYY-MM-DD)
- * @param spreadRate - Spread rate in % per year
- * @returns Effective monthly rate in % (e.g., 1.5 for 1.5% per month)
+ * Resolve indexer rate for a specific period, considering historical BCB data,
+ * company base projections, and temporary scenario overrides.
  */
-export async function getEffectiveRateForDate(
-  supabaseClient: any,
-  indexer: string,
-  targetDate: string,
-  spreadRate: number
-): Promise<number> {
-  const today = new Date().toISOString().split('T')[0];
-  
-  // Map indexer name to standardized format
-  const mappedIndexer = mapIndexerName(indexer);
-  if (!mappedIndexer) {
-    console.warn(`Unknown indexer: ${indexer}, returning 0`);
-    return 0;
-  }
-  
-  let indexerMonthlyRate = 0;
-  
-  try {
-    if (targetDate <= today) {
-      // Fetch historical rate
-      console.log(`Fetching historical ${mappedIndexer} rate for ${targetDate}`);
-      
-      const { data, error } = await supabaseClient
-        .from('economic_indices')
-        .select('rate, rate_type')
-        .eq('index_type', mappedIndexer)
-        .lte('reference_date', targetDate)
-        .order('reference_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (error) {
-        console.error(`Error fetching historical rate: ${error.message}`);
-      }
-      
-      if (data) {
-        // Convert to monthly based on rate type
-        if (data.rate_type === 'daily') {
-          // CDI/SELIC: Daily rate to monthly
-          // Formula: (1 + daily_rate/100)^21 - 1
-          // Assuming ~21 business days per month
-          indexerMonthlyRate = (Math.pow(1 + data.rate / 100, 21) - 1) * 100;
-          console.log(`Converted daily rate ${data.rate.toFixed(4)}% to monthly ${indexerMonthlyRate.toFixed(4)}%`);
-        } else if (data.rate_type === 'monthly') {
-          // IPCA: Already monthly
-          indexerMonthlyRate = data.rate;
-          console.log(`Using monthly rate ${indexerMonthlyRate.toFixed(4)}%`);
-        } else {
-          // Annual: Convert to monthly
-          indexerMonthlyRate = (Math.pow(1 + data.rate / 100, 1 / 12) - 1) * 100;
-          console.log(`Converted annual rate ${data.rate.toFixed(4)}% to monthly ${indexerMonthlyRate.toFixed(4)}%`);
-        }
-      } else {
-        console.warn(`No historical ${mappedIndexer} data found for ${targetDate}, using fallback`);
-        // Fallback: use latest available rate
-        const { data: latestData } = await supabaseClient
-          .from('economic_indices')
-          .select('rate, rate_type')
-          .eq('index_type', mappedIndexer)
-          .order('reference_date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        if (latestData) {
-          if (latestData.rate_type === 'daily') {
-            indexerMonthlyRate = (Math.pow(1 + latestData.rate / 100, 21) - 1) * 100;
-          } else if (latestData.rate_type === 'monthly') {
-            indexerMonthlyRate = latestData.rate;
-          } else {
-            indexerMonthlyRate = (Math.pow(1 + latestData.rate / 100, 1 / 12) - 1) * 100;
-          }
-          console.log(`Using latest fallback rate: ${indexerMonthlyRate.toFixed(4)}%`);
-        }
-      }
-    } else {
-      // Fetch projected rate for future date
-      console.log(`Fetching projected ${mappedIndexer} rate for ${targetDate}`);
-      
-      const { data, error } = await supabaseClient
-        .from('index_projections')
-        .select('monthly_projection')
-        .eq('index_type', mappedIndexer)
-        .lte('projection_date', targetDate)
-        .order('projection_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (error) {
-        console.error(`Error fetching projection: ${error.message}`);
-      }
-      
-      if (data && data.monthly_projection !== null) {
-        indexerMonthlyRate = data.monthly_projection;
-        console.log(`Using projected rate: ${indexerMonthlyRate.toFixed(4)}%`);
-      } else {
-        console.warn(`No projection found for ${mappedIndexer} on ${targetDate}, using latest historical rate`);
-        // Fallback: use latest historical rate
-        const { data: latestData } = await supabaseClient
-          .from('economic_indices')
-          .select('rate, rate_type')
-          .eq('index_type', mappedIndexer)
-          .order('reference_date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        if (latestData) {
-          if (latestData.rate_type === 'daily') {
-            indexerMonthlyRate = (Math.pow(1 + latestData.rate / 100, 21) - 1) * 100;
-          } else if (latestData.rate_type === 'monthly') {
-            indexerMonthlyRate = latestData.rate;
-          } else {
-            indexerMonthlyRate = (Math.pow(1 + latestData.rate / 100, 1 / 12) - 1) * 100;
-          }
-          console.log(`Using latest historical rate as fallback: ${indexerMonthlyRate.toFixed(4)}%`);
-        }
-      }
-    }
-  } catch (error) {
-    console.error(`Error in getEffectiveRateForDate: ${error}`);
-  }
-  
-  // Convert spread from annual to monthly
-  // Formula: (1 + annual_spread/100)^(1/12) - 1
-  const spreadMonthly = (Math.pow(1 + spreadRate / 100, 1 / 12) - 1) * 100;
-  
-  // Return effective monthly rate (indexer + spread)
-  const effectiveRate = indexerMonthlyRate + spreadMonthly;
-  
-  console.log(`Effective rate for ${targetDate}: ${mappedIndexer} ${indexerMonthlyRate.toFixed(4)}% + spread ${spreadMonthly.toFixed(4)}% = ${effectiveRate.toFixed(4)}%`);
-  
-  return effectiveRate;
+
+export interface RateResolution {
+  effectiveMonthlyRate: number;
+  indexerRate: number;
+  spreadRate: number;
+  source: "bcb_realizado" | "projecao_base" | "cenario_temporario";
+  rateType: "daily_accumulated" | "monthly" | "projected";
+  sourceReferenceDate: string | null;
 }
 
-/**
- * Map indexer name to standardized database format
- */
+export interface TemporaryOverride {
+  indexType: string;
+  adjustmentBp: number; // adjustment in percentage points
+}
+
 function mapIndexerName(indexer?: string): string | null {
   if (!indexer) return null;
-  
   const normalized = indexer.toUpperCase().trim();
-  
   if (normalized.includes('CDI') || normalized.includes('DI')) return 'CDI';
   if (normalized.includes('IPCA')) return 'IPCA';
   if (normalized.includes('SELIC')) return 'SELIC';
-  
   return null;
+}
+
+/**
+ * Resolve the effective rate for a given period.
+ */
+export async function resolveIndexerRate(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any;
+  companyId: string;
+  indexer: string;
+  periodStart: string;
+  periodEnd: string;
+  spreadRate: number;
+  temporaryOverrides?: TemporaryOverride[];
+}): Promise<RateResolution> {
+  const { supabaseClient, companyId, indexer, periodStart, periodEnd, spreadRate, temporaryOverrides } = params;
+
+  const mappedIndexer = mapIndexerName(indexer);
+  if (!mappedIndexer) {
+    return {
+      effectiveMonthlyRate: spreadRate,
+      indexerRate: 0,
+      spreadRate,
+      source: "projecao_base",
+      rateType: "projected",
+      sourceReferenceDate: null,
+    };
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const isFuturePeriod = periodStart > today;
+  const isMixedPeriod = periodStart <= today && periodEnd > today;
+
+  let indexerRate = 0;
+  let source: RateResolution["source"] = "bcb_realizado";
+  let rateType: RateResolution["rateType"] = mappedIndexer === 'IPCA' ? 'monthly' : 'daily_accumulated';
+  let sourceReferenceDate: string | null = null;
+
+  if (isFuturePeriod || isMixedPeriod) {
+    const projection = await ensureCompanyProjection(supabaseClient, companyId, mappedIndexer);
+    indexerRate = projection.rate;
+    source = "projecao_base";
+    rateType = 'projected';
+    sourceReferenceDate = projection.referenceDate;
+  } else {
+    // Historical period: use BCB realized data
+    if (mappedIndexer === 'IPCA') {
+      const monthlyRate = await getMonthlyRate(supabaseClient, mappedIndexer, periodStart, periodEnd);
+      indexerRate = monthlyRate.rate;
+      sourceReferenceDate = monthlyRate.referenceDate;
+      rateType = 'monthly';
+    } else {
+      // CDI/SELIC: accumulate daily
+      const accumulated = await accumulateDailyRate(supabaseClient, mappedIndexer, periodStart, periodEnd);
+      indexerRate = accumulated.rate;
+      sourceReferenceDate = accumulated.referenceDate;
+      rateType = 'daily_accumulated';
+    }
+  }
+
+  // Apply temporary overrides
+  if (temporaryOverrides) {
+    const override = temporaryOverrides.find(o => mapIndexerName(o.indexType) === mappedIndexer);
+    if (override) {
+      indexerRate = indexerRate + override.adjustmentBp;
+      source = "cenario_temporario";
+    }
+  }
+
+  // Convert spread from annual to monthly
+  const spreadMonthly = (Math.pow(1 + spreadRate / 100, 1 / 12) - 1) * 100;
+
+  // Effective monthly rate = indexer effective monthly + spread monthly
+  // For CDI/SELIC, the accumulated rate is already an effective monthly rate
+  // For IPCA, the rate is monthly
+  // For projections, we assume the projected_rate is already a monthly equivalent
+  const effectiveMonthlyRate = indexerRate + spreadMonthly;
+
+  return {
+    effectiveMonthlyRate,
+    indexerRate,
+    spreadRate: spreadMonthly,
+    source,
+    rateType,
+    sourceReferenceDate,
+  };
+}
+
+async function getLatestHistoricalRate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any,
+  indexType: string
+): Promise<{ rate: number; rateType: string; referenceDate: string }> {
+  const { data, error } = await supabaseClient
+    .from('economic_indices')
+    .select('rate, rate_type, reference_date')
+    .eq('index_type', indexType)
+    .order('reference_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { rate: 0, rateType: 'daily', referenceDate: '' };
+  }
+
+  let rate = data.rate;
+  let rateType = data.rate_type || 'monthly';
+  if (data.rate_type === 'daily') {
+    rate = (Math.pow(1 + data.rate / 100, 21) - 1) * 100;
+    rateType = 'monthly';
+  } else if (data.rate_type === 'annual') {
+    rate = (Math.pow(1 + data.rate / 100, 1 / 12) - 1) * 100;
+    rateType = 'monthly';
+  }
+
+  return { rate, rateType, referenceDate: data.reference_date };
+}
+
+async function ensureCompanyProjection(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any,
+  companyId: string,
+  indexType: string
+): Promise<{ rate: number; referenceDate: string }> {
+  const latest = await getLatestHistoricalRate(supabaseClient, indexType);
+
+  if (latest.referenceDate) {
+    const { error } = await supabaseClient
+      .from('company_index_projections')
+      .upsert({
+        company_id: companyId,
+        index_type: indexType,
+        projected_rate: latest.rate,
+        rate_type: 'monthly',
+        reference_date: new Date().toISOString().split('T')[0],
+        source_reference_date: latest.referenceDate,
+        source: 'BCB',
+      }, {
+        onConflict: 'company_id,index_type',
+      });
+
+    if (error) {
+      console.error(`Error ensuring company projection for ${indexType}:`, error);
+    }
+  }
+
+  return { rate: latest.rate, referenceDate: latest.referenceDate };
+}
+
+async function getMonthlyRate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any,
+  indexType: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<{ rate: number; referenceDate: string }> {
+  // For IPCA, get the rate for the reference month (use periodStart month)
+  const startDate = new Date(periodStart + 'T00:00:00');
+  const yearMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+  
+  const { data, error } = await supabaseClient
+    .from('economic_indices')
+    .select('rate, reference_date')
+    .eq('index_type', indexType)
+    .gte('reference_date', `${yearMonth}-01`)
+    .lte('reference_date', `${yearMonth}-31`)
+    .order('reference_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    // Fallback to latest available
+    const latest = await getLatestHistoricalRate(supabaseClient, indexType);
+    return { rate: latest.rate, referenceDate: latest.referenceDate };
+  }
+
+  return { rate: data.rate, referenceDate: data.reference_date };
+}
+
+async function accumulateDailyRate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any,
+  indexType: string,
+  periodStart: string,
+  periodEnd: string
+): Promise<{ rate: number; referenceDate: string }> {
+  const { data, error } = await supabaseClient
+    .from('economic_indices')
+    .select('rate, reference_date')
+    .eq('index_type', indexType)
+    .gte('reference_date', periodStart)
+    .lte('reference_date', periodEnd)
+    .order('reference_date', { ascending: true });
+
+  if (error || !data || data.length === 0) {
+    const latest = await getLatestHistoricalRate(supabaseClient, indexType);
+    return { rate: latest.rate, referenceDate: latest.referenceDate };
+  }
+
+  // Accumulate daily: prod(1 + dailyRate/100) - 1
+  let accumulated = 1;
+  for (const row of data) {
+    accumulated *= (1 + row.rate / 100);
+  }
+  const effectiveRate = (accumulated - 1) * 100;
+
+  return {
+    rate: effectiveRate,
+    referenceDate: data[data.length - 1].reference_date,
+  };
 }

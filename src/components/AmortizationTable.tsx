@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Calculator, Download, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { calculateIRRFromCashFlows } from '@/lib/irrCalculator';
+import { useCompany } from '@/hooks/useCompany';
+import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
 interface Debt {
   id: string;
   bank: string;
@@ -16,6 +18,7 @@ interface Debt {
   interestRate: number;
   interestType: 'monthly' | 'annual';
   indexer?: string;
+  spreadRate?: number;
   iofAmount?: number;
   tacAmount?: number;
   contractNumber?: string;
@@ -56,6 +59,8 @@ export function AmortizationTable({
   const {
     toast
   } = useToast();
+  const { selectedCompany } = useCompany();
+  const { toOverrides } = useTemporaryScenario();
   
   // Use stored CET values from database
   const cetMonthly = debt.cet_monthly_rate;
@@ -86,9 +91,20 @@ export function AmortizationTable({
       const rel = new Date(debt.releaseDate);
       const fd = new Date(rel.getFullYear(), rel.getMonth() + 1, rel.getDate());
       const firstDueDateStr = `${fd.getFullYear()}-${String(fd.getMonth() + 1).padStart(2, '0')}-${String(fd.getDate()).padStart(2, '0')}`;
+      if (!selectedCompany?.id) {
+        toast({
+          title: "Empresa não selecionada",
+          description: "Selecione uma empresa para calcular a tabela.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('calculate-amortization', {
         body: {
           debtId: debt.id,
+          companyId: selectedCompany.id,
           financedAmount: debt.financedAmount,
           firstDueDate: firstDueDateStr,
           lastDueDate: debt.dueDate,
@@ -96,8 +112,10 @@ export function AmortizationTable({
           interestRate: debt.interestRate,
           interestType: debt.interestType,
           indexer: debt.indexer,
+          spreadRate: debt.spreadRate || 0,
           iofAmount: debt.iofAmount || 0,
-          tacAmount: debt.tacAmount || 0
+          tacAmount: debt.tacAmount || 0,
+          temporaryOverrides: toOverrides(),
         }
       });
       if (error) {

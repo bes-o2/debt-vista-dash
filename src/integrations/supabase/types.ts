@@ -139,6 +139,53 @@ export type Database = {
         }
         Relationships: []
       }
+      company_index_projections: {
+        Row: {
+          id: string
+          company_id: string
+          index_type: string
+          projected_rate: number
+          rate_type: string
+          reference_date: string
+          source_reference_date: string | null
+          source: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          index_type: string
+          projected_rate: number
+          rate_type?: string
+          reference_date?: string
+          source_reference_date?: string | null
+          source?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          index_type?: string
+          projected_rate?: number
+          rate_type?: string
+          reference_date?: string
+          source_reference_date?: string | null
+          source?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_index_projections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       debt_guarantees: {
         Row: {
           company_id: string
@@ -224,6 +271,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "debt_installments_debt_id_fkey"
+            columns: ["debt_id"]
+            isOneToOne: false
+            referencedRelation: "debts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      debt_installment_rate_refs: {
+        Row: {
+          id: string
+          company_id: string
+          debt_id: string
+          installment_number: number
+          index_type: string
+          period_start: string
+          period_end: string
+          rate: number
+          rate_type: string
+          source: string
+          scenario_label: string
+          source_reference_date: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          debt_id: string
+          installment_number: number
+          index_type: string
+          period_start: string
+          period_end: string
+          rate: number
+          rate_type: string
+          source: string
+          scenario_label?: string
+          source_reference_date?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          debt_id?: string
+          installment_number?: number
+          index_type?: string
+          period_start?: string
+          period_end?: string
+          rate?: number
+          rate_type?: string
+          source?: string
+          scenario_label?: string
+          source_reference_date?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debt_installment_rate_refs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "debt_installment_rate_refs_debt_id_fkey"
             columns: ["debt_id"]
             isOneToOne: false
             referencedRelation: "debts"

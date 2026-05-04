@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { type NormalizedDebtForCalculation } from '@/lib/debtUtils';
+import { useCompany } from '@/hooks/useCompany';
+import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
 
 interface Installment {
   installment_number: number;
@@ -51,6 +53,10 @@ export const useDebtInstallments = (debts: Debt[]) => {
   const [installmentsData, setInstallmentsData] = useState<{ [debtId: string]: Installment[] }>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { selectedCompany } = useCompany();
+  const { scenarioSignature, toOverrides } = useTemporaryScenario();
+  const temporaryOverrides = useMemo(() => toOverrides(), [toOverrides]);
+  const hasTemporaryScenario = temporaryOverrides.length > 0;
 
   // Memoize debt IDs to prevent infinite re-renders
   const debtIds = useMemo(() => debts.map(debt => debt.id).sort(), [debts]);
@@ -92,9 +98,15 @@ export const useDebtInstallments = (debts: Debt[]) => {
       }
 
       try {
+        if (!selectedCompany?.id) {
+          console.warn('[useDebtInstallments] empresa não selecionada');
+          return;
+        }
+
         const { data, error: calculationError } = await supabase.functions.invoke('calculate-amortization', {
           body: {
             debtId: debt.id,
+            companyId: selectedCompany.id,
             financedAmount: debt.financedAmount,
             firstDueDate: debt.firstDueDate,
             lastDueDate: debt.dueDate,
@@ -105,6 +117,8 @@ export const useDebtInstallments = (debts: Debt[]) => {
             spreadRate: debt.spreadRate || 0,
             iofAmount: debt.iofAmount || 0,
             tacAmount: debt.tacAmount || 0,
+            temporaryOverrides,
+            persist: !hasTemporaryScenario,
           }
         });
 
@@ -141,6 +155,18 @@ export const useDebtInstallments = (debts: Debt[]) => {
 
       if (fetchError) throw fetchError;
 
+      if (hasTemporaryScenario) {
+        const recalculatedInstallments = await calculateMissingInstallments(debtIds);
+        const hasAnyInstallments = Object.keys(recalculatedInstallments).length > 0;
+
+        if (!hasAnyInstallments) {
+          setError('Nao foi possivel simular as parcelas das dividas.');
+        }
+
+        setInstallmentsData(recalculatedInstallments);
+        return;
+      }
+
       const groupedInstallments = (data ?? []).reduce<{ [debtId: string]: Installment[] }>((acc, row) => {
         if (!acc[row.debt_id]) {
           acc[row.debt_id] = [];
@@ -175,7 +201,7 @@ export const useDebtInstallments = (debts: Debt[]) => {
 
   useEffect(() => {
     fetchInstallments();
-  }, [debtsSignature]);  // Refetch when debt parameters change, not only IDs
+  }, [debtsSignature, selectedCompany?.id, scenarioSignature]);  // Refetch when debt parameters, company, or scenario changes
 
   return {
     installmentsData,

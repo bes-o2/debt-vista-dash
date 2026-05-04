@@ -40,8 +40,8 @@ export function useEconomicIndices() {
       const { data, error } = await supabase
         .from('economic_indices')
         .select('*')
-        .order('reference_date', { ascending: false })
-        .limit(3);
+        .in('index_type', ['CDI', 'SELIC', 'IPCA'])
+        .order('reference_date', { ascending: false });
 
       if (error) throw error;
 

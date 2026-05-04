@@ -22,45 +22,40 @@ interface EconomicIndex {
 
 const RATE_MAPPINGS = {
   'SELIC': { code: '11', name: 'SELIC' },
-  'CDI': { code: '12', name: 'CDI' }, 
+  'CDI': { code: '12', name: 'CDI' },
   'IPCA': { code: '433', name: 'IPCA' }
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     console.log('📊 BCB Rates Fetch Function called');
-    
-    // Parse request body for parameters
-    const { 
+
+    const {
       forceUpdate = false,
       startDate = null,
       endDate = null,
       daysBack = 30
     } = await req.json().catch(() => ({ forceUpdate: false, daysBack: 30 }));
-    
+
     console.log(`Force update: ${forceUpdate}, Days back: ${daysBack}, Date range: ${startDate} to ${endDate}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Determine the date range to fetch
     let fetchStartDate: Date;
     let fetchEndDate: Date;
-    
+
     if (startDate && endDate) {
-      // Use provided date range
       fetchStartDate = new Date(startDate);
       fetchEndDate = new Date(endDate);
       console.log(`Using custom date range: ${startDate} to ${endDate}`);
     } else {
-      // Use days back parameter, but not in the future
       const now = new Date();
       fetchEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
       fetchStartDate = new Date(fetchEndDate);
@@ -78,24 +73,26 @@ serve(async (req) => {
 
       if (checkError) {
         console.error('Error checking recent data:', checkError);
-      } else if (recentData && recentData.length >= 3) {
-        console.log('Recent data found, skipping BCB fetch');
-        
-        // Get current rates to return
-        const { data: currentRates } = await supabase
-          .from('economic_indices')
-          .select('*')
-          .order('reference_date', { ascending: false })
-          .limit(3);
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Using recent data from database',
-            rates: currentRates,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      } else {
+        // Check if we have at least one record for each index type
+        const hasAllIndices = ['SELIC', 'CDI', 'IPCA'].every(
+          idx => recentData?.some(r => r.index_type === idx)
         );
+
+        if (hasAllIndices) {
+          console.log('Recent data found for all indices, skipping BCB fetch');
+
+          const latestRates = await getLatestRatesByIndex(supabase);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              message: 'Using recent data from database',
+              rates: latestRates,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 
@@ -111,32 +108,16 @@ serve(async (req) => {
 
     console.log(`Date range: ${startDateStr} to ${endDateStr}`);
 
-    // Check for gaps in existing data for this date range
-    if (!forceUpdate) {
-      const { data: existingData } = await supabase
-        .from('economic_indices')
-        .select('reference_date, index_type')
-        .gte('reference_date', fetchStartDate.toISOString().split('T')[0])
-        .lte('reference_date', fetchEndDate.toISOString().split('T')[0])
-        .order('reference_date', { ascending: true });
-      
-      if (existingData && existingData.length > 0) {
-        console.log(`Found ${existingData.length} existing records in date range`);
-      }
-    }
-
     const results: { [key: string]: number } = {};
     const errors: string[] = [];
-
-    // Fetch data from BCB API for each rate
     const allIndices: EconomicIndex[] = [];
 
     for (const [rateType, config] of Object.entries(RATE_MAPPINGS)) {
       try {
         console.log(`Fetching ${rateType} from BCB (${startDateStr} to ${endDateStr})...`);
-        
+
         const bcbUrl = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${config.code}/dados?formato=json&dataInicial=${startDateStr}&dataFinal=${endDateStr}`;
-        
+
         const response = await fetch(bcbUrl, {
           headers: {
             'Accept': 'application/json',
@@ -151,17 +132,14 @@ serve(async (req) => {
         const bcbData: BCBRate[] = await response.json();
         console.log(`Received ${bcbData.length} records for ${rateType}`);
 
-        // Determine rate_type based on index
-        const rateType = (config.name === 'CDI' || config.name === 'SELIC') ? 'daily' : 'monthly';
-        
-        // Transform and validate data
+        const rateTypeValue = (config.name === 'CDI' || config.name === 'SELIC') ? 'daily' : 'monthly';
+
         const indices: EconomicIndex[] = bcbData
           .filter((item: BCBRate) => {
             const value = parseFloat(item.valor);
             return item.valor && !isNaN(value) && isFinite(value);
           })
           .map((item: BCBRate) => {
-            // Parse the date from DD/MM/YYYY to YYYY-MM-DD
             const [day, month, year] = item.data.split('/');
             const referenceDate = `${year}-${month}-${day}`;
 
@@ -169,20 +147,20 @@ serve(async (req) => {
               index_type: config.name,
               reference_date: referenceDate,
               rate: parseFloat(item.valor),
-              rate_type: rateType,
+              rate_type: rateTypeValue,
               source: 'BCB'
             };
           });
-        
-        console.log(`Processed ${indices.length} ${config.name} records. Rate type: ${rateType}`);
+
+        console.log(`Processed ${indices.length} ${config.name} records. Rate type: ${rateTypeValue}`);
 
         allIndices.push(...indices);
-        
+
         if (indices.length > 0) {
           const latestRate = indices[indices.length - 1];
-          results[rateType] = latestRate.rate;
+          results[config.name] = latestRate.rate;
         }
-        
+
         console.log(`✅ Successfully fetched and validated ${indices.length} records for ${rateType}`);
       } catch (error) {
         console.error(`Error fetching ${rateType}:`, error);
@@ -190,19 +168,19 @@ serve(async (req) => {
       }
     }
 
-    // Insert or update data in the database in batches
+    // Upsert data in batches
     if (allIndices.length > 0) {
       console.log(`Upserting ${allIndices.length} records to database...`);
-      
+
       const BATCH_SIZE = 1000;
       for (let i = 0; i < allIndices.length; i += BATCH_SIZE) {
         const batch = allIndices.slice(i, i + BATCH_SIZE);
-        
+
         const { error: upsertError } = await supabase
           .from('economic_indices')
-          .upsert(batch, { 
+          .upsert(batch, {
             onConflict: 'index_type,reference_date',
-            ignoreDuplicates: false 
+            ignoreDuplicates: false
           });
 
         if (upsertError) {
@@ -214,25 +192,7 @@ serve(async (req) => {
       }
     }
 
-    // Get current rates from database
-    const { data: currentRates } = await supabase
-      .from('economic_indices')
-      .select('index_type, rate, reference_date')
-      .in('index_type', ['SELIC', 'CDI', 'IPCA'])
-      .order('reference_date', { ascending: false });
-
-    const latestRates: { [key: string]: { value: number; date: string } } = {};
-    
-    if (currentRates) {
-      for (const rate of currentRates) {
-        if (!latestRates[rate.index_type]) {
-          latestRates[rate.index_type] = {
-            value: parseFloat(rate.rate),
-            date: rate.reference_date
-          };
-        }
-      }
-    }
+    const latestRates = await getLatestRatesByIndex(supabase);
 
     const response = {
       success: true,
@@ -253,7 +213,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in fetch-bcb-rates function:', error);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: false,
       error: error.message,
       timestamp: new Date().toISOString()
@@ -263,3 +223,34 @@ serve(async (req) => {
     });
   }
 });
+
+async function getLatestRatesByIndex(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+): Promise<{ [key: string]: { value: number; date: string } }> {
+  const { data: currentRates, error } = await supabase
+    .from('economic_indices')
+    .select('index_type, rate, reference_date')
+    .in('index_type', ['SELIC', 'CDI', 'IPCA'])
+    .order('reference_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching latest rates:', error);
+    return {};
+  }
+
+  const latestRates: { [key: string]: { value: number; date: string } } = {};
+
+  if (currentRates) {
+    for (const rate of currentRates) {
+      if (!latestRates[rate.index_type]) {
+        latestRates[rate.index_type] = {
+          value: parseFloat(rate.rate),
+          date: rate.reference_date
+        };
+      }
+    }
+  }
+
+  return latestRates;
+}
