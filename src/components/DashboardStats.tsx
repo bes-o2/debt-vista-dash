@@ -10,6 +10,8 @@ import { useDashboardMetrics, type PeriodMode } from "@/hooks/useDashboardMetric
 import { useDebts } from "@/hooks/useDebts";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
 import { generateCfoAlerts, type CfoAlertCategory, type CfoAlertSeverity } from "@/lib/cfoAlerts";
+import { CalculationInfoPopover } from "@/components/CalculationInfoPopover";
+import { CalculationRuleKeys } from "@/lib/calculationRules";
 import { useMemo } from "react";
 import type { DashboardWidgetDensity } from "@/components/dashboard/dashboardWidgetTypes";
 import type { GuaranteeMetrics } from "@/lib/guaranteeMetrics";
@@ -167,10 +169,7 @@ export const DashboardStats = ({
   const cdiForDisplay = metrics?.cdiSpread != null ? (metrics.averageAnnualCET - cdiSpread) : null;
   const sacCount = metrics?.sacVsPriceCount.sac ?? 0;
   const priceCount = metrics?.sacVsPriceCount.price ?? 0;
-  const totalContracts = (metrics?.concentrationByBank.reduce(
-    (s, _) => s,
-    sacCount + priceCount,
-  ) ?? 0);
+  const totalContracts = sacCount + priceCount;
 
   const pmtNext30d = metrics?.pmtNext30d ?? 0;
   const pmtNext90d = metrics?.pmtNext90d ?? 0;
@@ -230,6 +229,7 @@ export const DashboardStats = ({
     iconColor: string;
     borderColor: string;
     tooltipKey: TooltipKeys;
+    calculationRuleKey?: CalculationRuleKeys;
     customValue?: React.ReactNode;
   }> = [
     {
@@ -241,6 +241,7 @@ export const DashboardStats = ({
       iconColor: "text-primary",
       borderColor: "border-primary/20",
       tooltipKey: TooltipKeys.CURRENT_OUTSTANDING_BALANCE,
+      calculationRuleKey: CalculationRuleKeys.CURRENT_OUTSTANDING_BALANCE,
     },
     {
       title: "Parcela Corrente",
@@ -251,6 +252,7 @@ export const DashboardStats = ({
       iconColor: "text-amber-500",
       borderColor: "border-amber-500/30",
       tooltipKey: TooltipKeys.CURRENT_PAYMENT,
+      calculationRuleKey: CalculationRuleKeys.CURRENT_PAYMENT,
     },
     {
       title: "Prazo Médio Restante",
@@ -274,6 +276,7 @@ export const DashboardStats = ({
           ? "border-amber-500/30"
           : "border-emerald-500/30",
       tooltipKey: TooltipKeys.AVERAGE_REMAINING_TERM,
+      calculationRuleKey: CalculationRuleKeys.AVERAGE_REMAINING_TERM,
     },
     {
       title: "CET Média",
@@ -284,6 +287,7 @@ export const DashboardStats = ({
       iconColor: averageMonthlyCET > 1.5 ? "text-destructive" : "text-emerald-500",
       borderColor: averageMonthlyCET > 1.5 ? "border-destructive/20" : "border-emerald-500/30",
       tooltipKey: TooltipKeys.AVERAGE_RATE,
+      calculationRuleKey: CalculationRuleKeys.AVERAGE_MONTHLY_CET,
     },
     {
       title: "Spread Médio",
@@ -298,6 +302,7 @@ export const DashboardStats = ({
       iconColor: cdiSpread > 5 ? "text-destructive" : "text-muted-foreground",
       borderColor: cdiSpread > 5 ? "border-destructive/20" : "border-border",
       tooltipKey: TooltipKeys.AVERAGE_SPREAD,
+      calculationRuleKey: CalculationRuleKeys.AVERAGE_SPREAD,
     },
   ];
 
@@ -312,9 +317,14 @@ export const DashboardStats = ({
               className={`group ${stat.bgColor} ${stat.borderColor} border hover:shadow-card transition-shadow duration-300`}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
+                <div className="flex items-center gap-1.5">
+                  <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  {stat.calculationRuleKey && (
+                    <CalculationInfoPopover ruleKey={stat.calculationRuleKey} />
+                  )}
+                </div>
                 <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={stat.icon} />
               </CardHeader>
               <CardContent>
@@ -455,9 +465,12 @@ export const DashboardStats = ({
         <div className={`grid ${gridGapClass} md:grid-cols-3`}>
           <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
-                PMT 30 dias
-              </CardTitle>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                  PMT 30 dias
+                </CardTitle>
+                <CalculationInfoPopover ruleKey={CalculationRuleKeys.PMT_NEXT_30D} />
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -475,9 +488,12 @@ export const DashboardStats = ({
 
           <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
-                PMT 90 dias
-              </CardTitle>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                  PMT 90 dias
+                </CardTitle>
+                <CalculationInfoPopover ruleKey={CalculationRuleKeys.PMT_NEXT_90D} />
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -495,9 +511,12 @@ export const DashboardStats = ({
 
           <Card className={`bg-card border ${peakMonthlyPmt12m && peakMonthlyPmt12m.total > totalCurrentPMT * 1.5 ? "border-amber-500/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
-                Pico mensal 12m
-              </CardTitle>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                  Pico mensal 12m
+                </CardTitle>
+                <CalculationInfoPopover ruleKey={CalculationRuleKeys.PEAK_MONTHLY_PMT_12M} />
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -527,7 +546,8 @@ export const DashboardStats = ({
                   <div className="p-1.5 rounded-md bg-primary/10">
                     <Building2 className="h-4 w-4 text-primary" />
                   </div>
-                  Maior credor
+                  <span>Maior credor</span>
+                  <CalculationInfoPopover ruleKey={CalculationRuleKeys.TOP_CONCENTRATION_BANK} />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -550,7 +570,8 @@ export const DashboardStats = ({
                   <div className={`p-1.5 rounded-md ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
                     <ShieldAlert className={`h-4 w-4 ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "text-amber-500" : "text-emerald-500"}`} />
                   </div>
-                  Garantias
+                  <span>Garantias</span>
+                  <CalculationInfoPopover ruleKey={CalculationRuleKeys.GUARANTEE_COVERAGE} />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">

@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { CalculationInfoPopover } from "@/components/CalculationInfoPopover";
+import { CalculationRuleKeys } from "@/lib/calculationRules";
 import type {
   DashboardWidgetConfigKey,
   DashboardWidgetConfig,
@@ -42,6 +44,12 @@ interface DashboardWidgetShellProps {
 
 const hasConfig = (widget: DashboardWidgetModel, key: DashboardWidgetConfigKey) =>
   widget.definition.settingsSchema.includes(key);
+
+const WIDGET_CALCULATION_RULE_MAP: Record<string, CalculationRuleKeys> = {
+  "saldo-devedor-banco": CalculationRuleKeys.OUTSTANDING_BALANCE,
+  "perfil-divida": CalculationRuleKeys.DEBT_PROFILE,
+  "comparativo-bancos": CalculationRuleKeys.BANK_COMPARISON,
+};
 
 export function DashboardWidgetShell({
   widget,
@@ -78,12 +86,17 @@ export function DashboardWidgetShell({
         )}
       >
         <div className="min-w-0">
-          <h2
-            id={`${contentId}-title`}
-            className="text-base font-semibold leading-tight text-foreground"
-          >
-            {title}
-          </h2>
+          <div className="flex items-center gap-1.5">
+            <h2
+              id={`${contentId}-title`}
+              className="text-base font-semibold leading-tight text-foreground"
+            >
+              {title}
+            </h2>
+            {WIDGET_CALCULATION_RULE_MAP[definition.id] && (
+              <CalculationInfoPopover ruleKey={WIDGET_CALCULATION_RULE_MAP[definition.id]} />
+            )}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {definition.description}
           </p>
