@@ -1,28 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useCompanyIndexProjections } from "@/hooks/useCompanyIndexProjections";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
-import { useTemporaryScenario } from "@/hooks/useTemporaryScenario";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/hooks/use-toast";
-import { Loader2, TrendingUp, Download, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Loader2, TrendingUp, Download, RefreshCw } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
 
-export interface TemporaryScenario {
-  cdiAdjustment: number; // in percentage points (e.g., 0.5 = +0.5 p.p.)
-  selicAdjustment: number;
-  ipcaAdjustment: number;
-}
-
-interface IndexProjectionsManagerProps {
-  onScenarioChange?: (scenario: TemporaryScenario | null) => void;
-}
-
-export function IndexProjectionsManager({ onScenarioChange }: IndexProjectionsManagerProps) {
+export function IndexProjectionsManager() {
   const {
     latestBCBRates,
     companyProjections,
@@ -38,23 +25,6 @@ export function IndexProjectionsManager({ onScenarioChange }: IndexProjectionsMa
   const [historicalStartDate, setHistoricalStartDate] = useState<Date>(new Date(2020, 0, 1));
   const [historicalEndDate, setHistoricalEndDate] = useState<Date>(new Date());
 
-  const { scenario: activeScenario, saveScenario: saveActiveScenario } = useTemporaryScenario();
-
-  // Temporary scenario inputs
-  const [cdiAdjustment, setCdiAdjustment] = useState("0");
-  const [selicAdjustment, setSelicAdjustment] = useState("0");
-  const [ipcaAdjustment, setIpcaAdjustment] = useState("0");
-
-  // Sync inputs with saved scenario on mount
-  useEffect(() => {
-    if (activeScenario) {
-      setCdiAdjustment(activeScenario.cdiAdjustment.toString());
-      setSelicAdjustment(activeScenario.selicAdjustment.toString());
-      setIpcaAdjustment(activeScenario.ipcaAdjustment.toString());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handleFetchHistorical = () => {
     const startDateStr = historicalStartDate.toISOString().split('T')[0];
     const endDateStr = historicalEndDate.toISOString().split('T')[0];
@@ -65,41 +35,6 @@ export function IndexProjectionsManager({ onScenarioChange }: IndexProjectionsMa
     });
 
     setIsHistoricalDialogOpen(false);
-  };
-
-  const handleSimulate = () => {
-    const scenario: TemporaryScenario = {
-      cdiAdjustment: parseFloat(cdiAdjustment) || 0,
-      selicAdjustment: parseFloat(selicAdjustment) || 0,
-      ipcaAdjustment: parseFloat(ipcaAdjustment) || 0,
-    };
-
-    saveActiveScenario(scenario);
-
-    if (onScenarioChange) {
-      onScenarioChange(scenario);
-    }
-
-    toast({
-      title: "Cenário temporário aplicado",
-      description: `Ajustes: CDI ${scenario.cdiAdjustment >= 0 ? '+' : ''}${scenario.cdiAdjustment.toFixed(2)}p.p., SELIC ${scenario.selicAdjustment >= 0 ? '+' : ''}${scenario.selicAdjustment.toFixed(2)}p.p., IPCA ${scenario.ipcaAdjustment >= 0 ? '+' : ''}${scenario.ipcaAdjustment.toFixed(2)}p.p.`,
-    });
-  };
-
-  const handleResetScenario = () => {
-    setCdiAdjustment("0");
-    setSelicAdjustment("0");
-    setIpcaAdjustment("0");
-    saveActiveScenario(null);
-
-    if (onScenarioChange) {
-      onScenarioChange(null);
-    }
-
-    toast({
-      title: "Cenário resetado",
-      description: "Projeção base restaurada.",
-    });
   };
 
   const formatRate = (value?: number) => {
@@ -286,93 +221,6 @@ export function IndexProjectionsManager({ onScenarioChange }: IndexProjectionsMa
         </CardContent>
       </Card>
 
-      {/* Temporary Scenario Controls */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5" />
-                Sensibilidade Temporária
-              </CardTitle>
-              <CardDescription>
-                Ajuste temporário em pontos percentuais (p.p.) para simular cenários alternativos
-              </CardDescription>
-            </div>
-            {activeScenario && (
-              <Badge variant="secondary" className="text-xs">
-                Cenário ativo
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>CDI (p.p.)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={cdiAdjustment}
-                onChange={(e) => setCdiAdjustment(e.target.value)}
-                placeholder="Ex: 0.50"
-              />
-              <p className="text-xs text-muted-foreground">
-                Ajuste em pontos percentuais
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>SELIC (p.p.)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={selicAdjustment}
-                onChange={(e) => setSelicAdjustment(e.target.value)}
-                placeholder="Ex: -0.25"
-              />
-              <p className="text-xs text-muted-foreground">
-                Ajuste em pontos percentuais
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>IPCA (p.p.)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={ipcaAdjustment}
-                onChange={(e) => setIpcaAdjustment(e.target.value)}
-                placeholder="Ex: 0.10"
-              />
-              <p className="text-xs text-muted-foreground">
-                Ajuste em pontos percentuais
-              </p>
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button onClick={handleSimulate} className="flex-1">
-              <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Simular
-            </Button>
-            <Button onClick={handleResetScenario} variant="outline">
-              Resetar
-            </Button>
-          </div>
-
-          {activeScenario && (
-            <div className="p-3 bg-muted/50 rounded-lg text-sm">
-              <strong>Cenário ativo:</strong>{' '}
-              CDI {activeScenario.cdiAdjustment >= 0 ? '+' : ''}{activeScenario.cdiAdjustment.toFixed(2)}p.p.,{' '}
-              SELIC {activeScenario.selicAdjustment >= 0 ? '+' : ''}{activeScenario.selicAdjustment.toFixed(2)}p.p.,{' '}
-              IPCA {activeScenario.ipcaAdjustment >= 0 ? '+' : ''}{activeScenario.ipcaAdjustment.toFixed(2)}p.p.
-              <br />
-              <span className="text-xs text-muted-foreground">
-                O cenário temporário não é salvo no banco. Use "Simular" para aplicar nos cálculos.
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

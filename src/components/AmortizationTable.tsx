@@ -116,6 +116,7 @@ export function AmortizationTable({
           iofAmount: debt.iofAmount || 0,
           tacAmount: debt.tacAmount || 0,
           temporaryOverrides: toOverrides(),
+          applyOverridesOnlyToFuture: true,
         }
       });
       if (error) {

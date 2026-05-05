@@ -14,7 +14,8 @@ export interface RateResolution {
 
 export interface TemporaryOverride {
   indexType: string;
-  adjustmentBp: number; // adjustment in percentage points
+  adjustmentPp?: number; // adjustment in percentage points
+  adjustmentBp?: number; // legacy name; kept as a temporary fallback
 }
 
 function mapIndexerName(indexer?: string): string | null {
@@ -38,8 +39,20 @@ export async function resolveIndexerRate(params: {
   periodEnd: string;
   spreadRate: number;
   temporaryOverrides?: TemporaryOverride[];
+  applyOverridesOnlyToFuture?: boolean;
+  allowProjectionUpsert?: boolean;
 }): Promise<RateResolution> {
-  const { supabaseClient, companyId, indexer, periodStart, periodEnd, spreadRate, temporaryOverrides } = params;
+  const {
+    supabaseClient,
+    companyId,
+    indexer,
+    periodStart,
+    periodEnd,
+    spreadRate,
+    temporaryOverrides,
+    applyOverridesOnlyToFuture,
+    allowProjectionUpsert = false,
+  } = params;
 
   const mappedIndexer = mapIndexerName(indexer);
   if (!mappedIndexer) {
@@ -63,7 +76,12 @@ export async function resolveIndexerRate(params: {
   let sourceReferenceDate: string | null = null;
 
   if (isFuturePeriod || isMixedPeriod) {
-    const projection = await ensureCompanyProjection(supabaseClient, companyId, mappedIndexer);
+    const projection = await resolveCompanyProjection(
+      supabaseClient,
+      companyId,
+      mappedIndexer,
+      allowProjectionUpsert,
+    );
     indexerRate = projection.rate;
     source = "projecao_base";
     rateType = 'projected';
@@ -88,8 +106,12 @@ export async function resolveIndexerRate(params: {
   if (temporaryOverrides) {
     const override = temporaryOverrides.find(o => mapIndexerName(o.indexType) === mappedIndexer);
     if (override) {
-      indexerRate = indexerRate + override.adjustmentBp;
-      source = "cenario_temporario";
+      const adjustmentPp = override.adjustmentPp ?? override.adjustmentBp ?? 0;
+      const shouldApply = !applyOverridesOnlyToFuture || isFuturePeriod || isMixedPeriod;
+      if (shouldApply) {
+        indexerRate = indexerRate + adjustmentPp;
+        source = "cenario_temporario";
+      }
     }
   }
 
@@ -142,32 +164,59 @@ async function getLatestHistoricalRate(
   return { rate, rateType, referenceDate: data.reference_date };
 }
 
-async function ensureCompanyProjection(
+async function resolveCompanyProjection(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseClient: any,
   companyId: string,
-  indexType: string
+  indexType: string,
+  allowUpsert: boolean,
 ): Promise<{ rate: number; referenceDate: string }> {
+  const { data: existingProjection, error: projectionError } = await supabaseClient
+    .from('company_index_projections')
+    .select('projected_rate, reference_date, source_reference_date')
+    .eq('company_id', companyId)
+    .eq('index_type', indexType)
+    .maybeSingle();
+
+  if (projectionError) {
+    throw new Error(`Erro ao buscar projeção base de ${indexType}: ${projectionError.message}`);
+  }
+
+  if (existingProjection) {
+    return {
+      rate: Number(existingProjection.projected_rate),
+      referenceDate: existingProjection.source_reference_date ?? existingProjection.reference_date,
+    };
+  }
+
+  if (!allowUpsert) {
+    throw new Error(
+      `Projeção base de ${indexType} não encontrada para a empresa. Atualize a projeção base antes de simular parcelas futuras.`,
+    );
+  }
+
   const latest = await getLatestHistoricalRate(supabaseClient, indexType);
 
-  if (latest.referenceDate) {
-    const { error } = await supabaseClient
-      .from('company_index_projections')
-      .upsert({
-        company_id: companyId,
-        index_type: indexType,
-        projected_rate: latest.rate,
-        rate_type: 'monthly',
-        reference_date: new Date().toISOString().split('T')[0],
-        source_reference_date: latest.referenceDate,
-        source: 'BCB',
-      }, {
-        onConflict: 'company_id,index_type',
-      });
+  if (!latest.referenceDate) {
+    throw new Error(`Dados históricos de ${indexType} não encontrados para criar a projeção base.`);
+  }
 
-    if (error) {
-      console.error(`Error ensuring company projection for ${indexType}:`, error);
-    }
+  const { error } = await supabaseClient
+    .from('company_index_projections')
+    .upsert({
+      company_id: companyId,
+      index_type: indexType,
+      projected_rate: latest.rate,
+      rate_type: 'monthly',
+      reference_date: new Date().toISOString().split('T')[0],
+      source_reference_date: latest.referenceDate,
+      source: 'BCB',
+    }, {
+      onConflict: 'company_id,index_type',
+    });
+
+  if (error) {
+    throw new Error(`Erro ao criar projeção base de ${indexType}: ${error.message}`);
   }
 
   return { rate: latest.rate, referenceDate: latest.referenceDate };

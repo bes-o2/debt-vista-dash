@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye, RotateCcw } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye, RotateCcw, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -20,7 +20,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
+import { SensitivityDashboard } from "@/components/SensitivityDashboard";
 import { ConsolidatedAmortizationTable } from "@/components/ConsolidatedAmortizationTable";
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
@@ -96,14 +107,11 @@ const Index = () => {
   useEffect(() => {
     const legacyData = localStorage.getItem('debts');
     if (legacyData && selectedCompany && debts.length === 0) {
-      // Show migration prompt
-      const shouldMigrate = window.confirm('Detectamos dados de dívidas salvos localmente. Deseja migrar estes dados para o banco de dados da empresa selecionada?');
-      if (shouldMigrate) {
-        migrateLegacyData();
-      }
+      setShowMigrationDialog(true);
     }
-  }, [selectedCompany, debts.length, migrateLegacyData]);
+  }, [selectedCompany, debts.length]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
   const [selectedDebt, setSelectedDebt] = useState<LegacyDebt | null>(null);
   const [selectedDebtsForTable, setSelectedDebtsForTable] = useState<string[]>([]);
@@ -607,24 +615,30 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <PieChart className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="debts" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Cadastros
-            </TabsTrigger>
-            <TabsTrigger value="table" className="flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
-              Tabela
-            </TabsTrigger>
-            <TabsTrigger value="analysis" className="flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
-              Fluxo de Pagamento
-            </TabsTrigger>
-          </TabsList>
+          <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <TabsList className="flex w-max min-w-full justify-start gap-1 sm:grid sm:w-full sm:grid-cols-5">
+              <TabsTrigger value="dashboard" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <PieChart className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="debts" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <BarChart3 className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Cadastros</span>
+              </TabsTrigger>
+              <TabsTrigger value="table" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <Calculator className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Tabela</span>
+              </TabsTrigger>
+              <TabsTrigger value="analysis" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <Calculator className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Fluxo de Pagamento</span>
+              </TabsTrigger>
+              <TabsTrigger value="sensitivity" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <Activity className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Sensibilidade</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
@@ -895,6 +909,10 @@ const Index = () => {
           <TabsContent value="analysis" className="space-y-6">
             <CashFlowAnalysis debts={debts} preSelectedDebt={preSelectedDebtForAnalysis} onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} periodMode="vigencia" globalStartDate={globalStartDate} globalEndDate={globalEndDate} />
           </TabsContent>
+
+          <TabsContent value="sensitivity" className="space-y-6">
+            <SensitivityDashboard debts={debts} />
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -924,6 +942,28 @@ const Index = () => {
         targets={feedbackTargets}
         userId={user?.id}
       />
+
+      <AlertDialog open={showMigrationDialog} onOpenChange={setShowMigrationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Migrar dados locais?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Detectamos dados de dívidas salvos localmente. Deseja migrar estes dados para o banco de dados da empresa selecionada?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowMigrationDialog(false)}>Não, ignorar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowMigrationDialog(false);
+                migrateLegacyData();
+              }}
+            >
+              Sim, migrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>;
 };
 export default Index;

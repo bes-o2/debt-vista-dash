@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useBRLInput, BRL_INPUT_PROPS } from "@/hooks/useBRLInput";
-import { DollarSign } from "lucide-react";
+
 
 interface CurrencyInputProps extends Omit<React.ComponentProps<"input">, "value" | "onChange" | "onBlur"> {
   value?: string;
@@ -48,13 +48,6 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
       handleBlur(e);
       onValueChange?.(value, numericValue);
     };
-
-    // Sync external value changes
-    React.useEffect(() => {
-      if (externalValue !== value) {
-        // setValue(externalValue);
-      }
-    }, [externalValue, value]);
 
     if (showCurrencySymbol) {
       return (

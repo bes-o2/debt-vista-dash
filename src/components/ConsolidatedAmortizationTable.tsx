@@ -239,6 +239,7 @@ export function ConsolidatedAmortizationTable({
             iofAmount: debt.iofAmount || 0,
             tacAmount: debt.tacAmount || 0,
             temporaryOverrides: toOverrides(),
+            applyOverridesOnlyToFuture: true,
           }
         });
 

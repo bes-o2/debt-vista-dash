@@ -118,6 +118,7 @@ export const useDebtInstallments = (debts: Debt[]) => {
             iofAmount: debt.iofAmount || 0,
             tacAmount: debt.tacAmount || 0,
             temporaryOverrides,
+            applyOverridesOnlyToFuture: true,
             persist: !hasTemporaryScenario,
           }
         });

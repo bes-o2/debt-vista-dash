@@ -34,6 +34,10 @@ export const CompanyProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (updatedCompany) {
         setSelectedCompany(updatedCompany);
         localStorage.setItem('selectedCompany', JSON.stringify(updatedCompany));
+      } else {
+        // Empresa salva não existe mais na lista do usuário
+        setSelectedCompany(null);
+        localStorage.removeItem('selectedCompany');
       }
     }
   };

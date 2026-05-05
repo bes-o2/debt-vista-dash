@@ -65,6 +65,12 @@ function getMonthlyRate(debt: NormalizedDebtForCalculation): number {
   return base + spread;
 }
 
+function diffInMonths(start: Date, end: Date): number {
+  const years = end.getFullYear() - start.getFullYear();
+  const months = end.getMonth() - start.getMonth();
+  return years * 12 + months;
+}
+
 function sortInstallments(installments: DashboardInstallment[]): DashboardInstallment[] {
   return [...installments].sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
 }
@@ -112,15 +118,8 @@ function calculateAnalyticalOutstandingBalance(
   const lastDueDate = parseLocalDate(debt.dueDate);
   if (!contractDate || !lastDueDate) return debt.financedAmount;
 
-  const termInMonths = Math.round(
-    (lastDueDate.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
-  const monthsElapsed = Math.max(
-    0,
-    Math.round(
-      (today.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-    ),
-  );
+  const termInMonths = diffInMonths(contractDate, lastDueDate);
+  const monthsElapsed = Math.max(0, diffInMonths(contractDate, today));
 
   if (monthsElapsed <= 0) return debt.financedAmount;
   if (monthsElapsed >= termInMonths) return 0;
@@ -159,9 +158,7 @@ function calculateAnalyticalCurrentPMT(
   dueDate.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
 
-  const termInMonths = Math.round(
-    (dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
+  const termInMonths = diffInMonths(releaseDate, dueDate);
 
   if (termInMonths <= 0 || today < releaseDate || today > dueDate) return 0;
 
@@ -179,12 +176,7 @@ function calculateAnalyticalCurrentPMT(
   }
 
   // SAC
-  const elapsedMonths = Math.max(
-    0,
-    Math.round(
-      (today.getTime() - releaseDate.getTime()) / (30.44 * 24 * 3600 * 1000),
-    ),
-  );
+  const elapsedMonths = Math.max(0, diffInMonths(releaseDate, today));
   if (elapsedMonths >= termInMonths) return 0;
 
   const amortization = principal / termInMonths;
@@ -377,14 +369,9 @@ export function computeDashboardMetrics(
     if (!contractDate || !lastDueDate) continue;
 
     const totalTermMonths = Math.round(
-      (lastDueDate.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
+      diffInMonths(contractDate, lastDueDate),
     );
-    const elapsedMonths = Math.max(
-      0,
-      Math.round(
-        (todayClean.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-      ),
-    );
+    const elapsedMonths = Math.max(0, diffInMonths(contractDate, todayClean));
     const remainingMonths = Math.max(0, totalTermMonths - elapsedMonths);
     const weight = balanceByDebtId[debt.id] ?? 0;
     if (weight <= 0) continue;

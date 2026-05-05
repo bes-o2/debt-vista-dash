@@ -36,13 +36,13 @@ export function useTemporaryScenario() {
     if (!scenario) return [];
     const overrides = [];
     if (scenario.cdiAdjustment !== 0) {
-      overrides.push({ indexType: 'CDI', adjustmentBp: scenario.cdiAdjustment });
+      overrides.push({ indexType: 'CDI', adjustmentPp: scenario.cdiAdjustment });
     }
     if (scenario.selicAdjustment !== 0) {
-      overrides.push({ indexType: 'SELIC', adjustmentBp: scenario.selicAdjustment });
+      overrides.push({ indexType: 'SELIC', adjustmentPp: scenario.selicAdjustment });
     }
     if (scenario.ipcaAdjustment !== 0) {
-      overrides.push({ indexType: 'IPCA', adjustmentBp: scenario.ipcaAdjustment });
+      overrides.push({ indexType: 'IPCA', adjustmentPp: scenario.ipcaAdjustment });
     }
     return overrides;
   }, [scenario]);

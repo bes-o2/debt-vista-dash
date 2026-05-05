@@ -26,6 +26,7 @@ interface DebtData {
   tacAmount?: number;
   temporaryOverrides?: TemporaryOverride[];
   persist?: boolean;
+  applyOverridesOnlyToFuture?: boolean;
 }
 
 interface Installment {
@@ -86,7 +87,8 @@ serve(async (req) => {
       iofAmount = 0,
       tacAmount = 0,
       temporaryOverrides = [],
-      persist
+      persist,
+      applyOverridesOnlyToFuture = false
     }: DebtData = await req.json();
 
     if (!companyId) {
@@ -121,7 +123,9 @@ serve(async (req) => {
       iofAmount,
       tacAmount,
       companyId,
-      temporaryOverrides
+      temporaryOverrides,
+      applyOverridesOnlyToFuture,
+      allowProjectionUpsert: shouldPersist
     }, supabaseClient);
 
     if (shouldPersist) {
@@ -214,10 +218,14 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in calculate-amortization function:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    const isMissingProjection = message.includes('Projeção base') && message.includes('não encontrada');
+
     return new Response(JSON.stringify({
-      error: error.message
+      success: false,
+      error: message
     }), {
-      status: 500,
+      status: isMissingProjection ? 200 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -252,6 +260,8 @@ interface CalculationParams {
   tacAmount: number;
   companyId: string;
   temporaryOverrides: TemporaryOverride[];
+  applyOverridesOnlyToFuture: boolean;
+  allowProjectionUpsert: boolean;
 }
 
 async function calculateAmortizationJS(
@@ -271,6 +281,8 @@ async function calculateAmortizationJS(
     spreadRate = 0,
     companyId,
     temporaryOverrides = [],
+    applyOverridesOnlyToFuture = false,
+    allowProjectionUpsert = false,
     iofAmount = 0,
     tacAmount = 0
   } = params;
@@ -355,7 +367,9 @@ async function calculateAmortizationJS(
         periodStart: prevDueDateStr,
         periodEnd: dueDateStr,
         spreadRate: spreadRate || 0,
-        temporaryOverrides
+        temporaryOverrides,
+        applyOverridesOnlyToFuture,
+        allowProjectionUpsert
       });
 
       effectiveRatePercent = rateResolution.effectiveMonthlyRate;

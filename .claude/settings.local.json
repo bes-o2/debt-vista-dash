@@ -51,7 +51,8 @@
       "PowerShell(tail *)",
       "Bash(pip install *)",
       "Bash(python 'C:\\\\Projetos\\\\debt-vista-dash\\\\.claude\\\\skills\\\\import-contracts\\\\extract.py' 'Contratos CEF\\\\Contrato 2.045.245.pdf' 'Contratos CEF\\\\Contrato 253476606000011363.pdf' 'Contratos CEF\\\\Contrato 2364881.pdf' 'Contratos CEF\\\\Contrato 253476606000011959.pdf' 'Contratos CEF\\\\Contrato 2599405.pdf' 'Contratos CEF\\\\Contrato 734-347612920005779731175.pdf' 'Contratos Bradesco\\\\EMPRESTIMO BRADESCO 1M 19.11.pdf' 'Contratos Bradesco\\\\EMPRESTIMO 1,5 12.0.2025.pdf' 'Contratos Bradesco\\\\EMPRESTIMO FGI 11.12.2025.pdf' 'Contratos Bradesco\\\\Contrato 20240814000040.pdf' 'Contratos Itau\\\\contrato emprestimo 12.2024.pdf' 'Contratos Itau\\\\ContratoCCB.pdf' 'Contratos Safra\\\\-_CCB DUVON _328429279 - CONTRATO 1,5 06.10.2025.pdf')",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(npx eslint *)"
     ]
   },
   "enabledMcpjsonServers": [
