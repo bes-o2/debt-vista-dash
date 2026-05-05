@@ -90,13 +90,6 @@ export const CompanySelector: React.FC = () => {
     }
   };
 
-  // Auto-selecionar primeira empresa se não há nenhuma selecionada
-  React.useEffect(() => {
-    if (!selectedCompany && companies.length > 0) {
-      setSelectedCompany(companies[0]);
-    }
-  }, [companies, selectedCompany, setSelectedCompany]);
-
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 bg-card border rounded-md">
