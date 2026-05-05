@@ -183,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    sessionStorage.removeItem('companySessionTimestamp');
     await supabase.auth.signOut();
     toast({
       title: "Logout realizado",
