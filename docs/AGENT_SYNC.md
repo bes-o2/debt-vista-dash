@@ -1,68 +1,72 @@
 # Agent Sync - debt-vista-dash
 
-> Leia este arquivo antes de qualquer tarefa. Ele e o estado compartilhado entre Claude Code e Codex.
+> Leia este arquivo antes de qualquer tarefa. Ele e o estado compartilhado entre Claude Code, Codex e outros agentes.
 
 ## Ultima sessao
 
-- **Data:** 2026-04-27
+- **Data:** 2026-05-04
 - **Agente:** Codex
-- **Resumo:** Codex executou o plano `docs/CORRECTION_PLAN_CARDS.md` para corrigir inconsistencias nos cards do dashboard e deixou o status documentado no proprio plano. O `CLAUDE.md` nao foi ampliado de proposito; Claude deve ler este arquivo primeiro e depois a secao "Status de execucao - 2026-04-27" em `docs/CORRECTION_PLAN_CARDS.md`.
+- **Resumo:** A task de dividas pos-fixadas foi revisada, corrigida e preparada para checkpoint. O fluxo agora separa calculos oficiais persistidos de simulacoes temporarias (`persist: false`), usa projecao base por empresa e preserva historico realizado para parcelas passadas.
 
 ## O que esta funcionando
 
-- `npm run build` passou apos as correcoes dos cards.
-- `src/hooks/useDebts.tsx` converte `iof_rate` percentual para `iofAmount` em BRL e migra legacy usando `firstDueDate` em `first_due_date`.
-- `src/components/DashboardStats.tsx` calcula PMT SAC com saldo devedor atual, usa `Math.round` para prazo e pondera prazo medio por saldo devedor atual.
-- `supabase/functions/calculate-amortization/index.ts` calcula CET persistido usando `releaseDate` como t=0.
-- `src/components/DebtChart.tsx` usa CET medio ponderado, respeita o banco global e classifica pre/pos-fixado por normalizacao de string.
-- `src/components/DashboardStats.tsx`, `src/components/OutstandingBalanceChart.tsx`, `src/components/DebtProfileChart.tsx` e `src/components/DebtChart.tsx` recebem filtros globais de data.
-- `src/lib/debtUtils.ts` exporta `debtIntersectsDateRange`; a semantica escolhida e intersecao entre vigencia da divida (`releaseDate` a `dueDate`) e intervalo selecionado.
-- `src/components/AmortizationTable.tsx` mostra "Saldo Devedor" como `principal_balance` antes da amortizacao.
-- `src/hooks/useCET.tsx` foi removido porque nao havia importacoes ativas.
+- `npm run build` passou em 2026-05-04.
+- `calculate-amortization` aceita `companyId`, `temporaryOverrides` e `persist`, gravando parcelas/auditoria apenas quando a execucao e oficial.
+- Pre-calculo no formulario e simulacoes temporarias usam `persist: false`, evitando gravar `debt_installments`, `debt_installment_rate_refs` e CET oficial.
+- Calculo oficial ao salvar divida passa `companyId` e `persist: true`.
+- Dividas pos-fixadas usam resolvedor por periodo em `supabase/functions/calculate-amortization/getEffectiveRate.ts`.
+- CDI/SELIC realizados acumulam taxas diarias; IPCA realizado usa referencia mensal.
+- Periodos futuros usam projecao base por empresa em `company_index_projections`.
+- Cenarios temporarios ficam apenas em memoria no hook `useTemporaryScenario`, sem `localStorage`.
+- `useDebtInstallments` recalcula em memoria quando ha cenario temporario ativo e evita persistir resultados simulados.
+- `fetch-bcb-rates` e `useEconomicIndices` foram ajustados para buscar o ultimo valor por indice sem depender de `limit(3)` global.
+- `IndexProjectionsManager` mostra valores BCB, projecao base por empresa e controles simples de cenario temporario.
+- Migration `supabase/migrations/20260504000000_post_fixed_debt_support.sql` cria `company_index_projections`, `debt_installment_rate_refs`, RLS e constraint unica para `economic_indices`.
 
 ## Em andamento / incompleto
 
-- Validacao visual no browser ainda nao foi feita nesta sessao. Conferir dashboard com dados reais/representativos.
-- Recalcular uma divida de referencia pela edge function para confirmar a diferenca esperada no CET salvo apos mudar o t=0 para `releaseDate`.
-- `npm run lint` continua falhando por debitos existentes do projeto, incluindo `no-explicit-any`, interface vazia em `src/components/ui/textarea.tsx`, `require()` em `tailwind.config.ts` e warnings de hooks/Fast Refresh.
-- A worktree segue suja com muitas alteracoes anteriores e nao relacionadas. Revisar `git status --short` antes de qualquer commit.
+- A migration pos-fixada ainda precisa ser aplicada no Supabase remoto/local antes de validar dados reais.
+- `src/integrations/supabase/types.ts` foi atualizado para refletir o schema novo; idealmente regenerar via Supabase CLI apos aplicar a migration.
+- Validacao manual no browser ainda nao foi feita nesta sessao.
+- `npm run lint` ainda falha por debitos conhecidos do projeto: `no-explicit-any`, interface vazia em `src/components/ui/textarea.tsx`, `require()` em `tailwind.config.ts` e warnings de hooks/Fast Refresh.
 
 ## Problemas conhecidos
 
-- Nao usar `git add -A`: existem alteracoes de produto, docs, tooling e artefatos locais misturados.
-- Arquivos/configuracoes locais sensiveis ou temporarios nao devem entrar em commit: `.env`, `.claude/settings.local.json`, `supabase/.temp/`, pastas locais de skills e caches como `graphify-out/`.
-- O lint aponta `no-explicit-any` em arquivos que tambem foram tocados ou lidos, mas os `any` reportados sao debitos preexistentes e nao foram resolvidos neste plano.
-- `CLAUDE.md` ja esta grande; evitar colar status de sessao nele. Usar `docs/AGENT_SYNC.md` e docs especificos em `docs/`.
+- A pasta nao rastreada `supabase/supabase/` contem apenas `.temp` do Supabase CLI e nao deve ser commitada.
+- O arquivo nao rastreado `scripts/check-card-feedback.mjs` pertence a outra frente e nao deve entrar no checkpoint pos-fixado sem decisao explicita.
+- Nao usar `git add -A`: ha artefatos locais e arquivos de outras frentes no worktree.
+- O lint aponta erro em `src/components/ConsolidatedAmortizationTable.tsx`, mas o `any` reportado e debito preexistente.
 
 ## Decisoes tomadas
 
-- Detalhes de execucao do plano dos cards ficam em `docs/CORRECTION_PLAN_CARDS.md`, nao em `CLAUDE.md`.
-- Filtro global de data dos cards = intersecao entre vigencia da divida e intervalo selecionado.
-- Em `DebtChart`, o filtro interno de banco permanece como refinamento apenas quando o filtro global esta em "todos"; quando ha banco global selecionado, a base ja fica restrita.
-- Para `AmortizationTable`, foi escolhida a opcao A do plano: manter o titulo "Saldo Devedor" e exibir o saldo antes do pagamento.
-- Contexto persistente anterior: `bes-o2/debt-vista-dash` continua sendo o repositorio canonico e `debt-vista-beta` e o ambiente beta na Vercel.
+- Historico realizado fica fixo e e usado ate o ultimo mes completo com dado disponivel.
+- Mes corrente aberto e futuro usam projecao base por empresa.
+- Projecao automatica V1 usa o ultimo valor real conhecido, fixo, sem integracao de expectativa BCB nesta fase.
+- Cenários continuam temporarios e sem nomes persistidos.
+- Auditoria por parcela deve registrar indice, periodo, taxa, fonte e cenario nos calculos oficiais.
+- Simulacoes e pre-calculos nunca devem persistir parcelas, CET ou auditoria.
+- Proxima feature planejada: transformar sensibilidade em aba propria do Dashboard, com matriz estilo Excel de PMT mensal por choque de taxa e meses futuros.
 
 ## Proximo agente deve fazer
 
-1. Ler `docs/CORRECTION_PLAN_CARDS.md`, principalmente "Status de execucao - 2026-04-27".
-2. Rodar `git status --short` e stagear seletivamente se for commitar.
-3. Validar no browser os cards do dashboard com filtros globais de banco/data e contratos SAC maduros.
-4. Se for tratar lint, fazer isso em tarefa separada e cirurgica; nao misturar com as correcoes dos cards.
-5. Se for commitar, nao incluir `.claude/settings.local.json`, `supabase/.temp/`, `graphify-out/` ou outros artefatos locais sem confirmacao explicita.
+1. Conferir `git status --short` antes de qualquer nova alteracao.
+2. Aplicar a migration `20260504000000_post_fixed_debt_support.sql` no ambiente correto.
+3. Regenerar `src/integrations/supabase/types.ts` com Supabase CLI se possivel.
+4. Validar manualmente no app: divida pos-fixada historica, divida futura, auditoria oficial e simulacao temporaria sem persistencia.
+5. Para a proxima task, criar branch nova `feat/sensitivity-dashboard` a partir do checkpoint pos-fixado.
 
 ## Nao tocar
 
-- `useEffect` comentado em `src/pages/Index.tsx:62-67`; causava loop de 401 e nao deve ser reativado sem estabilizar refs em `useDataInitialization`.
-- `src/integrations/supabase/types.ts`; gerado, nao editar manualmente.
-- Migrations antigas; nunca editar uma migration ja aplicada, criar nova se necessario.
+- `useEffect` desativado em `src/pages/Index.tsx`; causava loop de 401 e nao deve ser reativado sem estabilizar refs em `useDataInitialization`.
 - `src/components/ui/`; primitivos shadcn, evitar edicao manual.
-- Project ID Supabase atual `objvdyjnryvllvadglns`; nao misturar com o antigo `zujkmyfwfhjkixlymgiv`.
-- `.env`, `.claude/settings.local.json`, `supabase/.temp/` e `graphify-out/`; nao stagear/commitar sem confirmacao explicita apos avisar o risco.
+- Migrations antigas ja aplicadas; criar nova migration se precisar alterar schema.
+- `.env`, `.claude/settings.local.json`, `supabase/.temp/`, `supabase/supabase/` e outros artefatos locais.
+- Project ID Supabase atual `objvdyjnryvllvadglns`.
 
-## Contexto rapido para Claude
+## Contexto rapido para Claude/Kimi/Codex
 
 1. UI sempre em pt-BR; moeda sempre BRL com `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`.
 2. Inputs monetarios devem usar `useBRLInput` + `CurrencyInput`; nao criar input de moeda manual.
-3. Datas vindas do banco em `YYYY-MM-DD` devem passar por `parseLocalDate` quando a comparacao local importar.
-4. Componentes de dashboard ja devem receber dividas normalizadas quando esse caminho existir; evitar `.map(normalizeDebtForCalculation)` inline no JSX porque recria arrays.
-5. Projeto nao tem suite de testes configurada; hoje a validacao real e build/lint + browser manual.
+3. Formato legacy vs database segue importante: `Debt` usa `snake_case`, `LegacyDebt` usa `camelCase`.
+4. Qualquer simulacao de sensibilidade deve usar `persist: false`.
+5. Projeto nao tem suite de testes configurada; validacao atual e build/lint + browser manual.

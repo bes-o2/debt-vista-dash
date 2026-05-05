@@ -63,15 +63,17 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - Estados vazio/loading tratados; texto pt-BR; moeda BRL
 - Build passou, sem regressão nos outros 4 widgets
 
-### DSH-005 — Pontos de atenção determinísticos
+### DSH-005 — Pontos de atenção determinísticos ✅ ENTREGUE (2026-04-30)
 
-- Usa `generateCfoAlerts` em `src/lib/cfoAlerts.ts` (já existe, já recebe `DashboardMetrics`)
-- 3 a 5 alertas com evidência numérica + link de drill-down
+- `DashboardStats.tsx` renderiza até 5 alertas via `generateCfoAlerts`
+- Cada alerta mostra severidade, resumo, evidências numéricas, recomendação e link para widget/área relacionada
+- O alerta de dívida líquida foi filtrado porque o dashboard ainda não tem dado de caixa
 
-### DSH-006 — Garantias no dashboard principal
+### DSH-006 — Garantias no dashboard principal ✅ ENTREGUE (2026-04-30)
 
-- `useDashboardMetrics` já retorna `guaranteeCoverage` (passthrough de `useDebtGuarantees`)
-- Só montar a UI: total, cobertura, contratos sem garantia, gap por banco
+- `DashboardStats.tsx` usa `metrics.guaranteeCoverage`
+- UI mostra valor total de garantias, cobertura sobre saldo, contratos sem garantia e top 3 gaps por banco
+- Ainda precisa de QA visual com dados representativos e parcelas geradas
 
 ### Migração dos 4 widgets restantes (débito técnico do Epic 1)
 
@@ -86,6 +88,44 @@ Ver detalhes em `docs/MAIN_DASHBOARD_CFO_REVIEW.md`.
 - `src/components/dashboard/DashboardWidgetShell.tsx` e `dashboardWidgetTypes.ts` já existem (untracked)
 - Registrar widgets, implementar colapsar/expandir e reordenar com botões
 - Ver detalhes em `MAIN_DASHBOARD_CFO_REVIEW.md`
+
+### DSH-007 — Criar registry de widgets do dashboard ✅ ENTREGUE (2026-04-30)
+
+- Registry atual em `src/pages/Index.tsx` renderiza widgets por definição controlada
+- `DashboardWidgetDefinition` inclui `defaultOrder`, `defaultSize`, `canCollapse`, `canHide` e `settingsSchema`
+- `useDashboardWidgets` usa `defaultOrder` para layout padrão e para inserir novos widgets sem quebrar ordem existente
+- `DashboardWidgetShell` respeita `canCollapse` e `canHide`
+- Build passou; ainda falta QA visual no browser
+
+### DSH-008 — Implementar colapsar/expandir e ocultar cards ✅ ENTREGUE (2026-04-30)
+
+- `DashboardWidgetShell` já expõe controles de colapsar/expandir e ocultar com `aria-label`
+- Botões usam `h-10 w-10`, atendendo hit area mínima de 40px
+- `useDashboardWidgets` persiste `collapsed` e `visible` por usuário e empresa no `localStorage`
+- Dashboard mostra área de "Widgets ocultos" para reativar cards escondidos
+- Ainda falta QA manual no browser para confirmar recarga, teclado e mobile
+
+### DSH-009 — Implementar reordenação simples ✅ ENTREGUE (2026-04-30)
+
+- `DashboardWidgetShell` expõe botões "mover para cima/baixo" com `aria-label`
+- `useDashboardWidgets` reordena apenas widgets visíveis e persiste a ordem por usuário e empresa
+- Dashboard ganhou botão "Restaurar layout" para voltar ao padrão
+- Build passou; ainda falta QA manual em desktop/mobile
+
+### DSH-010 — Implementar configurações editáveis por card ✅ ENTREGUE (2026-04-30)
+
+- Configurações são declaradas por card em `settingsSchema`
+- `DashboardWidgetShell` oferece título local, densidade, horizonte, visão e filtros conforme schema do widget
+- Ajustes são reversíveis por "Restaurar padrões" e persistidos por usuário e empresa
+- Saldo por banco, perfil da dívida e comparativo por banco consomem as preferências aplicáveis
+- Ainda falta QA manual no browser
+
+### DSH-011 — Avaliar drag-and-drop com carregamento sob demanda ✅ ENTREGUE (2026-04-30)
+
+- Decisão documentada em `docs/DASHBOARD_DRAG_DROP_EVALUATION.md`
+- `@dnd-kit` não foi adicionado neste momento
+- Baseline de bundle registrado a partir do build validado em 2026-04-30
+- Reavaliação condicionada a fricção real de uso, mais widgets ou tempo para QA completo de drag-and-drop
 
 ---
 

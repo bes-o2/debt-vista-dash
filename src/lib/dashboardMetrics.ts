@@ -17,6 +17,8 @@ export interface DashboardMetrics {
   pmtNext180d: number;
   peakMonthlyPmt12m: { month: string; total: number } | null;
   maturitiesNext12Months: number;
+  maturitiesNext12MonthsByMonth: { month: string; amount: number }[];
+  monthlyPmtProjection: { month: string; amount: number }[];
   upcomingDueDates: { debtId: string; bank: string; dueDate: Date; amount: number }[];
   // Custo
   averageMonthlyCET: number;
@@ -35,9 +37,17 @@ export interface DashboardMetrics {
   period: { start: Date | null; end: Date | null; mode: "vigencia" | "vencimento" };
 }
 
+type DashboardInstallment = {
+  due_date: string;
+  principal_amount?: number;
+  total_amount?: number;
+  remaining_balance?: number;
+  installment_amount?: number;
+};
+
 export interface ComputeDashboardMetricsInput {
   debts: NormalizedDebtForCalculation[];
-  installmentsByDebtId: Record<string, any[]>;
+  installmentsByDebtId: Record<string, DashboardInstallment[]>;
   guaranteeMetrics: any | null;
   cdiAnnualRate: number | null;
   today: Date;
@@ -55,6 +65,51 @@ function getMonthlyRate(debt: NormalizedDebtForCalculation): number {
   return base + spread;
 }
 
+function diffInMonths(start: Date, end: Date): number {
+  const years = end.getFullYear() - start.getFullYear();
+  const months = end.getMonth() - start.getMonth();
+  return years * 12 + months;
+}
+
+function sortInstallments(installments: DashboardInstallment[]): DashboardInstallment[] {
+  return [...installments].sort((a, b) => String(a.due_date).localeCompare(String(b.due_date)));
+}
+
+function getNextInstallment(installments: DashboardInstallment[], today: Date): DashboardInstallment | null {
+  return sortInstallments(installments).find((inst) => {
+    const due = parseLocalDate(inst.due_date);
+    if (!due) return false;
+    due.setHours(0, 0, 0, 0);
+    return due >= today;
+  }) ?? null;
+}
+
+function calculateOutstandingBalanceFromInstallments(
+  debt: NormalizedDebtForCalculation,
+  installments: DashboardInstallment[],
+  today: Date,
+): number {
+  const releaseDate = parseLocalDate(debt.releaseDate);
+  if (releaseDate) {
+    releaseDate.setHours(0, 0, 0, 0);
+    if (today < releaseDate) return 0;
+  }
+
+  const nextInstallment = getNextInstallment(installments, today);
+  if (!nextInstallment) return 0;
+
+  const remainingBalance = Number(nextInstallment.remaining_balance);
+  return Number.isFinite(remainingBalance) ? Math.max(0, remainingBalance) : 0;
+}
+
+function calculateCurrentPMTFromInstallments(installments: DashboardInstallment[], today: Date): number {
+  const nextInstallment = getNextInstallment(installments, today);
+  if (!nextInstallment) return 0;
+
+  const totalAmount = Number(nextInstallment.total_amount);
+  return Number.isFinite(totalAmount) ? Math.max(0, totalAmount) : 0;
+}
+
 function calculateAnalyticalOutstandingBalance(
   debt: NormalizedDebtForCalculation,
   today: Date,
@@ -63,15 +118,8 @@ function calculateAnalyticalOutstandingBalance(
   const lastDueDate = parseLocalDate(debt.dueDate);
   if (!contractDate || !lastDueDate) return debt.financedAmount;
 
-  const termInMonths = Math.round(
-    (lastDueDate.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
-  const monthsElapsed = Math.max(
-    0,
-    Math.round(
-      (today.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-    ),
-  );
+  const termInMonths = diffInMonths(contractDate, lastDueDate);
+  const monthsElapsed = Math.max(0, diffInMonths(contractDate, today));
 
   if (monthsElapsed <= 0) return debt.financedAmount;
   if (monthsElapsed >= termInMonths) return 0;
@@ -110,9 +158,7 @@ function calculateAnalyticalCurrentPMT(
   dueDate.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
 
-  const termInMonths = Math.round(
-    (dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
+  const termInMonths = diffInMonths(releaseDate, dueDate);
 
   if (termInMonths <= 0 || today < releaseDate || today > dueDate) return 0;
 
@@ -130,12 +176,7 @@ function calculateAnalyticalCurrentPMT(
   }
 
   // SAC
-  const elapsedMonths = Math.max(
-    0,
-    Math.round(
-      (today.getTime() - releaseDate.getTime()) / (30.44 * 24 * 3600 * 1000),
-    ),
-  );
+  const elapsedMonths = Math.max(0, diffInMonths(releaseDate, today));
   if (elapsedMonths >= termInMonths) return 0;
 
   const amortization = principal / termInMonths;
@@ -198,17 +239,26 @@ export function computeDashboardMetrics(
   const in180d = addDays(todayClean, 180);
   const in12m = addDays(todayClean, 365);
 
-  // ── Saldo analítico por contrato ──────────────────────────────────────────
+  // ── Saldo atual por contrato ──────────────────────────────────────────────
   const balanceByDebtId: Record<string, number> = {};
   for (const debt of debts) {
-    balanceByDebtId[debt.id] = calculateAnalyticalOutstandingBalance(debt, new Date(todayClean));
+    const installments = installmentsByDebtId[debt.id] ?? [];
+    balanceByDebtId[debt.id] = installments.length > 0
+      ? calculateOutstandingBalanceFromInstallments(debt, installments, new Date(todayClean))
+      : calculateAnalyticalOutstandingBalance(debt, new Date(todayClean));
   }
 
   const currentOutstandingBalance = Object.values(balanceByDebtId).reduce((s, v) => s + v, 0);
 
-  // ── PMT corrente (analítico) ──────────────────────────────────────────────
+  // ── PMT corrente ──────────────────────────────────────────────────────────
   const currentPMT = debts.reduce(
-    (sum, debt) => sum + calculateAnalyticalCurrentPMT(debt, new Date(todayClean)),
+    (sum, debt) => {
+      const installments = installmentsByDebtId[debt.id] ?? [];
+      const pmt = installments.length > 0
+        ? calculateCurrentPMTFromInstallments(installments, new Date(todayClean))
+        : calculateAnalyticalCurrentPMT(debt, new Date(todayClean));
+      return sum + pmt;
+    },
     0,
   );
 
@@ -217,6 +267,7 @@ export function computeDashboardMetrics(
   let pmtNext90d = 0;
   let pmtNext180d = 0;
   let maturitiesNext12Months = 0;
+  const monthlyMaturityBuckets: Record<string, number> = {};
   const monthlyPmtBuckets: Record<string, number> = {};
   const upcomingByDebt: Record<string, { dueDate: Date; amount: number }> = {};
 
@@ -242,6 +293,7 @@ export function computeDashboardMetrics(
       if (due >= todayClean && due <= in12m) {
         maturitiesNext12Months += inst.principal_amount ?? 0;
         const ym = toYearMonth(due);
+        monthlyMaturityBuckets[ym] = (monthlyMaturityBuckets[ym] ?? 0) + (inst.principal_amount ?? 0);
         monthlyPmtBuckets[ym] = (monthlyPmtBuckets[ym] ?? 0) + (inst.total_amount ?? 0);
       }
     }
@@ -254,6 +306,12 @@ export function computeDashboardMetrics(
       peakMonthlyPmt12m = { month, total };
     }
   }
+  const maturitiesNext12MonthsByMonth = Object.entries(monthlyMaturityBuckets)
+    .map(([month, amount]) => ({ month, amount }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+  const monthlyPmtProjection = Object.entries(monthlyPmtBuckets)
+    .map(([month, amount]) => ({ month, amount }))
+    .sort((a, b) => a.month.localeCompare(b.month));
 
   // ── upcomingDueDates ──────────────────────────────────────────────────────
   const upcomingDueDates = Object.entries(upcomingByDebt).map(([debtId, data]) => {
@@ -311,14 +369,9 @@ export function computeDashboardMetrics(
     if (!contractDate || !lastDueDate) continue;
 
     const totalTermMonths = Math.round(
-      (lastDueDate.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
+      diffInMonths(contractDate, lastDueDate),
     );
-    const elapsedMonths = Math.max(
-      0,
-      Math.round(
-        (todayClean.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-      ),
-    );
+    const elapsedMonths = Math.max(0, diffInMonths(contractDate, todayClean));
     const remainingMonths = Math.max(0, totalTermMonths - elapsedMonths);
     const weight = balanceByDebtId[debt.id] ?? 0;
     if (weight <= 0) continue;
@@ -367,6 +420,8 @@ export function computeDashboardMetrics(
     pmtNext180d,
     peakMonthlyPmt12m,
     maturitiesNext12Months,
+    maturitiesNext12MonthsByMonth,
+    monthlyPmtProjection,
     upcomingDueDates,
     averageMonthlyCET,
     averageAnnualCET,

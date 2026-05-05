@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getEffectiveRateForDate } from './getEffectiveRate.ts'
+import { resolveIndexerRate, type RateResolution, type TemporaryOverride } from './getEffectiveRate.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +10,7 @@ const corsHeaders = {
 
 interface DebtData {
   debtId: string;
+  companyId: string;
   financedAmount: number;
   firstDueDate: string;
   lastDueDate: string;
@@ -20,9 +21,12 @@ interface DebtData {
   indexerRate?: number;
   spreadRate?: number;
   indexerStartDate?: string;
-  reprogrammingRules?: Record<string, any>;
+  reprogrammingRules?: Record<string, unknown>;
   iofAmount?: number;
   tacAmount?: number;
+  temporaryOverrides?: TemporaryOverride[];
+  persist?: boolean;
+  applyOverridesOnlyToFuture?: boolean;
 }
 
 interface Installment {
@@ -34,7 +38,21 @@ interface Installment {
   indexer_rate: number;
   installment_amount: number;
   days_in_period: number;
-  effective_rate?: number; // Taxa efetiva mensal usada nesta parcela (%)
+  effective_rate?: number;
+}
+
+interface RateRefRecord {
+  company_id: string;
+  debt_id: string;
+  installment_number: number;
+  index_type: string;
+  period_start: string;
+  period_end: string;
+  rate: number;
+  rate_type: string;
+  source: string;
+  scenario_label: string;
+  source_reference_date: string | null;
 }
 
 serve(async (req) => {
@@ -53,36 +71,45 @@ serve(async (req) => {
       }
     );
 
-    const { 
-      debtId, 
-      financedAmount, 
-      firstDueDate, 
-      lastDueDate, 
-      calculationTable, 
-      interestRate, 
+    const {
+      debtId,
+      companyId,
+      financedAmount,
+      firstDueDate,
+      lastDueDate,
+      calculationTable,
+      interestRate,
       interestType = 'monthly',
       indexer,
       spreadRate = 0,
       indexerStartDate,
       reprogrammingRules = {},
       iofAmount = 0,
-      tacAmount = 0
+      tacAmount = 0,
+      temporaryOverrides = [],
+      persist,
+      applyOverridesOnlyToFuture = false
     }: DebtData = await req.json();
 
-    console.log('Calculating amortization for debt:', debtId);
-    console.log('Debt parameters:', { 
-      indexer, 
-      spreadRate, 
+    if (!companyId) {
+      throw new Error('companyId is required');
+    }
+
+    const shouldPersist = persist ?? temporaryOverrides.length === 0;
+
+    console.log('Calculating amortization for debt:', debtId, 'company:', companyId);
+    console.log('Debt parameters:', {
+      indexer,
+      spreadRate,
       indexerStartDate,
+      temporaryOverrides: temporaryOverrides.length,
+      shouldPersist,
       hasReprogrammingRules: Object.keys(reprogrammingRules).length > 0
     });
 
-    // Get indexer rate if applicable (legacy support - now we fetch per installment)
-    const indexerRate = await getIndexerRate(supabaseClient, indexer, indexerStartDate);
-    console.log('Indexer rate found:', { indexer, indexerRate, spreadRate });
-
-    // Calculate installments using JavaScript
-    const installments = await calculateAmortizationJS({
+    // Calculate installments
+    const { installments, rateRefs } = await calculateAmortizationJS({
+      debtId,
       financedAmount,
       firstDueDate,
       lastDueDate,
@@ -90,49 +117,69 @@ serve(async (req) => {
       interestRate,
       interestType,
       indexer,
-      indexerRate,
       spreadRate,
       indexerStartDate,
       reprogrammingRules,
       iofAmount,
-      tacAmount
+      tacAmount,
+      companyId,
+      temporaryOverrides,
+      applyOverridesOnlyToFuture,
+      allowProjectionUpsert: shouldPersist
     }, supabaseClient);
 
-    // Try to save installments to database
-    try {
-      // First delete existing installments
-      await supabaseClient
-        .from('debt_installments')
-        .delete()
-        .eq('debt_id', debtId);
+    if (shouldPersist) {
+      // Try to save installments and rate refs to database
+      try {
+        // First delete rate refs, then installments. The refs depend on the debt,
+        // but keeping this order avoids transient unique conflicts on recalculation.
+        await supabaseClient
+          .from('debt_installment_rate_refs')
+          .delete()
+          .eq('debt_id', debtId);
 
-      // Insert new installments with correct field mapping
-      const installmentsToInsert = installments.map(inst => ({
-        debt_id: debtId,
-        installment_number: inst.installment_number,
-        due_date: inst.due_date,
-        principal_amount: inst.amortization,
-        interest_amount: inst.interest_amount,
-        total_amount: inst.installment_amount,
-        remaining_balance: inst.principal_balance
-      }));
+        await supabaseClient
+          .from('debt_installments')
+          .delete()
+          .eq('debt_id', debtId);
 
-      const { error: insertError } = await supabaseClient
-        .from('debt_installments')
-        .insert(installmentsToInsert);
+        // Insert new installments
+        const installmentsToInsert = installments.map(inst => ({
+          debt_id: debtId,
+          installment_number: inst.installment_number,
+          due_date: inst.due_date,
+          principal_amount: inst.amortization,
+          interest_amount: inst.interest_amount,
+          total_amount: inst.installment_amount,
+          remaining_balance: inst.principal_balance
+        }));
 
-      if (insertError) {
-        console.error('Error saving installments:', insertError);
-        // Continue without saving to DB
+        const { error: insertError } = await supabaseClient
+          .from('debt_installments')
+          .insert(installmentsToInsert);
+
+        if (insertError) {
+          console.error('Error saving installments:', insertError);
+        }
+
+        // Insert rate refs
+        if (rateRefs.length > 0) {
+          const { error: rateRefError } = await supabaseClient
+            .from('debt_installment_rate_refs')
+            .insert(rateRefs);
+
+          if (rateRefError) {
+            console.error('Error saving rate refs:', rateRefError);
+          }
+        }
+      } catch (dbError) {
+        console.error('Database operation failed:', dbError);
       }
-    } catch (dbError) {
-      console.error('Database operation failed:', dbError);
-      // Continue with calculated data
     }
 
     const releaseDate = shiftMonthISO(firstDueDate, -1);
 
-    // Calculate CET (Custo Efetivo Total)
+    // Calculate CET
     const cet = calculateCET({
       initialAmount: financedAmount,
       iofAmount,
@@ -141,37 +188,44 @@ serve(async (req) => {
       startDate: releaseDate
     });
 
-    // Persist CET to database
-    try {
-      const { error: cetUpdateError } = await supabaseClient
-        .from('debts')
-        .update({
-          cet_monthly_rate: cet.monthlyRate,
-          cet_annual_rate: cet.annualRate
-        })
-        .eq('id', debtId);
-        
-      if (cetUpdateError) {
-        console.error('Error updating CET in database:', cetUpdateError);
+    if (shouldPersist) {
+      // Persist CET
+      try {
+        const { error: cetUpdateError } = await supabaseClient
+          .from('debts')
+          .update({
+            cet_monthly_rate: cet.monthlyRate,
+            cet_annual_rate: cet.annualRate
+          })
+          .eq('id', debtId);
+
+        if (cetUpdateError) {
+          console.error('Error updating CET in database:', cetUpdateError);
+        }
+      } catch (cetError) {
+        console.error('Failed to persist CET:', cetError);
       }
-    } catch (cetError) {
-      console.error('Failed to persist CET:', cetError);
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return new Response(JSON.stringify({
+      success: true,
       installments,
-      cet
+      cet,
+      persisted: shouldPersist
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Error in calculate-amortization function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message 
+    const message = error instanceof Error ? error.message : String(error);
+    const isMissingProjection = message.includes('Projeção base') && message.includes('não encontrada');
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: message
     }), {
-      status: 500,
+      status: isMissingProjection ? 200 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -190,84 +244,33 @@ function shiftMonthISO(dateString: string, months: number): string {
   return target.toISOString().split('T')[0];
 }
 
-// Function to map indexer names and get the latest rate
-function mapIndexerName(indexer?: string): string | null {
-  if (!indexer) return null;
-  
-  const indexerMap: { [key: string]: string } = {
-    'CDI': 'CDI',
-    'SELIC': 'SELIC', 
-    'IPCA': 'IPCA',
-    'cdi': 'CDI',
-    'selic': 'SELIC',
-    'ipca': 'IPCA',
-    'pré-fixado': null,
-    'PRE_FIXADO': null,
-    'prefixado': null
-  };
-  
-  return indexerMap[indexer] || null;
+interface CalculationParams {
+  debtId: string;
+  financedAmount: number;
+  firstDueDate: string;
+  lastDueDate: string;
+  calculationTable: 'SAC' | 'PRICE';
+  interestRate: number;
+  interestType: 'monthly' | 'annual';
+  indexer?: string;
+  spreadRate: number;
+  indexerStartDate?: string;
+  reprogrammingRules?: Record<string, unknown>;
+  iofAmount: number;
+  tacAmount: number;
+  companyId: string;
+  temporaryOverrides: TemporaryOverride[];
+  applyOverridesOnlyToFuture: boolean;
+  allowProjectionUpsert: boolean;
 }
 
-async function getIndexerRate(
-  supabaseClient: any, 
-  indexer?: string,
-  targetDate?: string
-): Promise<number> {
-  try {
-    const mappedIndexer = mapIndexerName(indexer);
-    
-    if (!mappedIndexer) {
-      console.log('No indexer specified or pre-fixed debt, using indexer rate = 0');
-      return 0;
-    }
-
-    console.log('Fetching indexer rate:', { indexer: mappedIndexer, targetDate });
-
-    // Build query based on whether we have a target date
-    let query = supabaseClient
-      .from('economic_indices')
-      .select('rate, reference_date')
-      .eq('index_type', mappedIndexer);
-
-    if (targetDate) {
-      // Get the rate for the closest date before or on target date
-      query = query
-        .lte('reference_date', targetDate)
-        .order('reference_date', { ascending: false });
-    } else {
-      // Get the latest rate
-      query = query.order('reference_date', { ascending: false });
-    }
-
-    const { data, error } = await query.limit(1).maybeSingle();
-
-    if (error) {
-      console.error('Error fetching indexer rate:', error);
-      return 0;
-    }
-
-    if (!data) {
-      console.log('No data found for indexer, using fallback rate = 0');
-      return 0;
-    }
-
-    console.log('Indexer rate found:', { 
-      rate: data.rate, 
-      date: data.reference_date,
-      forDate: targetDate || 'latest'
-    });
-    
-    return data.rate || 0;
-
-  } catch (error) {
-    console.error('Error in getIndexerRate:', error);
-    return 0;
-  }
-}
-
-async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabaseClient: any): Promise<Installment[]> {
+async function calculateAmortizationJS(
+  params: CalculationParams,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseClient: any
+): Promise<{ installments: Installment[]; rateRefs: RateRefRecord[] }> {
   const {
+    debtId,
     financedAmount,
     firstDueDate,
     lastDueDate,
@@ -275,17 +278,17 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
     interestRate,
     interestType,
     indexer,
-    indexerRate = 0,
     spreadRate = 0,
-    indexerStartDate,
-    reprogrammingRules = {},
+    companyId,
+    temporaryOverrides = [],
+    applyOverridesOnlyToFuture = false,
+    allowProjectionUpsert = false,
     iofAmount = 0,
     tacAmount = 0
   } = params;
 
-  // Determine if this is a post-fixed debt
   const isPostFixed = indexer && indexer !== 'Pré-fixado' && indexer !== 'PRE_FIXADO' && indexer !== 'prefixado';
-  
+
   console.log('Debt type:', {
     isPostFixed,
     indexer,
@@ -294,85 +297,86 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
   });
 
   // For pre-fixed, use the static rate
-  // For post-fixed, we'll fetch per-installment rates
-  const staticRate = indexerRate + spreadRate + interestRate;
-  console.log('Static rate composition:', { 
-    indexerRate, 
+  const staticRate = spreadRate + interestRate;
+  console.log('Static rate composition:', {
     nominalRate: interestRate,
     spreadRate,
-    staticRate 
+    staticRate
   });
 
   const firstDueDateObj = new Date(firstDueDate);
   const lastDueDateObj = new Date(lastDueDate);
-  
-  // Calculate total months between first and last due dates
-  const totalMonths = (lastDueDateObj.getFullYear() - firstDueDateObj.getFullYear()) * 12 + 
+
+  const totalMonths = (lastDueDateObj.getFullYear() - firstDueDateObj.getFullYear()) * 12 +
                      (lastDueDateObj.getMonth() - firstDueDateObj.getMonth()) + 1;
 
-  console.log('Period calculation:', { 
-    firstDueDate, 
-    lastDueDate, 
-    totalMonths 
+  console.log('Period calculation:', {
+    firstDueDate,
+    lastDueDate,
+    totalMonths
   });
 
   // For pre-fixed, calculate static monthly rate
   let staticMonthlyRate: number;
   if (interestType === 'annual') {
-    // Convert annual to effective monthly: (1 + annual)^(1/12) - 1
     staticMonthlyRate = Math.pow(1 + staticRate / 100, 1/12) - 1;
   } else {
-    // Monthly rate
     staticMonthlyRate = staticRate / 100;
   }
-  
+
   console.log('Static monthly rate:', staticMonthlyRate * 100 + '%');
 
-  // Initialize balances - do NOT add IOF/TAC to principal
   let remainingBalance = financedAmount;
   const installments: Installment[] = [];
+  const rateRefs: RateRefRecord[] = [];
 
-  // Calculate fixed amortization for SAC or installment for PRICE pre-fixed
   let fixedAmortization = 0;
   let fixedInstallment = 0;
-  
+
   if (calculationTable === 'SAC') {
-    // SAC: Fixed amortization based on financed amount only
     fixedAmortization = financedAmount / totalMonths;
   } else if (calculationTable === 'PRICE' && !isPostFixed) {
-    // PRICE pre-fixed: Calculate fixed installment (no IOF/TAC in principal)
     if (staticMonthlyRate > 0) {
-      fixedInstallment = financedAmount * (staticMonthlyRate * Math.pow(1 + staticMonthlyRate, totalMonths)) / 
+      fixedInstallment = financedAmount * (staticMonthlyRate * Math.pow(1 + staticMonthlyRate, totalMonths)) /
                         (Math.pow(1 + staticMonthlyRate, totalMonths) - 1);
     } else {
-      // Zero interest rate case
       fixedInstallment = financedAmount / totalMonths;
     }
   }
-  // For PRICE post-fixed, we calculate installment dynamically per month (no fixedInstallment)
+
+  const releaseDate = shiftMonthISO(firstDueDate, -1);
 
   for (let i = 1; i <= totalMonths; i++) {
-    // Calculate due date for this installment
     const installmentDate = new Date(firstDueDateObj);
     installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
     const dueDateStr = installmentDate.toISOString().split('T')[0];
 
+    // Determine period for rate resolution
+    const prevDueDateStr = i === 1 ? releaseDate : shiftMonthISO(dueDateStr, -1);
+
     // Get effective rate for this installment
     let effectiveMonthlyRate = staticMonthlyRate;
     let effectiveRatePercent = staticRate;
-    
+    let rateResolution: RateResolution | null = null;
+
     if (isPostFixed) {
-      // For post-fixed, get rate specific to this installment date
-      effectiveRatePercent = await getEffectiveRateForDate(
+      rateResolution = await resolveIndexerRate({
         supabaseClient,
+        companyId,
         indexer,
-        dueDateStr,
-        spreadRate || 0
-      );
+        periodStart: prevDueDateStr,
+        periodEnd: dueDateStr,
+        spreadRate: spreadRate || 0,
+        temporaryOverrides,
+        applyOverridesOnlyToFuture,
+        allowProjectionUpsert
+      });
+
+      effectiveRatePercent = rateResolution.effectiveMonthlyRate;
       effectiveMonthlyRate = effectiveRatePercent / 100;
-      
+
       if (i === 1 || i === totalMonths || i % 12 === 0) {
-        console.log(`Installment ${i} (${dueDateStr}): effective rate = ${effectiveRatePercent.toFixed(4)}%`);
+        console.log(`Installment ${i} (${dueDateStr}): effective rate = ${effectiveRatePercent.toFixed(4)}%, source = ${rateResolution.source}`);
       }
     }
 
@@ -386,8 +390,7 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
     if (calculationTable === 'SAC') {
       amortizationAmount = fixedAmortization;
       installmentAmount = amortizationAmount + interestAmount;
-      
-      // Adjust last installment to ensure zero balance
+
       if (i === totalMonths) {
         amortizationAmount = remainingBalance;
         installmentAmount = amortizationAmount + interestAmount;
@@ -395,37 +398,30 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
     } else {
       // PRICE
       if (isPostFixed) {
-        // PRICE post-fixed: Calculate installment dynamically for each month
         const nRest = totalMonths - i + 1;
         if (effectiveMonthlyRate > 0) {
-          installmentAmount = remainingBalance * (effectiveMonthlyRate * Math.pow(1 + effectiveMonthlyRate, nRest)) / 
+          installmentAmount = remainingBalance * (effectiveMonthlyRate * Math.pow(1 + effectiveMonthlyRate, nRest)) /
                              (Math.pow(1 + effectiveMonthlyRate, nRest) - 1);
         } else {
           installmentAmount = remainingBalance / nRest;
         }
         amortizationAmount = installmentAmount - interestAmount;
-        
-        // Ensure non-negative amortization
         amortizationAmount = Math.max(amortizationAmount, 0);
-        
-        // Log for audit
+
         if (i === 1 || i === 12 || i === totalMonths || i % 12 === 0) {
           console.log(`PRICE post-fixed installment ${i}: rate=${(effectiveMonthlyRate * 100).toFixed(4)}%, installment=${installmentAmount.toFixed(2)}, amortization=${amortizationAmount.toFixed(2)}, balance=${remainingBalance.toFixed(2)}`);
         }
       } else {
-        // PRICE pre-fixed: Fixed installment
         installmentAmount = fixedInstallment;
         amortizationAmount = installmentAmount - interestAmount;
       }
-      
-      // Adjust last installment to ensure zero balance
+
       if (i === totalMonths || amortizationAmount >= remainingBalance) {
         amortizationAmount = remainingBalance;
         installmentAmount = amortizationAmount + interestAmount;
       }
     }
 
-    // Ensure amortization doesn't exceed remaining balance
     if (amortizationAmount > remainingBalance) {
       amortizationAmount = remainingBalance;
       installmentAmount = amortizationAmount + interestAmount;
@@ -437,32 +433,51 @@ async function calculateAmortizationJS(params: Omit<DebtData, 'debtId'>, supabas
       principal_balance: Number(remainingBalance.toFixed(2)),
       amortization: Number(amortizationAmount.toFixed(2)),
       interest_amount: Number(interestAmount.toFixed(2)),
-      indexer_rate: Number(indexerRate.toFixed(4)),
+      indexer_rate: Number((rateResolution?.indexerRate ?? 0).toFixed(4)),
       installment_amount: Number(installmentAmount.toFixed(2)),
-      days_in_period: 30, // Standard monthly period
+      days_in_period: 30,
       effective_rate: isPostFixed ? Number(effectiveRatePercent.toFixed(4)) : undefined
     });
 
-    // Update remaining balance
+    // Save rate ref for post-fixed debts
+    if (isPostFixed && rateResolution) {
+      const mappedIndexer = indexer!.toUpperCase().includes('CDI') ? 'CDI' :
+                           indexer!.toUpperCase().includes('SELIC') ? 'SELIC' :
+                           indexer!.toUpperCase().includes('IPCA') ? 'IPCA' : indexer!;
+
+      rateRefs.push({
+        company_id: companyId,
+        debt_id: debtId,
+        installment_number: i,
+        index_type: mappedIndexer,
+        period_start: prevDueDateStr,
+        period_end: dueDateStr,
+        rate: Number(rateResolution.indexerRate.toFixed(6)),
+        rate_type: rateResolution.rateType,
+        source: rateResolution.source,
+        scenario_label: rateResolution.source === 'cenario_temporario' ? 'Temporário' : 'Base',
+        source_reference_date: rateResolution.sourceReferenceDate
+      });
+    }
+
     remainingBalance -= amortizationAmount;
 
-    // Stop if balance is paid off
     if (remainingBalance <= 0.01) {
       break;
     }
   }
 
-  console.log('Final calculation result:', { 
-    totalInstallments: installments.length, 
-    finalBalance: remainingBalance.toFixed(2) 
+  console.log('Final calculation result:', {
+    totalInstallments: installments.length,
+    finalBalance: remainingBalance.toFixed(2),
+    rateRefsCount: rateRefs.length
   });
 
-  return installments;
+  return { installments, rateRefs };
 }
 
 /**
  * Calculate CET (Custo Efetivo Total) using IRR method
- * CET = Internal Rate of Return considering all costs
  */
 function calculateCET(params: {
   initialAmount: number;
@@ -472,19 +487,17 @@ function calculateCET(params: {
   startDate: string;
 }): { monthlyRate: number; annualRate: number; converged: boolean } {
   const { initialAmount, iofAmount, tacAmount, installments, startDate } = params;
-  
-  // Net amount received by the borrower (after IOF and TAC)
+
   const netAmount = initialAmount - iofAmount - tacAmount;
-  
-  // Build cash flows: initial inflow (negative) + installment outflows (positive)
+
   const cashFlows = [
-    { date: new Date(startDate), amount: -netAmount }, // What the borrower actually receives
+    { date: new Date(startDate), amount: -netAmount },
     ...installments.map(inst => ({
       date: new Date(inst.due_date),
-      amount: inst.installment_amount // Total payment including interest
+      amount: inst.installment_amount
     }))
   ];
-  
+
   console.log('🔍 CET Calculation:', {
     initialAmount: initialAmount.toFixed(2),
     iofAmount: iofAmount.toFixed(2),
@@ -493,72 +506,66 @@ function calculateCET(params: {
     totalPayments: installments.reduce((sum, inst) => sum + inst.installment_amount, 0).toFixed(2),
     installmentsCount: installments.length
   });
-  
-  // Calculate IRR using Newton-Raphson method
+
   const start = new Date(startDate);
-  let annualRate = 0.10; // Initial guess: 10% annual
+  let annualRate = 0.10;
   const tolerance = 0.000001;
   const maxIterations = 1000;
-  
+
   for (let i = 0; i < maxIterations; i++) {
     let npv = 0;
     let npvDerivative = 0;
-    
-    // Calculate NPV and its derivative
+
     cashFlows.forEach(cf => {
       const days = (cf.date.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
       const years = days / 365.25;
       const discountFactor = Math.pow(1 + annualRate, years);
-      
+
       npv += cf.amount / discountFactor;
       npvDerivative -= cf.amount * years / (discountFactor * (1 + annualRate));
     });
-    
-    // Check for convergence
+
     if (Math.abs(npv) < tolerance) {
       const monthlyRate = Math.pow(1 + annualRate, 1/12) - 1;
-      
+
       console.log('✅ CET Converged:', {
         iterations: i,
         annualRate: (annualRate * 100).toFixed(4) + '%',
         monthlyRate: (monthlyRate * 100).toFixed(4) + '%',
         finalNPV: npv.toFixed(8)
       });
-      
+
       return {
         monthlyRate: monthlyRate * 100,
         annualRate: annualRate * 100,
         converged: true
       };
     }
-    
-    // Newton-Raphson update
+
     if (Math.abs(npvDerivative) < tolerance) {
       console.warn('⚠️ CET calculation: derivative too small');
       break;
     }
-    
+
     const newRate = annualRate - npv / npvDerivative;
-    
-    // Limit rate change to prevent divergence
+
     const maxChange = Math.abs(annualRate) * 0.1 + 0.01;
     if (Math.abs(newRate - annualRate) > maxChange) {
       annualRate = annualRate + Math.sign(newRate - annualRate) * maxChange;
     } else {
       annualRate = newRate;
     }
-    
-    // Keep rate in reasonable range
+
     annualRate = Math.max(-0.5, Math.min(5.0, annualRate));
   }
-  
+
   const monthlyRate = Math.pow(1 + annualRate, 1/12) - 1;
-  
+
   console.error('❌ CET did not converge:', {
     finalAnnualRate: (annualRate * 100).toFixed(4) + '%',
     finalMonthlyRate: (monthlyRate * 100).toFixed(4) + '%'
   });
-  
+
   return {
     monthlyRate: monthlyRate * 100,
     annualRate: annualRate * 100,

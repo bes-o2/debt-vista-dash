@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { CalculationInfoPopover } from "@/components/CalculationInfoPopover";
+import { CalculationRuleKeys } from "@/lib/calculationRules";
 import type {
   DashboardWidgetConfigKey,
   DashboardWidgetConfig,
@@ -41,7 +43,13 @@ interface DashboardWidgetShellProps {
 }
 
 const hasConfig = (widget: DashboardWidgetModel, key: DashboardWidgetConfigKey) =>
-  widget.definition.allowedConfigs.includes(key);
+  widget.definition.settingsSchema.includes(key);
+
+const WIDGET_CALCULATION_RULE_MAP: Record<string, CalculationRuleKeys> = {
+  "saldo-devedor-banco": CalculationRuleKeys.OUTSTANDING_BALANCE,
+  "perfil-divida": CalculationRuleKeys.DEBT_PROFILE,
+  "comparativo-bancos": CalculationRuleKeys.BANK_COMPARISON,
+};
 
 export function DashboardWidgetShell({
   widget,
@@ -78,12 +86,17 @@ export function DashboardWidgetShell({
         )}
       >
         <div className="min-w-0">
-          <h2
-            id={`${contentId}-title`}
-            className="text-base font-semibold leading-tight text-foreground"
-          >
-            {title}
-          </h2>
+          <div className="flex items-center gap-1.5">
+            <h2
+              id={`${contentId}-title`}
+              className="text-base font-semibold leading-tight text-foreground"
+            >
+              {title}
+            </h2>
+            {WIDGET_CALCULATION_RULE_MAP[definition.id] && (
+              <CalculationInfoPopover ruleKey={WIDGET_CALCULATION_RULE_MAP[definition.id]} />
+            )}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {definition.description}
           </p>
@@ -112,39 +125,43 @@ export function DashboardWidgetShell({
           >
             <ChevronDown className="h-4 w-4" />
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 transition-transform active:scale-[0.96]"
-            onClick={onToggleCollapsed}
-            aria-expanded={!state.collapsed}
-            aria-controls={contentId}
-            aria-label={state.collapsed ? `Expandir ${title}` : `Recolher ${title}`}
-          >
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 transition-transform duration-200",
-                !state.collapsed && "rotate-180",
-              )}
-            />
-          </Button>
+          {definition.canCollapse && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 transition-transform active:scale-[0.96]"
+              onClick={onToggleCollapsed}
+              aria-expanded={!state.collapsed}
+              aria-controls={contentId}
+              aria-label={state.collapsed ? `Expandir ${title}` : `Recolher ${title}`}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  !state.collapsed && "rotate-180",
+                )}
+              />
+            </Button>
+          )}
           <WidgetSettingsPopover
             widget={widget}
             bankOptions={bankOptions}
             onConfigChange={onConfigChange}
             onResetConfig={onResetConfig}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 text-muted-foreground transition-transform hover:text-foreground active:scale-[0.96]"
-            onClick={onHide}
-            aria-label={`Ocultar ${title}`}
-          >
-            <EyeOff className="h-4 w-4" />
-          </Button>
+          {definition.canHide && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-muted-foreground transition-transform hover:text-foreground active:scale-[0.96]"
+              onClick={onHide}
+              aria-label={`Ocultar ${title}`}
+            >
+              <EyeOff className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 

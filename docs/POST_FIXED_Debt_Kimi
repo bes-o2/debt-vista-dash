@@ -1,0 +1,43 @@
+Plano executado. Resumo por fase:
+
+Fase 1 — Banco
+
+Migration criada: supabase/migrations/20260504000000_post_fixed_debt_support.sql
+Tabelas novas: company_index_projections (projeção base por empresa) e debt_installment_rate_refs (auditoria de taxa por parcela)
+Constraint única em economic_indices(index_type, reference_date) para upsert confiável
+RLS ativado em todas as tabelas novas; economic_indices leitura pública para autenticados
+Fase 2 — Ingestão BCB
+
+fetch-bcb-rates/index.ts corrigido para retornar o último valor por índice (evita limit(3) global que podia trazer 3 registros do mesmo índice)
+Upsert usa onConflict: 'index_type,reference_date' com ignoreDuplicates: false
+Fase 3 — Resolvedor de Taxa
+
+getEffectiveRate.ts completamente reescrito para trabalhar por período (periodStart / periodEnd)
+CDI/SELIC realizados: acumulação diária prod(1 + dailyRate/100) - 1
+IPCA realizado: taxa mensal de referência
+Futuro: busca projeção base da empresa em company_index_projections
+Cenário temporário: override em memória via temporaryOverrides
+Fase 4 — Cálculo de Parcelas
+
+calculate-amortization/index.ts agora recebe companyId e temporaryOverrides
+Cada parcela pós-fixada calcula periodStart/periodEnd e chama o resolvedor
+Auditoria (debt_installment_rate_refs) é salva a cada recálculo; registros antigos são apagados antes
+Chamadas corrigidas em useDebtInstallments, AmortizationTable e ConsolidatedAmortizationTable para passar companyId e spreadRate
+Fase 5 — Projeção Base por Empresa
+
+Hook novo: useCompanyIndexProjections.tsx
+Busca últimos valores BCB e projeta por empresa em company_index_projections
+Botão “Atualizar projeção base” sincroniza os 3 índices (CDI, SELIC, IPCA)
+Fase 6 — UI
+
+IndexProjectionsManager.tsx reescrito:
+Painel com últimos valores reais do BCB
+Painel com projeção base da empresa ativa
+Controles temporários de sensibilidade (ajuste em p.p. por índice)
+Botão Simular para aplicar cenário temporário; Resetar para voltar à base
+Cenário temporário persistido em localStorage via hook useTemporaryScenario.tsx e injetado automaticamente nas chamadas de cálculo
+Fase 7 — Verificação
+
+npm run build: sucesso ✅
+npm run lint: apenas problemas preexistentes (nenhum erro novo introduzido). Erros/warnings preexistentes estão em arquivos de UI shadcn, hooks legados e configurações — fora do escopo desta entrega.
+Próximo passo manual: aplicar a migration no Supabase (supabase migration up) e, se possível, regenerar types.ts via CLI (supabase gen types typescript). Os tipos já foram atualizados manualmente no arquivo para refletir as novas tabelas.

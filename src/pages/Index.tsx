@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye, RotateCcw, Activity } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -20,11 +20,23 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
+import { SensitivityDashboard } from "@/components/SensitivityDashboard";
 import { ConsolidatedAmortizationTable } from "@/components/ConsolidatedAmortizationTable";
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
 import { SettingsButton } from "@/components/SettingsButton";
+import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
 import { CompanySelector } from "@/components/CompanySelector";
 import { useCompany } from "@/hooks/useCompany";
 import { useDebts, type LegacyDebt } from "@/hooks/useDebts";
@@ -95,14 +107,11 @@ const Index = () => {
   useEffect(() => {
     const legacyData = localStorage.getItem('debts');
     if (legacyData && selectedCompany && debts.length === 0) {
-      // Show migration prompt
-      const shouldMigrate = window.confirm('Detectamos dados de dívidas salvos localmente. Deseja migrar estes dados para o banco de dados da empresa selecionada?');
-      if (shouldMigrate) {
-        migrateLegacyData();
-      }
+      setShowMigrationDialog(true);
     }
-  }, [selectedCompany, debts.length, migrateLegacyData]);
+  }, [selectedCompany, debts.length]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | undefined>(undefined);
   const [selectedDebt, setSelectedDebt] = useState<LegacyDebt | null>(null);
   const [selectedDebtsForTable, setSelectedDebtsForTable] = useState<string[]>([]);
@@ -148,7 +157,7 @@ const Index = () => {
       }))
       .filter((guarantee) => guarantee.value > 0);
   };
-  const syncDebtInstallments = async (debtId: string, debtData: DebtInput) => {
+  const syncDebtInstallments = async (debtId: string, debtData: DebtInput, companyId: string) => {
     const iofAmount = debtData.iof_rate != null
       ? (debtData.financed_amount * debtData.iof_rate) / 100
       : 0;
@@ -156,6 +165,7 @@ const Index = () => {
     const { error } = await supabase.functions.invoke("calculate-amortization", {
       body: {
         debtId,
+        companyId,
         financedAmount: debtData.financed_amount,
         firstDueDate: debtData.first_due_date,
         lastDueDate: debtData.last_due_date,
@@ -167,6 +177,7 @@ const Index = () => {
         indexerStartDate: debtData.indexer_start_date,
         iofAmount,
         tacAmount: debtData.additional_fees || 0,
+        persist: true,
       }
     });
 
@@ -194,7 +205,7 @@ const Index = () => {
       : await createDebtAsync(debtData);
 
     try {
-      await syncDebtInstallments(savedDebt.id, debtData);
+      await syncDebtInstallments(savedDebt.id, debtData, selectedCompany.id);
       await saveGuarantees({
         debtId: savedDebt.id,
         companyId: savedDebt.company_id,
@@ -386,7 +397,11 @@ const Index = () => {
         id: "resumo-executivo",
         title: "Resumo executivo",
         description: "KPIs principais da carteira e composição financeira.",
+        defaultOrder: 10,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "density", "filters"],
         allowedConfigs: ["title", "density", "filters"],
         component: (state) => (
           <DashboardStats
@@ -405,7 +420,11 @@ const Index = () => {
         id: "saldo-devedor-banco",
         title: "Saldo devedor por banco",
         description: "Evolução do saldo, PMT e alívio de caixa por credor.",
+        defaultOrder: 20,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "horizon", "density", "filters"],
         allowedConfigs: ["title", "horizon", "density", "filters"],
         defaultConfig: { horizon: "12m" },
         component: (state, context) => (
@@ -425,7 +444,11 @@ const Index = () => {
         id: "perfil-divida",
         title: "Perfil da dívida",
         description: "Distribuição de amortização em curto e longo prazo.",
+        defaultOrder: 30,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "density", "filters"],
         allowedConfigs: ["title", "density", "filters"],
         component: (state) => (
           <DebtProfileChart
@@ -442,7 +465,11 @@ const Index = () => {
         id: "comparativo-bancos",
         title: "Comparativo por banco",
         description: "Saldo, juros financiados e CET por instituição.",
+        defaultOrder: 40,
         defaultSize: "full",
+        canCollapse: true,
+        canHide: true,
+        settingsSchema: ["title", "viewMode", "density", "filters"],
         allowedConfigs: ["title", "viewMode", "density", "filters"],
         defaultConfig: { viewMode: "total" },
         component: (state, context) => (
@@ -475,6 +502,7 @@ const Index = () => {
     moveWidget: moveDashboardWidget,
     updateWidget: updateDashboardWidget,
     resetWidgetConfig,
+    resetLayout: resetDashboardLayout,
   } = useDashboardWidgets(
     dashboardWidgetDefinitions,
     user?.id,
@@ -574,6 +602,7 @@ const Index = () => {
               <CompanySelector />
               <SettingsButton />
               <ThemeToggle />
+              <ChangePasswordDialog />
               <Button onClick={signOut} variant="outline" className="hover:bg-accent">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
@@ -586,28 +615,47 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <PieChart className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="debts" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Cadastros
-            </TabsTrigger>
-            <TabsTrigger value="table" className="flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
-              Tabela
-            </TabsTrigger>
-            <TabsTrigger value="analysis" className="flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
-              Fluxo de Pagamento
-            </TabsTrigger>
-          </TabsList>
+          <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <TabsList className="flex w-max min-w-full justify-start gap-1 sm:grid sm:w-full sm:grid-cols-5">
+              <TabsTrigger value="dashboard" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <PieChart className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Dashboard</span>
+              </TabsTrigger>
+              <TabsTrigger value="debts" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <BarChart3 className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Cadastros</span>
+              </TabsTrigger>
+              <TabsTrigger value="table" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <Calculator className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Tabela</span>
+              </TabsTrigger>
+              <TabsTrigger value="analysis" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <Calculator className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Fluxo de Pagamento</span>
+              </TabsTrigger>
+              <TabsTrigger value="sensitivity" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <Activity className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Sensibilidade</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
             <TabsContent value="dashboard" className="space-y-6">
               {/* Global Filters */}
               <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onClearFilters={handleClearGlobalFilters} />
+
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 transition-transform active:scale-[0.96]"
+                  onClick={resetDashboardLayout}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Restaurar layout
+                </Button>
+              </div>
 
               {hiddenDashboardWidgets.length > 0 && (
                 <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -861,6 +909,10 @@ const Index = () => {
           <TabsContent value="analysis" className="space-y-6">
             <CashFlowAnalysis debts={debts} preSelectedDebt={preSelectedDebtForAnalysis} onClearPreSelection={() => setPreSelectedDebtForAnalysis(null)} periodMode="vigencia" globalStartDate={globalStartDate} globalEndDate={globalEndDate} />
           </TabsContent>
+
+          <TabsContent value="sensitivity" className="space-y-6">
+            <SensitivityDashboard debts={debts} />
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -890,6 +942,28 @@ const Index = () => {
         targets={feedbackTargets}
         userId={user?.id}
       />
+
+      <AlertDialog open={showMigrationDialog} onOpenChange={setShowMigrationDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Migrar dados locais?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Detectamos dados de dívidas salvos localmente. Deseja migrar estes dados para o banco de dados da empresa selecionada?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowMigrationDialog(false)}>Não, ignorar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowMigrationDialog(false);
+                migrateLegacyData();
+              }}
+            >
+              Sim, migrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>;
 };
 export default Index;

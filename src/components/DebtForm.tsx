@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,6 +15,8 @@ import { Debt, DebtInput } from "@/hooks/useDebts";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveDebtBankName } from "@/lib/debtBank";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
+import { useCompany } from "@/hooks/useCompany";
+import { useBRLInput, BRL_INPUT_PROPS } from "@/hooks/useBRLInput";
 import {
   DebtGuaranteeInput,
   GuaranteeType,
@@ -36,22 +39,6 @@ interface DebtFormProps {
     sourceName?: string;
   };
 }
-
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value / 100);
-};
-
-const parseCurrency = (value: string): number => {
-  const numericValue = value.replace(/[^\d]/g, "");
-  return parseInt(numericValue, 10) || 0;
-};
-
-const formatCurrencyInput = (value: string): string => {
-  return formatCurrency(parseCurrency(value));
-};
 
 const formatDateForSave = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -88,6 +75,7 @@ const createEmptyGuarantee = (): DebtGuaranteeInput => ({
 
 export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGuarantees, importReview }: DebtFormProps) => {
   const { banks, addBank } = useBanks();
+  const { selectedCompany } = useCompany();
   const { latestRates, isLoading: isLoadingRates } = useEconomicIndices();
   const { guarantees: existingGuarantees } = useDebtGuarantees(debt?.id);
   const [newBankName, setNewBankName] = useState("");
@@ -111,11 +99,12 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     indexerStartDate: undefined as Date | undefined,
   });
 
-  const [financedAmountDisplay, setFinancedAmountDisplay] = useState("R$ 0,00");
-  const [iofAmountDisplay, setIofAmountDisplay] = useState("R$ 0,00");
-  const [tacAmountDisplay, setTacAmountDisplay] = useState("R$ 0,00");
+  const financedBRL = useBRLInput("");
+  const iofBRL = useBRLInput("");
+  const tacBRL = useBRLInput("");
+  const [interestRateStr, setInterestRateStr] = useState("");
+  const [spreadRateStr, setSpreadRateStr] = useState("");
   const [guarantees, setGuarantees] = useState<DebtGuaranteeInput[]>([]);
-  const [guaranteeValueDisplays, setGuaranteeValueDisplays] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const bankOptions = formData.bank && !banks.some((bank) => bank.name.toLowerCase() === formData.bank.toLowerCase())
     ? [{ id: "imported-bank", name: formData.bank, created_at: "", updated_at: "" }, ...banks]
@@ -166,11 +155,12 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
       contractNumber: "",
       indexerStartDate: undefined,
     });
-    setFinancedAmountDisplay("R$ 0,00");
-    setIofAmountDisplay("R$ 0,00");
-    setTacAmountDisplay("R$ 0,00");
+    financedBRL.setValue("");
+    iofBRL.setValue("");
+    tacBRL.setValue("");
+    setInterestRateStr("");
+    setSpreadRateStr("");
     setGuarantees([]);
-    setGuaranteeValueDisplays([]);
     setNewBankName("");
     setShowNewBankInput(false);
   }, [banks]);
@@ -199,14 +189,27 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
       contractNumber: debtInput.description || debtInput.title || "",
       indexerStartDate: debtInput.indexer_start_date ? parseLocalDate(debtInput.indexer_start_date) : undefined,
     });
-    setFinancedAmountDisplay(formatCurrency(debtInput.financed_amount * 100));
-    setIofAmountDisplay(iofAmount ? formatCurrency(iofAmount * 100) : "R$ 0,00");
-    setTacAmountDisplay(debtInput.additional_fees ? formatCurrency(debtInput.additional_fees * 100) : "R$ 0,00");
+    financedBRL.setValue(
+      debtInput.financed_amount > 0
+        ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(debtInput.financed_amount)
+        : ""
+    );
+    iofBRL.setValue(
+      iofAmount > 0
+        ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(iofAmount)
+        : ""
+    );
+    tacBRL.setValue(
+      debtInput.additional_fees && debtInput.additional_fees > 0
+        ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(debtInput.additional_fees)
+        : ""
+    );
+    setInterestRateStr(debtInput.interest_rate > 0 ? String(debtInput.interest_rate).replace('.', ',') : "");
+    setSpreadRateStr((debtInput.spread_rate ?? 0) > 0 ? String(debtInput.spread_rate).replace('.', ',') : "");
     setGuarantees(nextGuarantees);
-    setGuaranteeValueDisplays(nextGuarantees.map((guarantee) => formatCurrency(guarantee.value * 100)));
     setNewBankName("");
     setShowNewBankInput(false);
-  }, [banks]);
+  }, [banks, financedBRL, iofBRL, tacBRL]);
 
   useEffect(() => {
     if (debt) {
@@ -232,9 +235,23 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         contractNumber: debt.description || "",
         indexerStartDate: debt.indexer_start_date ? new Date(debt.indexer_start_date) : undefined,
       });
-      setFinancedAmountDisplay(formatCurrency(debt.financed_amount * 100));
-      setIofAmountDisplay(debt.iof_rate ? formatCurrency(debt.iof_rate * 100) : "R$ 0,00");
-      setTacAmountDisplay(debt.additional_fees ? formatCurrency(debt.additional_fees * 100) : "R$ 0,00");
+      financedBRL.setValue(
+        debt.financed_amount > 0
+          ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(debt.financed_amount)
+          : ""
+      );
+      iofBRL.setValue(
+        debt.iof_rate && debt.iof_rate > 0
+          ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(debt.iof_rate)
+          : ""
+      );
+      tacBRL.setValue(
+        debt.additional_fees && debt.additional_fees > 0
+          ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(debt.additional_fees)
+          : ""
+      );
+      setInterestRateStr(debt.interest_rate > 0 ? String(debt.interest_rate).replace('.', ',') : "");
+      setSpreadRateStr((debt.spread_rate ?? 0) > 0 ? String(debt.spread_rate).replace('.', ',') : "");
       return;
     }
 
@@ -244,7 +261,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     }
 
     resetForm();
-  }, [debt, initialDebt, initialGuarantees, applyDebtInput, resetForm]);
+  }, [debt, initialDebt, initialGuarantees, applyDebtInput, resetForm, financedBRL, iofBRL, tacBRL]);
 
   useEffect(() => {
     if (!debt?.id) {
@@ -258,7 +275,6 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         description: guarantee.description,
       }))
     );
-    setGuaranteeValueDisplays(existingGuarantees.map((guarantee) => formatCurrency(guarantee.value * 100)));
   }, [debt?.id, existingGuarantees]);
 
   const handleAddNewBank = async () => {
@@ -284,12 +300,10 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
   const addGuarantee = () => {
     setGuarantees((prev) => [...prev, createEmptyGuarantee()]);
-    setGuaranteeValueDisplays((prev) => [...prev, "R$ 0,00"]);
   };
 
   const removeGuarantee = (index: number) => {
     setGuarantees((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
-    setGuaranteeValueDisplays((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
   const updateGuarantee = (index: number, updater: (guarantee: DebtGuaranteeInput) => DebtGuaranteeInput) => {
@@ -304,9 +318,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     }));
   };
 
-  const updateGuaranteeValue = (index: number, display: string, value: number) => {
+  const updateGuaranteeValue = (index: number, value: number) => {
     updateGuarantee(index, (guarantee) => ({ ...guarantee, value }));
-    setGuaranteeValueDisplays((prev) => prev.map((item, itemIndex) => (itemIndex === index ? display : item)));
   };
 
   const updateGuaranteeDescription = (index: number, description: string) => {
@@ -320,6 +333,15 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
       toast({
         title: "Verifique os campos obrigatórios",
         description: "Preencha os campos e valores válidos antes de salvar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedCompany?.id) {
+      toast({
+        title: "Empresa não selecionada",
+        description: "Selecione uma empresa antes de salvar o contrato.",
         variant: "destructive",
       });
       return;
@@ -344,6 +366,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
       const calculationResponse = await supabase.functions.invoke("calculate-amortization", {
         body: {
           debtId: debt?.id || "temp-id",
+          companyId: selectedCompany.id,
           financedAmount: formData.financedAmount,
           firstDueDate: formatDateForSave(firstDueDate),
           lastDueDate: formatDateForSave(formData.dueDate),
@@ -358,6 +381,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
               : undefined,
           iofAmount: formData.iofAmount || 0,
           tacAmount: formData.tacAmount || 0,
+          persist: false,
         },
       });
 
@@ -373,7 +397,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         onSave(
           {
             bank: formData.bank,
-            title: formData.bank,
+            title: debt?.title || formData.bank,
             description: formData.contractNumber || undefined,
             financed_amount: formData.financedAmount,
             first_due_date: formatDateForSave(firstDueDate),
@@ -522,13 +546,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
             </Label>
             <Input
               id="financedAmount"
-              value={financedAmountDisplay}
-              onChange={(e) => {
-                const formatted = formatCurrencyInput(e.target.value);
-                setFinancedAmountDisplay(formatted);
-                setFormData((prev) => ({ ...prev, financedAmount: parseCurrency(e.target.value) / 100 }));
+              {...BRL_INPUT_PROPS}
+              value={financedBRL.value}
+              onChange={financedBRL.handleChange}
+              onBlur={(e) => {
+                financedBRL.handleBlur(e);
+                setFormData((prev) => ({ ...prev, financedAmount: financedBRL.numericValue }));
               }}
-              placeholder="R$ 0,00"
+              placeholder="0,00"
               required
             />
           </div>
@@ -692,13 +717,21 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                 </Label>
                 <Input
                   id="spreadRate"
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={formData.spreadRate}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, spreadRate: parseFloat(e.target.value) || 0 }))
-                  }
+                  type="text"
+                  inputMode="decimal"
+                  value={spreadRateStr}
+                  onChange={(e) => {
+                    setSpreadRateStr(e.target.value);
+                    const parsed = parseFloat(e.target.value.replace(',', '.'));
+                    if (!isNaN(parsed)) {
+                      setFormData((prev) => ({ ...prev, spreadRate: parsed }));
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsed = parseFloat(spreadRateStr.replace(',', '.')) || 0;
+                    setFormData((prev) => ({ ...prev, spreadRate: parsed }));
+                    setSpreadRateStr(parsed > 0 ? String(parsed).replace('.', ',') : "");
+                  }}
                   placeholder="0,000"
                   required
                 />
@@ -739,13 +772,21 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                 </Label>
                 <Input
                   id="interestRate"
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  value={formData.interestRate}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, interestRate: parseFloat(e.target.value) || 0 }))
-                  }
+                  type="text"
+                  inputMode="decimal"
+                  value={interestRateStr}
+                  onChange={(e) => {
+                    setInterestRateStr(e.target.value);
+                    const parsed = parseFloat(e.target.value.replace(',', '.'));
+                    if (!isNaN(parsed)) {
+                      setFormData((prev) => ({ ...prev, interestRate: parsed }));
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsed = parseFloat(interestRateStr.replace(',', '.')) || 0;
+                    setFormData((prev) => ({ ...prev, interestRate: parsed }));
+                    setInterestRateStr(parsed > 0 ? String(parsed).replace('.', ',') : "");
+                  }}
                   placeholder="0,000"
                   required
                 />
@@ -775,13 +816,13 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                 </Label>
                 <Input
                   id="iofAmount"
-                  value={iofAmountDisplay}
-                  onChange={(e) => {
-                    const formatted = formatCurrencyInput(e.target.value);
-                    setIofAmountDisplay(formatted);
-                    setFormData((prev) => ({ ...prev, iofAmount: parseCurrency(e.target.value) / 100 }));
+                  {...BRL_INPUT_PROPS}
+                  value={iofBRL.value}
+                  onChange={iofBRL.handleChange}
+                  onBlur={(e) => {
+                    iofBRL.handleBlur(e);
+                    setFormData((prev) => ({ ...prev, iofAmount: iofBRL.numericValue }));
                   }}
-                  placeholder="R$ 0,00"
                 />
               </div>
 
@@ -791,13 +832,13 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                 </Label>
                 <Input
                   id="tacAmount"
-                  value={tacAmountDisplay}
-                  onChange={(e) => {
-                    const formatted = formatCurrencyInput(e.target.value);
-                    setTacAmountDisplay(formatted);
-                    setFormData((prev) => ({ ...prev, tacAmount: parseCurrency(e.target.value) / 100 }));
+                  {...BRL_INPUT_PROPS}
+                  value={tacBRL.value}
+                  onChange={tacBRL.handleChange}
+                  onBlur={(e) => {
+                    tacBRL.handleBlur(e);
+                    setFormData((prev) => ({ ...prev, tacAmount: tacBRL.numericValue }));
                   }}
-                  placeholder="R$ 0,00"
                 />
               </div>
             </div>
@@ -840,15 +881,17 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Valor</Label>
-                    <Input
+                    <CurrencyInput
                       className="h-9"
-                      value={guaranteeValueDisplays[index] ?? "R$ 0,00"}
-                      onChange={(e) => {
-                        const display = formatCurrencyInput(e.target.value);
-                        const value = parseCurrency(e.target.value) / 100;
-                        updateGuaranteeValue(index, display, value);
+                      value={
+                        guarantee.value > 0
+                          ? new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(guarantee.value)
+                          : ""
+                      }
+                      onValueChange={(_, numericValue) => {
+                        updateGuaranteeValue(index, numericValue);
                       }}
-                      placeholder="R$ 0,00"
+                      placeholder="0,00"
                     />
                   </div>
 

@@ -5,6 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Loader2, Calculator, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useCompany } from '@/hooks/useCompany';
+import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
 
 interface Debt {
   id: string;
@@ -17,6 +19,7 @@ interface Debt {
   interestRate: number;
   interestType: 'monthly' | 'annual';
   indexer?: string;
+  spreadRate?: number;
   iofAmount?: number;
   tacAmount?: number;
   contractNumber?: string;
@@ -79,6 +82,8 @@ export function ConsolidatedAmortizationTable({
     totalCurrentInstallment: 0
   });
   const { toast } = useToast();
+  const { selectedCompany } = useCompany();
+  const { toOverrides } = useTemporaryScenario();
   const debtIdsKey = useMemo(() => debts.map((debt) => debt.id).sort().join(','), [debts]);
   const startDateKey = startDate?.toISOString() ?? '';
   const endDateKey = endDate?.toISOString() ?? '';
@@ -198,6 +203,15 @@ export function ConsolidatedAmortizationTable({
       return;
     }
 
+    if (!selectedCompany?.id) {
+      toast({
+        title: "Empresa não selecionada",
+        description: "Selecione uma empresa para recalcular a tabela.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const allInstallments: { [key: string]: ConsolidatedInstallment[] } = {};
@@ -213,6 +227,7 @@ export function ConsolidatedAmortizationTable({
         const { data, error } = await supabase.functions.invoke('calculate-amortization', {
           body: {
             debtId: debt.id,
+            companyId: selectedCompany.id,
             financedAmount: debt.financedAmount,
             firstDueDate: firstDueDateStr,
             lastDueDate: debt.dueDate,
@@ -220,8 +235,11 @@ export function ConsolidatedAmortizationTable({
             interestRate: debt.interestRate,
             interestType: debt.interestType,
             indexer: debt.indexer,
+            spreadRate: debt.spreadRate || 0,
             iofAmount: debt.iofAmount || 0,
-            tacAmount: debt.tacAmount || 0
+            tacAmount: debt.tacAmount || 0,
+            temporaryOverrides: toOverrides(),
+            applyOverridesOnlyToFuture: true,
           }
         });
 
