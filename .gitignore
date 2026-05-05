@@ -19,7 +19,18 @@ dist-ssr
 .vercel
 graphify-out/
 supabase/.temp/
+supabase/supabase/
 *.local
+
+# Agent artifacts — não versionar
+.codex/
+.opencode/
+.agents/skills/*/
+!/.agents/skills/.gitkeep
+
+# Docs temporários / audit
+/docs/PROJECT_HEALTH_*
+/scripts/check-*.mjs
 
 # Editor directories and files
 .vscode/*
