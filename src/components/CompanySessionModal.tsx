@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/hooks/useCompany";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const DialogOverlay = React.forwardRef<
@@ -44,6 +45,7 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 export const CompanySessionModal: React.FC = () => {
+  const { user } = useAuth();
   const { isSessionModalOpen, setSelectedCompany, renewCompanySession } = useCompany();
   const { companies, loading, addCompany } = useCompanies();
 
@@ -88,7 +90,7 @@ export const CompanySessionModal: React.FC = () => {
   };
 
   return (
-    <DialogPrimitive.Root open={isSessionModalOpen} modal={true}>
+    <DialogPrimitive.Root open={isSessionModalOpen && !!user} modal={true}>
       <DialogContent
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
