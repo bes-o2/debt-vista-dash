@@ -737,6 +737,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                 />
                 <p className="text-xs text-muted-foreground">
                   Spread sobre a taxa do indexador ({formData.spreadType === "annual" ? "anual" : "mensal"})
+                  {debt ? " (valor salvo em a.a.)" : ""}
                 </p>
               </div>
             </div>
