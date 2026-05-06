@@ -210,7 +210,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     setGuarantees(nextGuarantees);
     setNewBankName("");
     setShowNewBankInput(false);
-  }, [banks, financedBRL, iofBRL, tacBRL]);
+  }, [banks]);
 
   useEffect(() => {
     if (debt) {
@@ -262,7 +262,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     }
 
     resetForm();
-  }, [debt, initialDebt, initialGuarantees, applyDebtInput, resetForm, financedBRL, iofBRL, tacBRL]);
+  }, [debt, initialDebt, initialGuarantees, applyDebtInput, resetForm]);
 
   useEffect(() => {
     if (!debt?.id) {

@@ -28,6 +28,7 @@ const Docs = () => {
               </ol>
             </nav>
             <p className="toc-foot">
+              <a href="/docs/decision-log">→ Decision Log (V2 × atual)</a><br />
               <a href="/">← voltar para o app</a>
             </p>
           </div>
