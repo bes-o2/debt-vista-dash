@@ -25,6 +25,7 @@ interface DashboardStatsProps {
   selectedDebtIds?: string[];
   onClearFilters?: () => void;
   density?: DashboardWidgetDensity;
+  cashPosition?: number;
 }
 
 function StatCardTooltipIcon({ tooltipKey, icon: Icon }: { tooltipKey: TooltipKeys; icon: React.ElementType }) {
@@ -127,6 +128,7 @@ export const DashboardStats = ({
   selectedDebtIds,
   onClearFilters,
   density = "default",
+  cashPosition = 0,
 }: DashboardStatsProps) => {
   const { metrics, isLoading } = useDashboardMetrics({
     startDate,
@@ -162,6 +164,7 @@ export const DashboardStats = ({
     `${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
   const currentOutstandingBalance = metrics?.currentOutstandingBalance ?? 0;
+  const netDebt = currentOutstandingBalance - cashPosition;
   const totalCurrentPMT = metrics?.currentPMT ?? 0;
   const averageMonthlyCET = metrics?.averageMonthlyCET ?? 0;
   const averageRemainingTerm = metrics?.averageRemainingTerm ?? 0;
@@ -212,13 +215,13 @@ export const DashboardStats = ({
       },
       netDebt: {
         grossDebtAmount: currentOutstandingBalance,
-        cashAndEquivalents: 0,
-        netDebtAmount: currentOutstandingBalance,
+        cashAndEquivalents: cashPosition,
+        netDebtAmount: netDebt,
       },
     }).alerts
       .filter((alert) => alert.category !== "divida_liquida")
       .slice(0, 5);
-  }, [currentOutstandingBalance, metrics]);
+  }, [cashPosition, currentOutstandingBalance, metrics, netDebt]);
 
   const stats: Array<{
     title: string;
@@ -228,7 +231,7 @@ export const DashboardStats = ({
     bgColor: string;
     iconColor: string;
     borderColor: string;
-    tooltipKey: TooltipKeys;
+    tooltipKey?: TooltipKeys;
     calculationRuleKey?: CalculationRuleKeys;
     customValue?: React.ReactNode;
   }> = [
@@ -242,6 +245,20 @@ export const DashboardStats = ({
       borderColor: "border-primary/20",
       tooltipKey: TooltipKeys.CURRENT_OUTSTANDING_BALANCE,
       calculationRuleKey: CalculationRuleKeys.CURRENT_OUTSTANDING_BALANCE,
+    },
+    {
+      title: "Dívida Líquida",
+      value: formatCurrency(netDebt),
+      customValue: (
+        <div className={`${valueClass} ${netDebt < 0 ? "text-emerald-500" : ""}`}>
+          {formatCurrency(netDebt)}
+        </div>
+      ),
+      icon: DollarSign,
+      trend: netDebt < 0 ? "normal" : null,
+      bgColor: "bg-card",
+      iconColor: netDebt < 0 ? "text-emerald-500" : "text-primary",
+      borderColor: netDebt < 0 ? "border-emerald-500/30" : "border-primary/20",
     },
     {
       title: "Parcela Corrente",
@@ -310,32 +327,40 @@ export const DashboardStats = ({
     <div className={sectionSpacingClass}>
       {/* Stats Cards */}
       <TooltipProvider>
-        <div className={`grid ${gridGapClass} md:grid-cols-2 lg:grid-cols-5`}>
-          {stats.map((stat, index) => (
-            <Card
-              key={index}
-              className={`group ${stat.bgColor} ${stat.borderColor} border hover:shadow-card transition-shadow duration-300`}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-1.5">
-                  <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  {stat.calculationRuleKey && (
-                    <CalculationInfoPopover ruleKey={stat.calculationRuleKey} />
+        <div className={`grid ${gridGapClass} md:grid-cols-2 lg:grid-cols-6`}>
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+
+            return (
+              <Card
+                key={index}
+                className={`group ${stat.bgColor} ${stat.borderColor} border hover:shadow-card transition-shadow duration-300`}
+              >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                      {stat.title}
+                    </CardTitle>
+                    {stat.calculationRuleKey && (
+                      <CalculationInfoPopover ruleKey={stat.calculationRuleKey} />
+                    )}
+                  </div>
+                  {stat.tooltipKey ? (
+                    <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={Icon} />
+                  ) : (
+                    <Icon className={`ml-auto h-4 w-4 ${stat.iconColor}`} />
                   )}
-                </div>
-                <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={stat.icon} />
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="h-9 w-24 rounded bg-muted animate-pulse" />
-                ) : (
-                  stat.customValue ?? <div className={valueClass}>{stat.value}</div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="h-9 w-24 rounded bg-muted animate-pulse" />
+                  ) : (
+                    stat.customValue ?? <div className={valueClass}>{stat.value}</div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </TooltipProvider>
 
