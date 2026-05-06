@@ -231,7 +231,7 @@ export const DashboardStats = ({
     bgColor: string;
     iconColor: string;
     borderColor: string;
-    tooltipKey?: TooltipKeys;
+    tooltipKey: TooltipKeys;
     calculationRuleKey?: CalculationRuleKeys;
     customValue?: React.ReactNode;
   }> = [
@@ -245,20 +245,6 @@ export const DashboardStats = ({
       borderColor: "border-primary/20",
       tooltipKey: TooltipKeys.CURRENT_OUTSTANDING_BALANCE,
       calculationRuleKey: CalculationRuleKeys.CURRENT_OUTSTANDING_BALANCE,
-    },
-    {
-      title: "Dívida Líquida",
-      value: formatCurrency(netDebt),
-      customValue: (
-        <div className={`${valueClass} ${netDebt < 0 ? "text-emerald-500" : ""}`}>
-          {formatCurrency(netDebt)}
-        </div>
-      ),
-      icon: DollarSign,
-      trend: netDebt < 0 ? "normal" : null,
-      bgColor: "bg-card",
-      iconColor: netDebt < 0 ? "text-emerald-500" : "text-primary",
-      borderColor: netDebt < 0 ? "border-emerald-500/30" : "border-primary/20",
     },
     {
       title: "Parcela Corrente",
@@ -325,9 +311,36 @@ export const DashboardStats = ({
 
   return (
     <div className={sectionSpacingClass}>
+      {metrics != null && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${netDebt < 0 ? "bg-emerald-500/10" : "bg-primary/10"}`}>
+              <DollarSign className={`h-4 w-4 ${netDebt < 0 ? "text-emerald-500" : "text-primary"}`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-eyebrow text-muted-foreground">
+                Dívida Líquida
+              </p>
+              <p className={`text-xl font-bold tabular-nums ${netDebt < 0 ? "text-emerald-500" : "text-foreground"}`}>
+                {formatCurrency(netDebt)}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:justify-end">
+            <span className="tabular-nums">
+              Saldo: {formatCurrency(currentOutstandingBalance)}
+            </span>
+            <span className="hidden text-border sm:inline">|</span>
+            <span className="tabular-nums">
+              Caixa: {formatCurrency(cashPosition)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <TooltipProvider>
-        <div className={`grid ${gridGapClass} md:grid-cols-2 lg:grid-cols-6`}>
+        <div className={`grid ${gridGapClass} md:grid-cols-2 lg:grid-cols-5`}>
           {stats.map((stat, index) => {
             const Icon = stat.icon;
 
@@ -345,11 +358,7 @@ export const DashboardStats = ({
                       <CalculationInfoPopover ruleKey={stat.calculationRuleKey} />
                     )}
                   </div>
-                  {stat.tooltipKey ? (
-                    <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={Icon} />
-                  ) : (
-                    <Icon className={`ml-auto h-4 w-4 ${stat.iconColor}`} />
-                  )}
+                  <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={Icon} />
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
