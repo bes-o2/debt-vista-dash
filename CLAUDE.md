@@ -171,7 +171,11 @@ Componentes antigos consomem `LegacyDebt`; componentes novos podem consumir o fo
 
 ## Onde procurar
 
+- **Convenções financeiras** (saldo, spread, CET, datas, timezone): `docs/FINANCIAL_CONVENTIONS.md`
 - Cálculo financeiro (SAC, PRICE, CET, TIR): `src/lib/cetCalculator.ts`, `src/lib/irrCalculator.ts`, `supabase/functions/calculate-amortization/`
+- Conversão de taxas (a.a. ↔ a.m., base 252): `src/lib/rateUtils.ts`
+- Saldo analítico e PMT fallback (canônico): `src/lib/balanceCalculator.ts`
+- Fonte de taxa por parcela pós-fixada: `src/hooks/useInstallmentRateRefs.ts`
 - Tooltips explicativos reutilizados: `src/lib/tooltips.ts`
 - Filtros globais do dashboard: `src/components/GlobalFilters.tsx`
 - Cards do dashboard: `DashboardStats`, `NetDebtCard`, `DebtProfileChart`, `OutstandingBalanceChart`

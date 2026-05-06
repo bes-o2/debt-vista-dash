@@ -42,17 +42,19 @@ Soma os saldos de todos os contratos.`,
   },
   [CalculationRuleKeys.CURRENT_PAYMENT]: {
     title: "Parcela Corrente (PMT)",
-    description: "Soma das próximas parcelas mensais a vencer dos contratos filtrados.",
+    description: "Soma das próximas parcelas mensais a vencer dos contratos filtrados. Para PRICE pós-fixado, a PMT é recalculada a cada período — não é constante.",
     pseudocode: `Para cada contrato:
   Se houver parcelas reais:
     pmt = total_amount da próxima parcela com due_date ≥ hoje
   Senão (analítico):
-    taxaMensal = cadastro mensal ou convertida
+    taxaMensal = getEffectiveMonthlyRate(interest_rate, spread_rate, rate_type)  ← rateUtils.ts
     prazoTotal = meses entre releaseDate e dueDate
-    saldoAtual = cálculo analítico do saldo devedor
+    saldoAtual = getAnalyticalOutstanding(debt, hoje)  ← balanceCalculator.ts
 
-    Se PRICE:
-      pmt = VP × (i×(1+i)^n) / ((1+i)^n − 1)
+    Se PRICE pré-fixado:
+      pmt = VP × (i×(1+i)^n) / ((1+i)^n − 1)  ← constante
+    Se PRICE pós-fixado:
+      PMT recalculada por período com saldo de abertura e taxa efetiva do período (D3)
     Se SAC:
       amortização = financiado / prazoTotal
       pmt = amortização + (saldoAtual × i)
@@ -75,19 +77,17 @@ Média = acumulador / pesoTotal`,
   },
   [CalculationRuleKeys.AVERAGE_MONTHLY_CET]: {
     title: "CET Média Mensal",
-    description: "Custo Efetivo Total ponderado pelo saldo devedor. Tenta TIR; fallback para taxa cadastrada.",
+    description: "Custo Efetivo Total ponderado pelo saldo devedor atual. Lê cet_monthly_rate persistido pela Edge Function; fallback para taxa cadastrada quando cet_status ≠ 'calculado'.",
     pseudocode: `Para cada contrato:
-  Tenta calcular CET real via TIR (fluxo de caixa):
-    fluxo[0] = −(financiado − IOF − TAC)
-    fluxo[t] = parcela_t (data baseada em due_date)
-    TIR diária → converte para mensal e anual
+  Se cet_status = 'calculado':
+    cet = cet_monthly_rate (persistido pela Edge Function)
+  Senão (pendente ou não convergiu):
+    cet = taxa mensal efetiva do cadastro  ← rotulado como estimativa
+    contratos com cet_status = 'nao_convergiu' exibem "—" na UI
 
-  Se não convergir ou não houver parcelas:
-    usa taxa mensal efetiva do cadastro
+  Pondera pelo saldo devedor atual do contrato (D4: não pelo valor financiado)
 
-  Pondera pelo SaldoDevedorAtual do contrato
-
-CET média mensal = Σ(CET_mensal × Saldo) / Σ(Saldo)`,
+CET média mensal = Σ(CET_mensal × SaldoAtual) / Σ(SaldoAtual)`,
   },
   [CalculationRuleKeys.AVERAGE_SPREAD]: {
     title: "Spread Médio sobre CDI",
