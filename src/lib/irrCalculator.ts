@@ -30,10 +30,14 @@ function calculateNPV(cashFlows: CashFlow[], annualRate: number, startDate: Date
 /**
  * Calculate NPV derivative for Newton-Raphson
  */
-function calculateNPVDerivative(cashFlows: CashFlow[], annualRate: number, startDate: Date, delta: number = 0.00001): number {
-  const npv1 = calculateNPV(cashFlows, annualRate + delta, startDate);
-  const npv2 = calculateNPV(cashFlows, annualRate - delta, startDate);
-  return (npv1 - npv2) / (2 * delta);
+function calculateNPVDerivative(cashFlows: CashFlow[], annualRate: number, startDate: Date): number {
+  return cashFlows.reduce((derivative, cf) => {
+    const days = daysBetween(startDate, cf.date);
+    const years = days / 365.25;
+    const discountFactor = Math.pow(1 + annualRate, years);
+
+    return derivative - (cf.amount * years) / (discountFactor * (1 + annualRate));
+  }, 0);
 }
 
 /**
@@ -86,7 +90,7 @@ export function calculateIRRFromCashFlows(
     const newRate = annualRate - npv / derivative;
     
     // Limit rate change to prevent divergence
-    const maxChange = annualRate * 0.1;
+    const maxChange = Math.abs(annualRate) * 0.1 + 0.01;
     if (Math.abs(newRate - annualRate) > maxChange) {
       annualRate = annualRate + Math.sign(newRate - annualRate) * maxChange;
     } else {
