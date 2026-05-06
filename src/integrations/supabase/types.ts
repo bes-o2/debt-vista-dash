@@ -348,6 +348,7 @@ export type Database = {
           calculation_table: string
           cet_annual_rate: number | null
           cet_monthly_rate: number | null
+          cet_status: Database["public"]["Enums"]["cet_status_enum"]
           company_id: string
           created_at: string
           created_by: string
@@ -373,6 +374,7 @@ export type Database = {
           calculation_table: string
           cet_annual_rate?: number | null
           cet_monthly_rate?: number | null
+          cet_status?: Database["public"]["Enums"]["cet_status_enum"]
           company_id: string
           created_at?: string
           created_by: string
@@ -398,6 +400,7 @@ export type Database = {
           calculation_table?: string
           cet_annual_rate?: number | null
           cet_monthly_rate?: number | null
+          cet_status?: Database["public"]["Enums"]["cet_status_enum"]
           company_id?: string
           created_at?: string
           created_by?: string
@@ -587,6 +590,14 @@ export type Database = {
         Returns: number
       }
       is_company_owner: { Args: { _company_id: string }; Returns: boolean }
+      replace_debt_installment_schedule: {
+        Args: {
+          p_debt_id: string
+          p_installments: Json
+          p_rate_refs?: Json
+        }
+        Returns: undefined
+      }
       user_belongs_to_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
@@ -601,7 +612,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      cet_status_enum: "calculado" | "nao_convergiu" | "pendente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -728,6 +739,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      cet_status_enum: ["calculado", "nao_convergiu", "pendente"],
+    },
   },
 } as const

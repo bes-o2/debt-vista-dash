@@ -230,8 +230,8 @@ async function getMonthlyRate(
   periodEnd: string
 ): Promise<{ rate: number; referenceDate: string }> {
   // For IPCA, get the rate for the reference month (use periodStart month)
-  const startDate = new Date(periodStart + 'T00:00:00');
-  const yearMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+  const startDate = new Date(periodStart + 'T00:00:00Z');
+  const yearMonth = `${startDate.getUTCFullYear()}-${String(startDate.getUTCMonth() + 1).padStart(2, '0')}`;
   
   const { data, error } = await supabaseClient
     .from('economic_indices')

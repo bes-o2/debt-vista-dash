@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Docs from "./pages/Docs";
+import DecisionLog from "./pages/DecisionLog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
               <Routes>
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/docs" element={<Docs />} />
+                <Route path="/docs/decision-log" element={<DecisionLog />} />
                 <Route path="/" element={
                   <ProtectedRoute>
                     <Index />

@@ -62,8 +62,11 @@ const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
 const formatCurrencyDetailed = (value: number) => decimalCurrencyFormatter.format(value || 0);
 const formatPercent = (value: number) => percentFormatter.format(value || 0);
 
-const parseDate = (dateString: string) =>
-  new Date(dateString.includes("T") ? dateString : `${dateString}T00:00:00`);
+const parseDate = (dateString: string) => {
+  const parsed = new Date(dateString.includes("T") ? dateString : `${dateString}T00:00:00Z`);
+  if (dateString.includes("T") || Number.isNaN(parsed.getTime())) return parsed;
+  return new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+};
 
 const startOfToday = () => {
   const date = new Date();

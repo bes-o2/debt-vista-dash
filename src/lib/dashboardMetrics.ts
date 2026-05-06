@@ -1,8 +1,10 @@
 import { type NormalizedDebtForCalculation, parseLocalDate } from "@/lib/debtUtils";
 import {
-  calculateBatchCET,
-  calculateWeightedAverageCET,
-} from "@/lib/cetCalculator";
+  getAnalyticalCurrentPMT,
+  getAnalyticalOutstanding,
+} from "@/lib/balanceCalculator";
+import { getEffectiveMonthlyRate } from "@/lib/rateUtils";
+import { resolveCetStatus, type CetStatus } from "@/lib/cetStatus";
 
 // ─── Tipos públicos ──────────────────────────────────────────────────────────
 
@@ -23,6 +25,8 @@ export interface DashboardMetrics {
   // Custo
   averageMonthlyCET: number;
   averageAnnualCET: number;
+  averageCetStatus: CetStatus;
+  isCetEstimated: boolean;
   cdiSpread: number | null;
   // Estrutura
   averageRemainingTerm: number;
@@ -57,12 +61,7 @@ export interface ComputeDashboardMetricsInput {
 // ─── Funções internas ────────────────────────────────────────────────────────
 
 function getMonthlyRate(debt: NormalizedDebtForCalculation): number {
-  const base =
-    debt.interestType === "monthly"
-      ? debt.interestRate / 100
-      : Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1;
-  const spread = debt.spreadRate ? debt.spreadRate / 100 : 0;
-  return base + spread;
+  return getEffectiveMonthlyRate(debt.interestRate, debt.spreadRate ?? 0, debt.interestType);
 }
 
 function diffInMonths(start: Date, end: Date): number {
@@ -114,74 +113,14 @@ function calculateAnalyticalOutstandingBalance(
   debt: NormalizedDebtForCalculation,
   today: Date,
 ): number {
-  const contractDate = parseLocalDate(debt.releaseDate);
-  const lastDueDate = parseLocalDate(debt.dueDate);
-  if (!contractDate || !lastDueDate) return debt.financedAmount;
-
-  const termInMonths = diffInMonths(contractDate, lastDueDate);
-  const monthsElapsed = Math.max(0, diffInMonths(contractDate, today));
-
-  if (monthsElapsed <= 0) return debt.financedAmount;
-  if (monthsElapsed >= termInMonths) return 0;
-
-  const monthlyRate = getMonthlyRate(debt);
-  const principal = debt.financedAmount;
-
-  if (debt.calculationTable === "SAC") {
-    const monthlyAmortization = principal / termInMonths;
-    return Math.max(0, principal - monthlyAmortization * monthsElapsed);
-  }
-
-  // PRICE
-  if (monthlyRate > 0) {
-    const pmt =
-      (principal * (monthlyRate * Math.pow(1 + monthlyRate, termInMonths))) /
-      (Math.pow(1 + monthlyRate, termInMonths) - 1);
-    const currentBalance =
-      principal * Math.pow(1 + monthlyRate, monthsElapsed) -
-      pmt * ((Math.pow(1 + monthlyRate, monthsElapsed) - 1) / monthlyRate);
-    return Math.max(0, currentBalance);
-  }
-
-  return Math.max(0, principal - (principal / termInMonths) * monthsElapsed);
+  return getAnalyticalOutstanding(debt, today);
 }
 
 function calculateAnalyticalCurrentPMT(
   debt: NormalizedDebtForCalculation,
   today: Date,
 ): number {
-  const releaseDate = parseLocalDate(debt.releaseDate);
-  const dueDate = parseLocalDate(debt.dueDate);
-  if (!releaseDate || !dueDate) return 0;
-
-  releaseDate.setHours(0, 0, 0, 0);
-  dueDate.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-
-  const termInMonths = diffInMonths(releaseDate, dueDate);
-
-  if (termInMonths <= 0 || today < releaseDate || today > dueDate) return 0;
-
-  const monthlyRate = getMonthlyRate(debt);
-  const principal = debt.financedAmount;
-
-  if (debt.calculationTable === "PRICE") {
-    if (monthlyRate > 0) {
-      return (
-        (principal * (monthlyRate * Math.pow(1 + monthlyRate, termInMonths))) /
-        (Math.pow(1 + monthlyRate, termInMonths) - 1)
-      );
-    }
-    return principal / termInMonths;
-  }
-
-  // SAC
-  const elapsedMonths = Math.max(0, diffInMonths(releaseDate, today));
-  if (elapsedMonths >= termInMonths) return 0;
-
-  const amortization = principal / termInMonths;
-  const currentBalance = Math.max(0, principal - amortization * elapsedMonths);
-  return amortization + currentBalance * monthlyRate;
+  return getAnalyticalCurrentPMT(debt, today);
 }
 
 function addDays(date: Date, days: number): Date {
@@ -194,11 +133,14 @@ function toYearMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function getMonthlyCET(debt: NormalizedDebtForCalculation): number {
-  if (debt.cet_monthly_rate != null) return debt.cet_monthly_rate;
-  if (debt.cet_annual_rate != null)
-    return (Math.pow(1 + debt.cet_annual_rate / 100, 1 / 12) - 1) * 100;
-  return getMonthlyRate(debt) * 100;
+function getPersistedOrEstimatedMonthlyCET(
+  debt: NormalizedDebtForCalculation,
+): { monthlyRate: number; estimated: boolean } {
+  if (resolveCetStatus(debt) === "calculado" && debt.cet_monthly_rate != null) {
+    return { monthlyRate: debt.cet_monthly_rate, estimated: false };
+  }
+
+  return { monthlyRate: getMonthlyRate(debt) * 100, estimated: true };
 }
 
 function buildShareArray(
@@ -324,41 +266,41 @@ export function computeDashboardMetrics(
     };
   });
 
-  // ── CET via batch (installments reais); fallback para taxa cadastro ────────
-  const cetMap = calculateBatchCET(
-    debts.map((d) => ({
-      id: d.id,
-      financedAmount: d.financedAmount,
-      iofAmount: d.iofAmount,
-      tacAmount: d.tacAmount,
-    })),
-    Object.fromEntries(
-      debts.map((d) => [
-        d.id,
-        (installmentsByDebtId[d.id] ?? []).map((inst) => ({
-          installment_amount: inst.total_amount ?? inst.installment_amount ?? 0,
-          due_date: inst.due_date,
-        })),
-      ]),
-    ),
-    Object.fromEntries(debts.map((d) => [d.id, d.releaseDate])),
-  );
+  const debtsWithCetWeight = debts.filter((debt) => (balanceByDebtId[debt.id] ?? 0) > 0);
+  const averageCetStatus = debtsWithCetWeight.some(
+    (debt) => resolveCetStatus(debt) === "nao_convergiu",
+  )
+    ? "nao_convergiu"
+    : debtsWithCetWeight.some((debt) => resolveCetStatus(debt) === "pendente")
+      ? "pendente"
+      : "calculado";
 
-  // Weighted average using saldo as weight; fallback cadastro se batch não calculou
+  // Weighted average using saldo as weight; persisted CET is the source of truth.
   let totalWeightedMonthly = 0;
   let totalCetWeight = 0;
+  let isCetEstimated = false;
   for (const debt of debts) {
     const weight = balanceByDebtId[debt.id] ?? 0;
     if (weight <= 0) continue;
-    const cetResult = cetMap[debt.id];
-    const monthlyRate = cetResult ? cetResult.monthlyRate : getMonthlyCET(debt);
+    if (averageCetStatus === "nao_convergiu") continue;
+    const { monthlyRate, estimated } = getPersistedOrEstimatedMonthlyCET(debt);
+    isCetEstimated = isCetEstimated || estimated;
     totalWeightedMonthly += monthlyRate * weight;
     totalCetWeight += weight;
   }
 
-  const averageMonthlyCET = totalCetWeight > 0 ? totalWeightedMonthly / totalCetWeight : 0;
-  const averageAnnualCET = (Math.pow(1 + averageMonthlyCET / 100, 12) - 1) * 100;
-  const cdiSpread = cdiAnnualRate != null ? averageAnnualCET - cdiAnnualRate : null;
+  const averageMonthlyCET =
+    averageCetStatus !== "nao_convergiu" && totalCetWeight > 0
+      ? totalWeightedMonthly / totalCetWeight
+      : 0;
+  const averageAnnualCET =
+    averageCetStatus !== "nao_convergiu"
+      ? (Math.pow(1 + averageMonthlyCET / 100, 12) - 1) * 100
+      : 0;
+  const cdiSpread =
+    averageCetStatus !== "nao_convergiu" && cdiAnnualRate != null
+      ? averageAnnualCET - cdiAnnualRate
+      : null;
 
   // ── Prazo médio restante ──────────────────────────────────────────────────
   let totalWeightedTerms = 0;
@@ -425,6 +367,8 @@ export function computeDashboardMetrics(
     upcomingDueDates,
     averageMonthlyCET,
     averageAnnualCET,
+    averageCetStatus,
+    isCetEstimated,
     cdiSpread,
     averageRemainingTerm,
     sacVsPriceCount,

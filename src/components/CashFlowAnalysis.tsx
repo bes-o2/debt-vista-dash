@@ -51,7 +51,6 @@ interface ChartDataPoint {
   totalBalance: number;
   totalAmortization: number;
   totalInterest: number;
-  totalPayment: number;
   monthNumber: number;
 }
 
@@ -66,12 +65,11 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
   const chartData = useMemo(() => {
     if (rawChartData.length === 0) return [];
     if (analysisType === 'accumulated') {
-      let accAmortization = 0, accInterest = 0, accPayment = 0;
+      let accAmortization = 0, accInterest = 0;
       return rawChartData.map(point => {
         accAmortization += point.totalAmortization;
         accInterest += point.totalInterest;
-        accPayment += point.totalPayment;
-        return { ...point, totalAmortization: accAmortization, totalInterest: accInterest, totalPayment: accPayment };
+        return { ...point, totalAmortization: accAmortization, totalInterest: accInterest };
       });
     }
     return rawChartData;
@@ -182,16 +180,13 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
               totalBalance: 0,
               totalAmortization: 0,
               totalInterest: 0,
-              totalPayment: 0,
               monthNumber: installment.installment_number
             };
           }
 
-          // Use the remaining_balance directly from the database (which is correct)
           monthlyData[monthKey].totalBalance += Math.max(0, installment.remaining_balance);
           monthlyData[monthKey].totalAmortization += installment.principal_amount;
           monthlyData[monthKey].totalInterest += installment.interest_amount;
-          monthlyData[monthKey].totalPayment += installment.total_amount;
         });
       });
 
@@ -226,10 +221,10 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
       });
 
     } catch (error) {
-      console.error('Error calculating cash flow:', error);
+      console.error('Error calculating debt analysis:', error);
       toast({
         title: "Erro na análise",
-        description: "Não foi possível gerar a análise de fluxo de caixa.",
+        description: "Não foi possível gerar a análise da dívida.",
         variant: "destructive"
       });
     }
@@ -274,13 +269,15 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
     if (chartData.length === 0) return null;
 
     const lastMonth = chartData[chartData.length - 1];
-    const totalPayments = chartData.reduce((sum, month) => sum + month.totalPayment, 0);
+    const totalAmortization = chartData.reduce((sum, month) => sum + month.totalAmortization, 0);
     const totalInterests = chartData.reduce((sum, month) => sum + month.totalInterest, 0);
+    const amortizationAmount = analysisType === 'accumulated' ? lastMonth.totalAmortization : totalAmortization;
+    const interestAmount = analysisType === 'accumulated' ? lastMonth.totalInterest : totalInterests;
 
     return {
-      remainingBalance: lastMonth.totalBalance,
-      totalPayments: analysisType === 'accumulated' ? lastMonth.totalPayment : totalPayments,
-      totalInterests: analysisType === 'accumulated' ? lastMonth.totalInterest : totalInterests,
+      amortizationAmount,
+      installmentAmount: amortizationAmount + interestAmount,
+      interestAmount,
       periodsAnalyzed: chartData.length
     };
   };
@@ -297,10 +294,10 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
           </div>
           <div>
             <h2 className="text-xl font-bold text-foreground">
-              Fluxo de Pagamento
+              Análise da Dívida
             </h2>
             <p className="text-sm text-muted-foreground">
-              Cronograma de pagamentos e projeção financeira das dívidas selecionadas
+              Estoque, amortização e juros das dívidas selecionadas
             </p>
           </div>
         </div>
@@ -458,7 +455,7 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
                 <TrendingDown className="h-4 w-4 text-primary" />
                 <span className="text-sm font-medium text-muted-foreground">Saldo Remanescente</span>
               </div>
-              <p className="text-xl font-bold text-primary">{formatCurrency(stats.remainingBalance)}</p>
+              <p className="text-xl font-bold text-primary">{formatCurrency(stats.amortizationAmount)}</p>
             </CardContent>
           </Card>
 
@@ -466,9 +463,9 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-medium text-muted-foreground">Total Pago</span>
+                <span className="text-sm font-medium text-muted-foreground">Parcelas Remanescentes</span>
               </div>
-              <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.totalPayments)}</p>
+              <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.installmentAmount)}</p>
             </CardContent>
           </Card>
 
@@ -476,9 +473,9 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp className="h-4 w-4 text-orange-600" />
-                <span className="text-sm font-medium text-muted-foreground">Total Juros</span>
+                <span className="text-sm font-medium text-muted-foreground">Juros Remanescentes</span>
               </div>
-              <p className="text-xl font-bold text-orange-600">{formatCurrency(stats.totalInterests)}</p>
+              <p className="text-xl font-bold text-orange-600">{formatCurrency(stats.interestAmount)}</p>
             </CardContent>
           </Card>
 
@@ -500,7 +497,7 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              Evolução do Fluxo de Caixa
+              Evolução da Dívida
               <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 ml-auto">
                 <Button
                   variant={analysisType === 'absolute' ? 'default' : 'ghost'}

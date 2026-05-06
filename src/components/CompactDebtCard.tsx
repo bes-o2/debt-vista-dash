@@ -2,6 +2,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Edit2, Calendar, DollarSign, Percent, Calculator, BarChart3, Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  CET_NOT_CONVERGED_TOOLTIP,
+  hasCalculatedCet,
+  resolveCetStatus,
+  type CetStatus,
+} from "@/lib/cetStatus";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +37,7 @@ interface Debt {
   contractNumber?: string;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  cet_status?: CetStatus | null;
   spread_rate?: number;
 }
 
@@ -45,6 +53,8 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
   // Use stored CET values from database
   const cetMonthly = debt.cet_monthly_rate;
   const cetAnnual = debt.cet_annual_rate;
+  const cetStatus = resolveCetStatus(debt);
+  const hasCet = hasCalculatedCet(debt);
   
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { 
@@ -227,9 +237,18 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
               <span className="text-xs">CET</span>
             </div>
             <span className="text-sm font-medium text-primary">
-              {(cetMonthly !== null && cetMonthly !== undefined && 
-                cetAnnual !== null && cetAnnual !== undefined &&
-                !isNaN(cetMonthly) && !isNaN(cetAnnual)) ? (
+              {cetStatus === "nao_convergiu" ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help text-muted-foreground">—</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{CET_NOT_CONVERGED_TOOLTIP}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : cetStatus === "pendente" ? (
+                <span className="text-xs text-muted-foreground">calculando...</span>
+              ) : hasCet ? (
                 `${cetMonthly.toFixed(2)}% a.m | ${cetAnnual.toFixed(2)}% a.a`
               ) : (
                 <span className="text-xs text-muted-foreground">Calcular</span>

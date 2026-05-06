@@ -5,6 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { useCompany } from '@/hooks/useCompany';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveDebtBankName } from '@/lib/debtBank';
+import type { CetStatus } from '@/lib/cetStatus';
 
 export interface Debt {
   id: string;
@@ -26,6 +27,7 @@ export interface Debt {
   additional_fees?: number;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  cet_status?: CetStatus;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +49,7 @@ export interface DebtInput {
   additional_fees?: number;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  cet_status?: CetStatus;
 }
 
 // Legacy interface for backward compatibility
@@ -67,6 +70,7 @@ export interface LegacyDebt {
   contractNumber?: string;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  cet_status?: CetStatus;
   spread_rate?: number;
 }
 
@@ -136,16 +140,6 @@ export function useDebts() {
   // Update debt mutation
   const updateDebtMutation = useMutation({
     mutationFn: async ({ id, ...debtData }: DebtInput & { id: string }) => {
-      // Delete existing installments when updating debt
-      const { error: deleteError } = await supabase
-        .from('debt_installments')
-        .delete()
-        .eq('debt_id', id);
-
-      if (deleteError) {
-        console.error('Error deleting installments:', deleteError);
-      }
-
       const { data, error } = await supabase
         .from('debts')
         .update(debtData)
@@ -239,6 +233,7 @@ export function useDebts() {
       contractNumber: debt.description || debt.title,  // Prefer description, fallback to title
       cet_monthly_rate: debt.cet_monthly_rate,
       cet_annual_rate: debt.cet_annual_rate,
+      cet_status: debt.cet_status,
       spread_rate: debt.spread_rate,
     };
   };

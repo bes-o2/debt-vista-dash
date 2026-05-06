@@ -21,7 +21,6 @@ interface DebtData {
   indexerRate?: number;
   spreadRate?: number;
   indexerStartDate?: string;
-  reprogrammingRules?: Record<string, unknown>;
   iofAmount?: number;
   tacAmount?: number;
   temporaryOverrides?: TemporaryOverride[];
@@ -83,7 +82,6 @@ serve(async (req) => {
       indexer,
       spreadRate = 0,
       indexerStartDate,
-      reprogrammingRules = {},
       iofAmount = 0,
       tacAmount = 0,
       temporaryOverrides = [],
@@ -104,7 +102,6 @@ serve(async (req) => {
       indexerStartDate,
       temporaryOverrides: temporaryOverrides.length,
       shouldPersist,
-      hasReprogrammingRules: Object.keys(reprogrammingRules).length > 0
     });
 
     // Calculate installments
@@ -119,7 +116,6 @@ serve(async (req) => {
       indexer,
       spreadRate,
       indexerStartDate,
-      reprogrammingRules,
       iofAmount,
       tacAmount,
       companyId,
@@ -129,55 +125,43 @@ serve(async (req) => {
     }, supabaseClient);
 
     if (shouldPersist) {
-      // Try to save installments and rate refs to database
-      try {
-        // First delete rate refs, then installments. The refs depend on the debt,
-        // but keeping this order avoids transient unique conflicts on recalculation.
-        await supabaseClient
-          .from('debt_installment_rate_refs')
-          .delete()
-          .eq('debt_id', debtId);
+      const installmentsToInsert = installments.map(inst => ({
+        installment_number: inst.installment_number,
+        due_date: inst.due_date,
+        principal_amount: inst.amortization,
+        interest_amount: inst.interest_amount,
+        total_amount: inst.installment_amount,
+        remaining_balance: inst.principal_balance
+      }));
 
-        await supabaseClient
-          .from('debt_installments')
-          .delete()
-          .eq('debt_id', debtId);
+      const { error: replaceError } = await supabaseClient
+        .rpc('replace_debt_installment_schedule', {
+          p_debt_id: debtId,
+          p_installments: installmentsToInsert,
+          p_rate_refs: rateRefs
+        });
 
-        // Insert new installments
-        const installmentsToInsert = installments.map(inst => ({
-          debt_id: debtId,
-          installment_number: inst.installment_number,
-          due_date: inst.due_date,
-          principal_amount: inst.amortization,
-          interest_amount: inst.interest_amount,
-          total_amount: inst.installment_amount,
-          remaining_balance: inst.principal_balance
-        }));
-
-        const { error: insertError } = await supabaseClient
-          .from('debt_installments')
-          .insert(installmentsToInsert);
-
-        if (insertError) {
-          console.error('Error saving installments:', insertError);
-        }
-
-        // Insert rate refs
-        if (rateRefs.length > 0) {
-          const { error: rateRefError } = await supabaseClient
-            .from('debt_installment_rate_refs')
-            .insert(rateRefs);
-
-          if (rateRefError) {
-            console.error('Error saving rate refs:', rateRefError);
-          }
-        }
-      } catch (dbError) {
-        console.error('Database operation failed:', dbError);
+      if (replaceError) {
+        throw new Error(`Erro ao substituir parcelas da divida: ${replaceError.message}`);
       }
     }
 
     const releaseDate = shiftMonthISO(firstDueDate, -1);
+
+    if (shouldPersist) {
+      try {
+        const { error: pendingCetError } = await supabaseClient
+          .from('debts')
+          .update({ cet_status: 'pendente' })
+          .eq('id', debtId);
+
+        if (pendingCetError) {
+          console.error('Error marking CET as pending:', pendingCetError);
+        }
+      } catch (pendingCetError) {
+        console.error('Failed to mark CET as pending:', pendingCetError);
+      }
+    }
 
     // Calculate CET
     const cet = calculateCET({
@@ -187,6 +171,9 @@ serve(async (req) => {
       installments,
       startDate: releaseDate
     });
+    const cetForResponse = cet.converged
+      ? cet
+      : { monthlyRate: null, annualRate: null, converged: false };
 
     if (shouldPersist) {
       // Persist CET
@@ -194,8 +181,9 @@ serve(async (req) => {
         const { error: cetUpdateError } = await supabaseClient
           .from('debts')
           .update({
-            cet_monthly_rate: cet.monthlyRate,
-            cet_annual_rate: cet.annualRate
+            cet_monthly_rate: cet.converged ? cet.monthlyRate : null,
+            cet_annual_rate: cet.converged ? cet.annualRate : null,
+            cet_status: cet.converged ? 'calculado' : 'nao_convergiu'
           })
           .eq('id', debtId);
 
@@ -210,7 +198,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       installments,
-      cet,
+      cet: cetForResponse,
       persisted: shouldPersist
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -225,7 +213,7 @@ serve(async (req) => {
       success: false,
       error: message
     }), {
-      status: isMissingProjection ? 200 : 500,
+      status: isMissingProjection ? 422 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -244,6 +232,10 @@ function shiftMonthISO(dateString: string, months: number): string {
   return target.toISOString().split('T')[0];
 }
 
+function parseISODateUTC(dateString: string): Date {
+  return new Date(`${dateString}T00:00:00Z`);
+}
+
 interface CalculationParams {
   debtId: string;
   financedAmount: number;
@@ -255,7 +247,6 @@ interface CalculationParams {
   indexer?: string;
   spreadRate: number;
   indexerStartDate?: string;
-  reprogrammingRules?: Record<string, unknown>;
   iofAmount: number;
   tacAmount: number;
   companyId: string;
@@ -304,11 +295,11 @@ async function calculateAmortizationJS(
     staticRate
   });
 
-  const firstDueDateObj = new Date(firstDueDate);
-  const lastDueDateObj = new Date(lastDueDate);
+  const firstDueDateObj = parseISODateUTC(firstDueDate);
+  const lastDueDateObj = parseISODateUTC(lastDueDate);
 
-  const totalMonths = (lastDueDateObj.getFullYear() - firstDueDateObj.getFullYear()) * 12 +
-                     (lastDueDateObj.getMonth() - firstDueDateObj.getMonth()) + 1;
+  const totalMonths = (lastDueDateObj.getUTCFullYear() - firstDueDateObj.getUTCFullYear()) * 12 +
+                     (lastDueDateObj.getUTCMonth() - firstDueDateObj.getUTCMonth()) + 1;
 
   console.log('Period calculation:', {
     firstDueDate,
@@ -348,7 +339,7 @@ async function calculateAmortizationJS(
 
   for (let i = 1; i <= totalMonths; i++) {
     const installmentDate = new Date(firstDueDateObj);
-    installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+    installmentDate.setUTCMonth(installmentDate.getUTCMonth() + (i - 1));
     const dueDateStr = installmentDate.toISOString().split('T')[0];
 
     // Determine period for rate resolution
@@ -491,9 +482,9 @@ function calculateCET(params: {
   const netAmount = initialAmount - iofAmount - tacAmount;
 
   const cashFlows = [
-    { date: new Date(startDate), amount: -netAmount },
+    { date: parseISODateUTC(startDate), amount: -netAmount },
     ...installments.map(inst => ({
-      date: new Date(inst.due_date),
+      date: parseISODateUTC(inst.due_date),
       amount: inst.installment_amount
     }))
   ];
@@ -507,7 +498,7 @@ function calculateCET(params: {
     installmentsCount: installments.length
   });
 
-  const start = new Date(startDate);
+  const start = parseISODateUTC(startDate);
   let annualRate = 0.10;
   const tolerance = 0.000001;
   const maxIterations = 1000;

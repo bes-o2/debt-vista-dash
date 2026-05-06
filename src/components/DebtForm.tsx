@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { Debt, DebtInput } from "@/hooks/useDebts";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveDebtBankName } from "@/lib/debtBank";
+import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from "@/lib/edgeFunctionErrors";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
 import { useCompany } from "@/hooks/useCompany";
 import { useBRLInput, BRL_INPUT_PROPS } from "@/hooks/useBRLInput";
@@ -209,7 +210,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     setGuarantees(nextGuarantees);
     setNewBankName("");
     setShowNewBankInput(false);
-  }, [banks, financedBRL, iofBRL, tacBRL]);
+  }, [banks]);
 
   useEffect(() => {
     if (debt) {
@@ -261,7 +262,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     }
 
     resetForm();
-  }, [debt, initialDebt, initialGuarantees, applyDebtInput, resetForm, financedBRL, iofBRL, tacBRL]);
+  }, [debt, initialDebt, initialGuarantees, applyDebtInput, resetForm]);
 
   useEffect(() => {
     if (!debt?.id) {
@@ -385,6 +386,22 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         },
       });
 
+      if (calculationResponse.error) {
+        throw new Error(await getEdgeFunctionErrorMessage(
+          calculationResponse.error,
+          "Não foi possível calcular as parcelas. Atualize as projeções e tente novamente."
+        ));
+      }
+
+      const calculationError = getEdgeFunctionResponseError(
+        calculationResponse.data,
+        "Não foi possível calcular as parcelas. Atualize as projeções e tente novamente."
+      );
+
+      if (calculationError) {
+        throw new Error(calculationError);
+      }
+
       let cetMonthlyRate: number | undefined;
       let cetAnnualRate: number | undefined;
 
@@ -423,9 +440,10 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         )
       );
     } catch (error) {
+      const description = await getEdgeFunctionErrorMessage(error, "Tente novamente");
       toast({
         title: "Erro ao salvar",
-        description: error instanceof Error ? error.message : "Tente novamente",
+        description,
         variant: "destructive",
       });
       return;
@@ -737,6 +755,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                 />
                 <p className="text-xs text-muted-foreground">
                   Spread sobre a taxa do indexador ({formData.spreadType === "annual" ? "anual" : "mensal"})
+                  {debt ? " (valor salvo em a.a.)" : ""}
                 </p>
               </div>
             </div>

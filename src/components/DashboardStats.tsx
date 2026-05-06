@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, ArrowRight, DollarSign, BarChart3, Filter, HelpCircle, Building2, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TooltipKeys } from "@/lib/tooltips";
 import { useTooltip } from "@/hooks/useTooltip";
 import { useDashboardMetrics, type PeriodMode } from "@/hooks/useDashboardMetrics";
 import { useDebts } from "@/hooks/useDebts";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { CET_NOT_CONVERGED_TOOLTIP } from "@/lib/cetStatus";
 import { generateCfoAlerts, type CfoAlertCategory, type CfoAlertSeverity } from "@/lib/cfoAlerts";
 import { CalculationInfoPopover } from "@/components/CalculationInfoPopover";
 import { CalculationRuleKeys } from "@/lib/calculationRules";
@@ -25,6 +26,7 @@ interface DashboardStatsProps {
   selectedDebtIds?: string[];
   onClearFilters?: () => void;
   density?: DashboardWidgetDensity;
+  cashPosition?: number;
 }
 
 function StatCardTooltipIcon({ tooltipKey, icon: Icon }: { tooltipKey: TooltipKeys; icon: React.ElementType }) {
@@ -127,6 +129,7 @@ export const DashboardStats = ({
   selectedDebtIds,
   onClearFilters,
   density = "default",
+  cashPosition = 0,
 }: DashboardStatsProps) => {
   const { metrics, isLoading } = useDashboardMetrics({
     startDate,
@@ -162,8 +165,11 @@ export const DashboardStats = ({
     `${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
   const currentOutstandingBalance = metrics?.currentOutstandingBalance ?? 0;
+  const netDebt = currentOutstandingBalance - cashPosition;
   const totalCurrentPMT = metrics?.currentPMT ?? 0;
   const averageMonthlyCET = metrics?.averageMonthlyCET ?? 0;
+  const averageCetStatus = metrics?.averageCetStatus ?? "calculado";
+  const isCetEstimated = metrics?.isCetEstimated ?? false;
   const averageRemainingTerm = metrics?.averageRemainingTerm ?? 0;
   const cdiSpread = metrics?.cdiSpread ?? 0;
   const cdiForDisplay = metrics?.cdiSpread != null ? (metrics.averageAnnualCET - cdiSpread) : null;
@@ -212,13 +218,13 @@ export const DashboardStats = ({
       },
       netDebt: {
         grossDebtAmount: currentOutstandingBalance,
-        cashAndEquivalents: 0,
-        netDebtAmount: currentOutstandingBalance,
+        cashAndEquivalents: cashPosition,
+        netDebtAmount: netDebt,
       },
     }).alerts
       .filter((alert) => alert.category !== "divida_liquida")
       .slice(0, 5);
-  }, [currentOutstandingBalance, metrics]);
+  }, [cashPosition, currentOutstandingBalance, metrics, netDebt]);
 
   const stats: Array<{
     title: string;
@@ -282,12 +288,38 @@ export const DashboardStats = ({
       title: "CET Média",
       value: `${averageMonthlyCET.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`,
       icon: HelpCircle,
-      trend: averageMonthlyCET > 1.5 ? "high" : "normal",
+      trend: averageCetStatus === "calculado" && averageMonthlyCET > 1.5 ? "high" : "normal",
       bgColor: "bg-card",
-      iconColor: averageMonthlyCET > 1.5 ? "text-destructive" : "text-emerald-500",
-      borderColor: averageMonthlyCET > 1.5 ? "border-destructive/20" : "border-emerald-500/30",
+      iconColor:
+        averageCetStatus === "calculado" && averageMonthlyCET > 1.5
+          ? "text-destructive"
+          : "text-emerald-500",
+      borderColor:
+        averageCetStatus === "calculado" && averageMonthlyCET > 1.5
+          ? "border-destructive/20"
+          : "border-emerald-500/30",
       tooltipKey: TooltipKeys.AVERAGE_RATE,
       calculationRuleKey: CalculationRuleKeys.AVERAGE_MONTHLY_CET,
+      customValue:
+        averageCetStatus === "nao_convergiu" ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={`${valueClass} cursor-help text-muted-foreground`}>—</div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{CET_NOT_CONVERGED_TOOLTIP}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : isCetEstimated ? (
+          <div className={valueClass}>
+            ~{averageMonthlyCET.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.
+            <span className="ml-2 align-middle text-xs font-medium text-muted-foreground">
+              estimado
+            </span>
+          </div>
+        ) : averageCetStatus === "pendente" ? (
+          <div className={`${valueClass} text-muted-foreground`}>calculando...</div>
+        ) : undefined,
     },
     {
       title: "Spread Médio",
@@ -308,34 +340,65 @@ export const DashboardStats = ({
 
   return (
     <div className={sectionSpacingClass}>
+      {metrics != null && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${netDebt < 0 ? "bg-emerald-500/10" : "bg-primary/10"}`}>
+              <DollarSign className={`h-4 w-4 ${netDebt < 0 ? "text-emerald-500" : "text-primary"}`} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-eyebrow text-muted-foreground">
+                Dívida Líquida
+              </p>
+              <p className={`text-xl font-bold tabular-nums ${netDebt < 0 ? "text-emerald-500" : "text-foreground"}`}>
+                {formatCurrency(netDebt)}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:justify-end">
+            <span className="tabular-nums">
+              Saldo: {formatCurrency(currentOutstandingBalance)}
+            </span>
+            <span className="hidden text-border sm:inline">|</span>
+            <span className="tabular-nums">
+              Caixa: {formatCurrency(cashPosition)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <TooltipProvider>
         <div className={`grid ${gridGapClass} md:grid-cols-2 lg:grid-cols-5`}>
-          {stats.map((stat, index) => (
-            <Card
-              key={index}
-              className={`group ${stat.bgColor} ${stat.borderColor} border hover:shadow-card transition-shadow duration-300`}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-1.5">
-                  <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
-                    {stat.title}
-                  </CardTitle>
-                  {stat.calculationRuleKey && (
-                    <CalculationInfoPopover ruleKey={stat.calculationRuleKey} />
+          {stats.map((stat, index) => {
+            const Icon = stat.icon;
+
+            return (
+              <Card
+                key={index}
+                className={`group ${stat.bgColor} ${stat.borderColor} border hover:shadow-card transition-shadow duration-300`}
+              >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
+                      {stat.title}
+                    </CardTitle>
+                    {stat.calculationRuleKey && (
+                      <CalculationInfoPopover ruleKey={stat.calculationRuleKey} />
+                    )}
+                  </div>
+                  <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={Icon} />
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="h-9 w-24 rounded bg-muted animate-pulse" />
+                  ) : (
+                    stat.customValue ?? <div className={valueClass}>{stat.value}</div>
                   )}
-                </div>
-                <StatCardTooltipIcon tooltipKey={stat.tooltipKey} icon={stat.icon} />
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="h-9 w-24 rounded bg-muted animate-pulse" />
-                ) : (
-                  stat.customValue ?? <div className={valueClass}>{stat.value}</div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </TooltipProvider>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye, RotateCcw, Activity } from "lucide-react";
 import { format } from "date-fns";
@@ -44,6 +45,7 @@ import { useDebtGuarantees, type DebtGuaranteeInput } from "@/hooks/useDebtGuara
 import { Logo } from "@/components/Logo";
 import { useDataInitialization } from "@/hooks/useDataInitialization";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from "@/lib/edgeFunctionErrors";
 import { getLowConfidenceFields, parseContractImportJson, type ContractImportDraft } from "@/lib/contractImport";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardWidgetShell } from "@/components/dashboard/DashboardWidgetShell";
@@ -62,6 +64,24 @@ const getWidgetHorizon = (config: DashboardWidgetConfig): DashboardWidgetHorizon
 
 const getWidgetViewMode = (config: DashboardWidgetConfig): DashboardWidgetViewMode =>
   config.viewMode === "atual" ? "atual" : "total";
+
+const parseBRLInputValue = (value: string): number => {
+  const parsed = Number.parseFloat(value.replace(/\./g, "").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const readStoredCashPosition = (storageKey: string): number => {
+  const parsed = Number.parseFloat(localStorage.getItem(storageKey) ?? "");
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatBRLInputValue = (value: number): string =>
+  value > 0
+    ? new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value)
+    : "";
 
 const Index = () => {
   const {
@@ -102,6 +122,23 @@ const Index = () => {
   const debts: LegacyDebt[] = useMemo(() => dbDebts.map(convertToLegacyFormat), [dbDebts, convertToLegacyFormat]);
 
   const normalizedDebts = useMemo(() => debts.map(normalizeDebtForCalculation), [debts]);
+  const cashPositionStorageKey = selectedCompany?.id
+    ? `cash_position_${selectedCompany.id}`
+    : null;
+  const cashPositionInputValue = useMemo(() => {
+    if (!cashPositionStorageKey) return "";
+    return formatBRLInputValue(readStoredCashPosition(cashPositionStorageKey));
+  }, [cashPositionStorageKey]);
+  const [cashPosition, setCashPosition] = useState(0);
+
+  useEffect(() => {
+    if (!cashPositionStorageKey) {
+      setCashPosition(0);
+      return;
+    }
+
+    setCashPosition(readStoredCashPosition(cashPositionStorageKey));
+  }, [cashPositionStorageKey]);
 
   // Check for localStorage data and offer migration
   useEffect(() => {
@@ -162,7 +199,7 @@ const Index = () => {
       ? (debtData.financed_amount * debtData.iof_rate) / 100
       : 0;
 
-    const { error } = await supabase.functions.invoke("calculate-amortization", {
+    const { data, error } = await supabase.functions.invoke("calculate-amortization", {
       body: {
         debtId,
         companyId,
@@ -182,7 +219,19 @@ const Index = () => {
     });
 
     if (error) {
-      throw error;
+      throw new Error(await getEdgeFunctionErrorMessage(
+        error,
+        "Não foi possível sincronizar as parcelas. Atualize as projeções e tente salvar novamente."
+      ));
+    }
+
+    const responseError = getEdgeFunctionResponseError(
+      data,
+      "Não foi possível sincronizar as parcelas. Atualize as projeções e tente salvar novamente."
+    );
+
+    if (responseError) {
+      throw new Error(responseError);
     }
   };
   const handleSaveDebt = async (debtData: DebtInput, guarantees: DebtGuaranteeInput[]) => {
@@ -413,6 +462,7 @@ const Index = () => {
             selectedDebtIds={globalSelectedDebts.length > 0 ? globalSelectedDebts : undefined}
             onClearFilters={handleClearGlobalFilters}
             density={state.config.density ?? "default"}
+            cashPosition={cashPosition}
           />
         ),
       },
@@ -492,8 +542,12 @@ const Index = () => {
       debts,
       getWidgetNormalizedDebts,
       globalEndDate,
+      globalSelectedBank,
+      globalSelectedCalculationType,
+      globalSelectedDebts,
       globalStartDate,
       handleClearGlobalFilters,
+      cashPosition,
     ],
   );
 
@@ -644,7 +698,30 @@ const Index = () => {
               {/* Global Filters */}
               <GlobalFilters debts={debts} selectedBank={globalSelectedBank} selectedCalculationType={globalSelectedCalculationType} selectedDebts={globalSelectedDebts} onBankChange={setGlobalSelectedBank} onCalculationTypeChange={setGlobalSelectedCalculationType} onDebtsChange={setGlobalSelectedDebts} onClearFilters={handleClearGlobalFilters} />
 
-              <div className="flex justify-end">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="w-full sm:max-w-xs">
+                  <Label
+                    htmlFor="cash-position"
+                    className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                  >
+                    Caixa disponível
+                  </Label>
+                  <CurrencyInput
+                    key={selectedCompany?.id ?? "cash-position-empty"}
+                    id="cash-position"
+                    className="mt-1 h-9 font-mono tabular-nums"
+                    value={cashPositionInputValue}
+                    onValueChange={(value) => {
+                      const nextCashPosition = parseBRLInputValue(value);
+                      setCashPosition(nextCashPosition);
+                      if (cashPositionStorageKey) {
+                        localStorage.setItem(cashPositionStorageKey, String(nextCashPosition));
+                      }
+                    }}
+                    showCurrencySymbol
+                    placeholder="0,00"
+                  />
+                </div>
                 <Button
                   type="button"
                   variant="outline"

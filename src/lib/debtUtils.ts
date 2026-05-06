@@ -1,5 +1,6 @@
 import { type LegacyDebt } from "@/hooks/useDebts";
 import { resolveDebtBankName } from "@/lib/debtBank";
+import type { CetStatus } from "@/lib/cetStatus";
 
 type DebtSource = Partial<LegacyDebt> & {
   financed_amount?: number;
@@ -35,13 +36,23 @@ export interface NormalizedDebtForCalculation {
   contractNumber?: string;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  cet_status?: CetStatus;
 }
 
 export const parseLocalDate = (value: string): Date | null => {
   if (!value) return null;
-  const iso = value.includes("T") ? value : `${value}T00:00:00`;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const parsed = new Date(value.includes("T") ? value : `${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  if (value.includes("T")) {
+    return parsed;
+  }
+
+  return new Date(
+    parsed.getUTCFullYear(),
+    parsed.getUTCMonth(),
+    parsed.getUTCDate(),
+  );
 };
 
 type DateRangeDebt = {
@@ -84,8 +95,8 @@ const formatLocalDate = (date: Date) => {
 };
 
 const addMonthsLocal = (dateString: string, months: number) => {
-  const date = new Date(dateString.includes('T') ? dateString : `${dateString}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return '';
+  const date = parseLocalDate(dateString);
+  if (!date || Number.isNaN(date.getTime())) return '';
   date.setMonth(date.getMonth() + months);
   return formatLocalDate(date);
 };
@@ -129,6 +140,7 @@ export const normalizeDebtForCalculation = (debt: DebtSource): NormalizedDebtFor
     contractNumber: debt.contractNumber ?? debt.title ?? debt.description,
     cet_monthly_rate: debt.cet_monthly_rate,
     cet_annual_rate: debt.cet_annual_rate,
+    cet_status: debt.cet_status,
   };
 };
 
@@ -138,6 +150,8 @@ export const calculateOutstandingBalance = (
   targetDate: Date
 ): { [bankName: string]: number } => {
   const bankBalances: { [bankName: string]: number } = {};
+  const target = new Date(targetDate);
+  target.setHours(0, 0, 0, 0);
 
   debts.forEach(debt => {
     const debtInstallments = installmentsData[debt.id];
@@ -152,21 +166,17 @@ export const calculateOutstandingBalance = (
       return;
     }
 
-    // Find the installment that would be due just after our target date
-    const installmentsBeforeTarget = debtInstallments.filter(inst => 
-      new Date(inst.due_date) <= targetDate
+    const sortedInstallments = [...debtInstallments].sort((a, b) =>
+      String(a.due_date).localeCompare(String(b.due_date))
     );
+    const nextInstallment = sortedInstallments.find(inst => {
+      const dueDate = parseLocalDate(inst.due_date);
+      return dueDate ? dueDate >= target : false;
+    });
 
-    if (installmentsBeforeTarget.length === 0) {
-      // If no installments are due yet, return the full financed amount
-      bankBalances[debt.bank] += debt.financedAmount;
-    } else {
-      // Get the last installment before or on the target date
-      const lastInstallment = installmentsBeforeTarget[installmentsBeforeTarget.length - 1];
-      
-      // Add the remaining balance after this installment
-      bankBalances[debt.bank] += Math.max(0, lastInstallment.remaining_balance);
-    }
+    bankBalances[debt.bank] += nextInstallment
+      ? Math.max(0, nextInstallment.remaining_balance)
+      : 0;
   });
 
   return bankBalances;

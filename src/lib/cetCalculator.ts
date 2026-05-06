@@ -82,6 +82,9 @@ export function calculateBatchCET(
 /**
  * Calculate weighted average CET for a group of debts
  * Weights are based on the financed amount
+ *
+ * @deprecated Para o dashboard CFO, use o CET persistido em `debts.cet_monthly_rate`
+ * ponderado por saldo devedor atual em `dashboardMetrics.ts`.
  */
 export function calculateWeightedAverageCET(
   debts: DebtForCET[],

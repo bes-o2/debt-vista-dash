@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { type NormalizedDebtForCalculation } from '@/lib/debtUtils';
+import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from '@/lib/edgeFunctionErrors';
 import { useCompany } from '@/hooks/useCompany';
 import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
 
@@ -123,7 +124,21 @@ export const useDebtInstallments = (debts: Debt[]) => {
           }
         });
 
-        if (calculationError) throw calculationError;
+        if (calculationError) {
+          throw new Error(await getEdgeFunctionErrorMessage(
+            calculationError,
+            'Nao foi possivel recalcular as parcelas. Atualize as projecoes e tente novamente.'
+          ));
+        }
+
+        const responseError = getEdgeFunctionResponseError(
+          data,
+          'Nao foi possivel recalcular as parcelas. Atualize as projecoes e tente novamente.'
+        );
+
+        if (responseError) {
+          throw new Error(responseError);
+        }
 
         calculatedInstallments[debtId] = (data?.installments ?? []).map(mapCalculatedInstallment);
       } catch (calculationError) {
