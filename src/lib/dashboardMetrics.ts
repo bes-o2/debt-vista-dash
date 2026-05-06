@@ -1,5 +1,10 @@
 import { type NormalizedDebtForCalculation, parseLocalDate } from "@/lib/debtUtils";
 import {
+  getAnalyticalCurrentPMT,
+  getAnalyticalOutstanding,
+} from "@/lib/balanceCalculator";
+import { getEffectiveMonthlyRate } from "@/lib/rateUtils";
+import {
   calculateBatchCET,
   calculateWeightedAverageCET,
 } from "@/lib/cetCalculator";
@@ -57,12 +62,7 @@ export interface ComputeDashboardMetricsInput {
 // ─── Funções internas ────────────────────────────────────────────────────────
 
 function getMonthlyRate(debt: NormalizedDebtForCalculation): number {
-  const base =
-    debt.interestType === "monthly"
-      ? debt.interestRate / 100
-      : Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1;
-  const spread = debt.spreadRate ? debt.spreadRate / 100 : 0;
-  return base + spread;
+  return getEffectiveMonthlyRate(debt.interestRate, debt.spreadRate ?? 0, debt.interestType);
 }
 
 function diffInMonths(start: Date, end: Date): number {
@@ -114,74 +114,14 @@ function calculateAnalyticalOutstandingBalance(
   debt: NormalizedDebtForCalculation,
   today: Date,
 ): number {
-  const contractDate = parseLocalDate(debt.releaseDate);
-  const lastDueDate = parseLocalDate(debt.dueDate);
-  if (!contractDate || !lastDueDate) return debt.financedAmount;
-
-  const termInMonths = diffInMonths(contractDate, lastDueDate);
-  const monthsElapsed = Math.max(0, diffInMonths(contractDate, today));
-
-  if (monthsElapsed <= 0) return debt.financedAmount;
-  if (monthsElapsed >= termInMonths) return 0;
-
-  const monthlyRate = getMonthlyRate(debt);
-  const principal = debt.financedAmount;
-
-  if (debt.calculationTable === "SAC") {
-    const monthlyAmortization = principal / termInMonths;
-    return Math.max(0, principal - monthlyAmortization * monthsElapsed);
-  }
-
-  // PRICE
-  if (monthlyRate > 0) {
-    const pmt =
-      (principal * (monthlyRate * Math.pow(1 + monthlyRate, termInMonths))) /
-      (Math.pow(1 + monthlyRate, termInMonths) - 1);
-    const currentBalance =
-      principal * Math.pow(1 + monthlyRate, monthsElapsed) -
-      pmt * ((Math.pow(1 + monthlyRate, monthsElapsed) - 1) / monthlyRate);
-    return Math.max(0, currentBalance);
-  }
-
-  return Math.max(0, principal - (principal / termInMonths) * monthsElapsed);
+  return getAnalyticalOutstanding(debt, today);
 }
 
 function calculateAnalyticalCurrentPMT(
   debt: NormalizedDebtForCalculation,
   today: Date,
 ): number {
-  const releaseDate = parseLocalDate(debt.releaseDate);
-  const dueDate = parseLocalDate(debt.dueDate);
-  if (!releaseDate || !dueDate) return 0;
-
-  releaseDate.setHours(0, 0, 0, 0);
-  dueDate.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-
-  const termInMonths = diffInMonths(releaseDate, dueDate);
-
-  if (termInMonths <= 0 || today < releaseDate || today > dueDate) return 0;
-
-  const monthlyRate = getMonthlyRate(debt);
-  const principal = debt.financedAmount;
-
-  if (debt.calculationTable === "PRICE") {
-    if (monthlyRate > 0) {
-      return (
-        (principal * (monthlyRate * Math.pow(1 + monthlyRate, termInMonths))) /
-        (Math.pow(1 + monthlyRate, termInMonths) - 1)
-      );
-    }
-    return principal / termInMonths;
-  }
-
-  // SAC
-  const elapsedMonths = Math.max(0, diffInMonths(releaseDate, today));
-  if (elapsedMonths >= termInMonths) return 0;
-
-  const amortization = principal / termInMonths;
-  const currentBalance = Math.max(0, principal - amortization * elapsedMonths);
-  return amortization + currentBalance * monthlyRate;
+  return getAnalyticalCurrentPMT(debt, today);
 }
 
 function addDays(date: Date, days: number): Date {

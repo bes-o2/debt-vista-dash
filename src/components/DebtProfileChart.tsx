@@ -32,7 +32,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
+import { getAnalyticalOutstanding } from "@/lib/balanceCalculator";
 import { debtIntersectsDateRange, parseLocalDate } from "@/lib/debtUtils";
+import { getEffectiveMonthlyRate } from "@/lib/rateUtils";
 import { cn, getBankColor } from "@/lib/utils";
 import type { DashboardWidgetDensity } from "@/components/dashboard/dashboardWidgetTypes";
 
@@ -46,6 +48,8 @@ interface Debt {
   indexer?: string;
   interestRate: number;
   interestType: "monthly" | "annual";
+  spreadRate?: number;
+  spread_rate?: number;
   bank: string;
   iofAmount?: number;
   tacAmount?: number;
@@ -167,62 +171,13 @@ const addMonths = (date: Date, months: number) => {
   return next;
 };
 
-const getMonthlyRate = (debt: Debt) =>
-  debt.interestType === "annual"
-    ? Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1
-    : debt.interestRate / 100;
-
-const analyticalOutstandingBalance = (debt: Debt, baseDate: Date) => {
-  const releaseDate = parseLocalDate(debt.releaseDate);
-  const dueDate = parseLocalDate(debt.dueDate);
-
-  if (!releaseDate || !dueDate || debt.financedAmount <= 0) {
-    return 0;
-  }
-
-  const termInMonths = Math.round(
-    (dueDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
-  const monthsElapsed = Math.max(
-    0,
-    Math.round((baseDate.getTime() - releaseDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-  );
-
-  if (termInMonths <= 0) return debt.financedAmount;
-  if (monthsElapsed <= 0) return debt.financedAmount;
-  if (monthsElapsed >= termInMonths) return 0;
-
-  const monthlyRate = getMonthlyRate(debt);
-
-  if (debt.calculationTable === "SAC") {
-    const monthlyAmortization = debt.financedAmount / termInMonths;
-    return Math.max(0, debt.financedAmount - monthlyAmortization * monthsElapsed);
-  }
-
-  if (monthlyRate > 0) {
-    const pmt =
-      (debt.financedAmount * monthlyRate * Math.pow(1 + monthlyRate, termInMonths)) /
-      (Math.pow(1 + monthlyRate, termInMonths) - 1);
-    const currentBalance =
-      debt.financedAmount * Math.pow(1 + monthlyRate, monthsElapsed) -
-      pmt * ((Math.pow(1 + monthlyRate, monthsElapsed) - 1) / monthlyRate);
-
-    return Math.max(0, currentBalance);
-  }
-
-  return Math.max(
-    0,
-    debt.financedAmount - (debt.financedAmount / termInMonths) * monthsElapsed,
-  );
-};
-
 const getCurrentOutstandingBalance = (
   debt: Debt,
   installments: InstallmentRow[],
   baseDate: Date,
 ) => {
   if (installments.length === 0) {
-    return analyticalOutstandingBalance(debt, baseDate);
+    return getAnalyticalOutstanding(debt, baseDate);
   }
 
   const sortedInstallments = [...installments].sort((a, b) =>
@@ -270,7 +225,11 @@ const estimateFutureAmortization = (
     return { shortTerm: 0, longTerm: 0 };
   }
 
-  const monthlyRate = getMonthlyRate(debt);
+  const monthlyRate = getEffectiveMonthlyRate(
+    debt.interestRate,
+    debt.spreadRate ?? debt.spread_rate ?? 0,
+    debt.interestType,
+  );
   const principal = debt.financedAmount;
   const termInMonths = dueDates.length;
   let remainingBalance = principal;

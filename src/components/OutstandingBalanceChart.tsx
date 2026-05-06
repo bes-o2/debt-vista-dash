@@ -20,6 +20,10 @@ import { Building, Loader2, Minus, TrendingDown, TrendingUp, Wallet } from "luci
 import { cn, getBankColor } from "@/lib/utils";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 import {
+  getAnalyticalCurrentPMT,
+  getAnalyticalOutstanding,
+} from "@/lib/balanceCalculator";
+import {
   debtIntersectsDateRange,
   parseLocalDate,
   type NormalizedDebtForCalculation,
@@ -70,85 +74,6 @@ const monthLabel = (d: Date) =>
   d
     .toLocaleDateString("pt-BR", { month: "short", year: "2-digit" })
     .replace(".", "");
-
-// Mesma fórmula usada em DashboardStats (calculateDebtOutstandingBalance) para
-// garantir consistência entre os KPIs do header e o card de Saldo Devedor Atual.
-const analyticalOutstandingBalance = (
-  debt: NormalizedDebtForCalculation,
-  today: Date,
-) => {
-  const contractDate = new Date(debt.releaseDate);
-  const lastDueDate = new Date(debt.dueDate);
-  const termInMonths = Math.round(
-    (lastDueDate.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
-  const monthsElapsed = Math.max(
-    0,
-    Math.round((today.getTime() - contractDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-  );
-  if (monthsElapsed <= 0 || monthsElapsed >= termInMonths) {
-    return monthsElapsed <= 0 ? debt.financedAmount : 0;
-  }
-  const monthlyRate =
-    debt.interestType === "annual"
-      ? Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1
-      : debt.interestRate / 100;
-  const principal = debt.financedAmount;
-  if (debt.calculationTable === "SAC") {
-    const amort = principal / termInMonths;
-    return Math.max(0, principal - amort * monthsElapsed);
-  }
-  if (monthlyRate > 0) {
-    const pmt =
-      (principal * (monthlyRate * Math.pow(1 + monthlyRate, termInMonths))) /
-      (Math.pow(1 + monthlyRate, termInMonths) - 1);
-    const balance =
-      principal * Math.pow(1 + monthlyRate, monthsElapsed) -
-      pmt * ((Math.pow(1 + monthlyRate, monthsElapsed) - 1) / monthlyRate);
-    return Math.max(0, balance);
-  }
-  return Math.max(0, principal - (principal / termInMonths) * monthsElapsed);
-};
-
-// Mesma fórmula usada em DashboardStats para "Parcela Corrente".
-const analyticalCurrentPMT = (debt: NormalizedDebtForCalculation, baseDate = new Date()) => {
-  const today = new Date(baseDate);
-  today.setHours(0, 0, 0, 0);
-  const release = new Date(debt.releaseDate);
-  release.setHours(0, 0, 0, 0);
-  const due = new Date(debt.dueDate);
-  due.setHours(0, 0, 0, 0);
-  const term = Math.round(
-    (due.getTime() - release.getTime()) / (1000 * 60 * 60 * 24 * 30.44),
-  );
-  if (term <= 0) return 0;
-  if (today < release || today > due) return 0;
-
-  const monthlyRate =
-    debt.interestType === "annual"
-      ? Math.pow(1 + debt.interestRate / 100, 1 / 12) - 1
-      : debt.interestRate / 100;
-  const principal = debt.financedAmount;
-  if (debt.calculationTable === "PRICE") {
-    if (monthlyRate > 0) {
-      return (
-        (principal * (monthlyRate * Math.pow(1 + monthlyRate, term))) /
-        (Math.pow(1 + monthlyRate, term) - 1)
-      );
-    }
-    return principal / term;
-  }
-  const elapsedMonths = Math.max(
-    0,
-    Math.round((today.getTime() - release.getTime()) / (30.44 * 24 * 3600 * 1000)),
-  );
-  if (elapsedMonths >= term) return 0;
-
-  const amortization = principal / term;
-  const currentBalance = Math.max(0, principal - amortization * elapsedMonths);
-  return amortization + currentBalance * monthlyRate;
-};
-
 
 export const OutstandingBalanceChart = ({
   debts,
@@ -296,11 +221,11 @@ export const OutstandingBalanceChart = ({
     const lastMonth = new Date(today);
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     const saldo = filteredDebts.reduce(
-      (s, d) => s + analyticalOutstandingBalance(d, today),
+      (s, d) => s + getAnalyticalOutstanding(d, today),
       0,
     );
     const saldoPrev = filteredDebts.reduce(
-      (s, d) => s + analyticalOutstandingBalance(d, lastMonth),
+      (s, d) => s + getAnalyticalOutstanding(d, lastMonth),
       0,
     );
     // PMT analítico só conta para contratos ativos no mês - quando um contrato
@@ -310,7 +235,7 @@ export const OutstandingBalanceChart = ({
         const release = new Date(d.releaseDate);
         const due = new Date(d.dueDate);
         if (when < release || when > due) return s;
-        return s + analyticalCurrentPMT(d, when);
+        return s + getAnalyticalCurrentPMT(d, when);
       }, 0);
     const pmt = pmtAt(today);
     const pmtPrev = pmtAt(lastMonth);
