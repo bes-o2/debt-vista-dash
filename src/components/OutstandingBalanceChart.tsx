@@ -237,10 +237,11 @@ export const OutstandingBalanceChart = ({
           const monthInst = rows.find((r) => r.due_date.substring(0, 7) === mKey);
           if (monthInst) totalPMT += monthInst.total_amount;
 
-          const before = rows.filter((r) => r.due_date.substring(0, 7) <= mKey);
-          if (before.length === 0) return sum + debt.financedAmount;
-          const last = before[before.length - 1];
-          return sum + Math.max(0, last.remaining_balance);
+          const next = [...rows]
+            .sort((a, b) => a.due_date.localeCompare(b.due_date))
+            .find((r) => r.due_date.substring(0, 7) >= mKey);
+
+          return sum + (next ? Math.max(0, next.remaining_balance) : 0);
         }, 0);
 
         row[bank.name] = bankBalance;

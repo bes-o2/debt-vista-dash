@@ -138,6 +138,8 @@ export const calculateOutstandingBalance = (
   targetDate: Date
 ): { [bankName: string]: number } => {
   const bankBalances: { [bankName: string]: number } = {};
+  const target = new Date(targetDate);
+  target.setHours(0, 0, 0, 0);
 
   debts.forEach(debt => {
     const debtInstallments = installmentsData[debt.id];
@@ -152,21 +154,17 @@ export const calculateOutstandingBalance = (
       return;
     }
 
-    // Find the installment that would be due just after our target date
-    const installmentsBeforeTarget = debtInstallments.filter(inst => 
-      new Date(inst.due_date) <= targetDate
+    const sortedInstallments = [...debtInstallments].sort((a, b) =>
+      String(a.due_date).localeCompare(String(b.due_date))
     );
+    const nextInstallment = sortedInstallments.find(inst => {
+      const dueDate = parseLocalDate(inst.due_date);
+      return dueDate ? dueDate >= target : false;
+    });
 
-    if (installmentsBeforeTarget.length === 0) {
-      // If no installments are due yet, return the full financed amount
-      bankBalances[debt.bank] += debt.financedAmount;
-    } else {
-      // Get the last installment before or on the target date
-      const lastInstallment = installmentsBeforeTarget[installmentsBeforeTarget.length - 1];
-      
-      // Add the remaining balance after this installment
-      bankBalances[debt.bank] += Math.max(0, lastInstallment.remaining_balance);
-    }
+    bankBalances[debt.bank] += nextInstallment
+      ? Math.max(0, nextInstallment.remaining_balance)
+      : 0;
   });
 
   return bankBalances;
