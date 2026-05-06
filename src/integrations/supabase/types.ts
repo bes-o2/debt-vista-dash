@@ -348,6 +348,7 @@ export type Database = {
           calculation_table: string
           cet_annual_rate: number | null
           cet_monthly_rate: number | null
+          cet_status: Database["public"]["Enums"]["cet_status_enum"]
           company_id: string
           created_at: string
           created_by: string
@@ -373,6 +374,7 @@ export type Database = {
           calculation_table: string
           cet_annual_rate?: number | null
           cet_monthly_rate?: number | null
+          cet_status?: Database["public"]["Enums"]["cet_status_enum"]
           company_id: string
           created_at?: string
           created_by: string
@@ -398,6 +400,7 @@ export type Database = {
           calculation_table?: string
           cet_annual_rate?: number | null
           cet_monthly_rate?: number | null
+          cet_status?: Database["public"]["Enums"]["cet_status_enum"]
           company_id?: string
           created_at?: string
           created_by?: string
@@ -601,7 +604,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      cet_status_enum: "calculado" | "nao_convergiu" | "pendente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -728,6 +731,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      cet_status_enum: ["calculado", "nao_convergiu", "pendente"],
+    },
   },
 } as const

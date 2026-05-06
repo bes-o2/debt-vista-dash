@@ -8,6 +8,7 @@ import {
   calculateBatchCET,
   calculateWeightedAverageCET,
 } from "@/lib/cetCalculator";
+import { getAggregateCetStatus, type CetStatus } from "@/lib/cetStatus";
 
 // ─── Tipos públicos ──────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ export interface DashboardMetrics {
   // Custo
   averageMonthlyCET: number;
   averageAnnualCET: number;
+  averageCetStatus: CetStatus;
   cdiSpread: number | null;
   // Estrutura
   averageRemainingTerm: number;
@@ -284,21 +286,34 @@ export function computeDashboardMetrics(
     Object.fromEntries(debts.map((d) => [d.id, d.releaseDate])),
   );
 
+  const debtsWithCetWeight = debts.filter((debt) => (balanceByDebtId[debt.id] ?? 0) > 0);
+  const averageCetStatus = getAggregateCetStatus(debtsWithCetWeight);
+
   // Weighted average using saldo as weight; fallback cadastro se batch não calculou
   let totalWeightedMonthly = 0;
   let totalCetWeight = 0;
   for (const debt of debts) {
     const weight = balanceByDebtId[debt.id] ?? 0;
     if (weight <= 0) continue;
+    if (averageCetStatus !== "calculado") continue;
     const cetResult = cetMap[debt.id];
     const monthlyRate = cetResult ? cetResult.monthlyRate : getMonthlyCET(debt);
     totalWeightedMonthly += monthlyRate * weight;
     totalCetWeight += weight;
   }
 
-  const averageMonthlyCET = totalCetWeight > 0 ? totalWeightedMonthly / totalCetWeight : 0;
-  const averageAnnualCET = (Math.pow(1 + averageMonthlyCET / 100, 12) - 1) * 100;
-  const cdiSpread = cdiAnnualRate != null ? averageAnnualCET - cdiAnnualRate : null;
+  const averageMonthlyCET =
+    averageCetStatus === "calculado" && totalCetWeight > 0
+      ? totalWeightedMonthly / totalCetWeight
+      : 0;
+  const averageAnnualCET =
+    averageCetStatus === "calculado"
+      ? (Math.pow(1 + averageMonthlyCET / 100, 12) - 1) * 100
+      : 0;
+  const cdiSpread =
+    averageCetStatus === "calculado" && cdiAnnualRate != null
+      ? averageAnnualCET - cdiAnnualRate
+      : null;
 
   // ── Prazo médio restante ──────────────────────────────────────────────────
   let totalWeightedTerms = 0;
@@ -365,6 +380,7 @@ export function computeDashboardMetrics(
     upcomingDueDates,
     averageMonthlyCET,
     averageAnnualCET,
+    averageCetStatus,
     cdiSpread,
     averageRemainingTerm,
     sacVsPriceCount,

@@ -179,6 +179,21 @@ serve(async (req) => {
 
     const releaseDate = shiftMonthISO(firstDueDate, -1);
 
+    if (shouldPersist) {
+      try {
+        const { error: pendingCetError } = await supabaseClient
+          .from('debts')
+          .update({ cet_status: 'pendente' })
+          .eq('id', debtId);
+
+        if (pendingCetError) {
+          console.error('Error marking CET as pending:', pendingCetError);
+        }
+      } catch (pendingCetError) {
+        console.error('Failed to mark CET as pending:', pendingCetError);
+      }
+    }
+
     // Calculate CET
     const cet = calculateCET({
       initialAmount: financedAmount,
@@ -187,6 +202,9 @@ serve(async (req) => {
       installments,
       startDate: releaseDate
     });
+    const cetForResponse = cet.converged
+      ? cet
+      : { monthlyRate: null, annualRate: null, converged: false };
 
     if (shouldPersist) {
       // Persist CET
@@ -194,8 +212,9 @@ serve(async (req) => {
         const { error: cetUpdateError } = await supabaseClient
           .from('debts')
           .update({
-            cet_monthly_rate: cet.monthlyRate,
-            cet_annual_rate: cet.annualRate
+            cet_monthly_rate: cet.converged ? cet.monthlyRate : null,
+            cet_annual_rate: cet.converged ? cet.annualRate : null,
+            cet_status: cet.converged ? 'calculado' : 'nao_convergiu'
           })
           .eq('id', debtId);
 
@@ -210,7 +229,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       installments,
-      cet,
+      cet: cetForResponse,
       persisted: shouldPersist
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

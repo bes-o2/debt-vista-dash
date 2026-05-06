@@ -3,12 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, ArrowRight, DollarSign, BarChart3, Filter, HelpCircle, Building2, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TooltipKeys } from "@/lib/tooltips";
 import { useTooltip } from "@/hooks/useTooltip";
 import { useDashboardMetrics, type PeriodMode } from "@/hooks/useDashboardMetrics";
 import { useDebts } from "@/hooks/useDebts";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { CET_NOT_CONVERGED_TOOLTIP } from "@/lib/cetStatus";
 import { generateCfoAlerts, type CfoAlertCategory, type CfoAlertSeverity } from "@/lib/cfoAlerts";
 import { CalculationInfoPopover } from "@/components/CalculationInfoPopover";
 import { CalculationRuleKeys } from "@/lib/calculationRules";
@@ -167,6 +168,7 @@ export const DashboardStats = ({
   const netDebt = currentOutstandingBalance - cashPosition;
   const totalCurrentPMT = metrics?.currentPMT ?? 0;
   const averageMonthlyCET = metrics?.averageMonthlyCET ?? 0;
+  const averageCetStatus = metrics?.averageCetStatus ?? "calculado";
   const averageRemainingTerm = metrics?.averageRemainingTerm ?? 0;
   const cdiSpread = metrics?.cdiSpread ?? 0;
   const cdiForDisplay = metrics?.cdiSpread != null ? (metrics.averageAnnualCET - cdiSpread) : null;
@@ -285,12 +287,31 @@ export const DashboardStats = ({
       title: "CET Média",
       value: `${averageMonthlyCET.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`,
       icon: HelpCircle,
-      trend: averageMonthlyCET > 1.5 ? "high" : "normal",
+      trend: averageCetStatus === "calculado" && averageMonthlyCET > 1.5 ? "high" : "normal",
       bgColor: "bg-card",
-      iconColor: averageMonthlyCET > 1.5 ? "text-destructive" : "text-emerald-500",
-      borderColor: averageMonthlyCET > 1.5 ? "border-destructive/20" : "border-emerald-500/30",
+      iconColor:
+        averageCetStatus === "calculado" && averageMonthlyCET > 1.5
+          ? "text-destructive"
+          : "text-emerald-500",
+      borderColor:
+        averageCetStatus === "calculado" && averageMonthlyCET > 1.5
+          ? "border-destructive/20"
+          : "border-emerald-500/30",
       tooltipKey: TooltipKeys.AVERAGE_RATE,
       calculationRuleKey: CalculationRuleKeys.AVERAGE_MONTHLY_CET,
+      customValue:
+        averageCetStatus === "nao_convergiu" ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={`${valueClass} cursor-help text-muted-foreground`}>—</div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{CET_NOT_CONVERGED_TOOLTIP}</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : averageCetStatus === "pendente" ? (
+          <div className={`${valueClass} text-muted-foreground`}>calculando...</div>
+        ) : undefined,
     },
     {
       title: "Spread Médio",

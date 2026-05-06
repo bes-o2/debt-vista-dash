@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Bar,
   CartesianGrid,
@@ -37,6 +37,12 @@ import {
 } from "lucide-react";
 import { useDebtInstallments } from "@/hooks/useDebtInstallments";
 import { debtIntersectsDateRange } from "@/lib/debtUtils";
+import {
+  CET_NOT_CONVERGED_TOOLTIP,
+  getAggregateCetStatus,
+  hasCalculatedCet,
+  type CetStatus,
+} from "@/lib/cetStatus";
 import { cn } from "@/lib/utils";
 import type {
   DashboardWidgetDensity,
@@ -59,6 +65,7 @@ interface Debt {
   contractNumber?: string;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  cet_status?: CetStatus | null;
 }
 
 interface DebtChartProps {
@@ -85,7 +92,7 @@ type BankComparisonRow = {
   principalAmount: number;
   financedInterest: number;
   totalAmount: number;
-  avgCET: number;
+  avgCET: number | null;
   count: number;
 };
 
@@ -125,8 +132,11 @@ const isPreFixedIndexer = (indexer?: string) => {
 };
 
 const calculateWeightedAnnualCET = (debts: Debt[]) => {
+  if (getAggregateCetStatus(debts) !== "calculado") return null;
+
   const debtsWithCET = debts.filter(
     (debt) =>
+      hasCalculatedCet(debt) &&
       debt.cet_annual_rate !== null &&
       debt.cet_annual_rate !== undefined &&
       !Number.isNaN(debt.cet_annual_rate),
@@ -142,7 +152,7 @@ const calculateWeightedAnnualCET = (debts: Debt[]) => {
         (sum, debt) => sum + (debt.cet_annual_rate || 0) * debt.financedAmount,
         0,
       ) / totalWeight
-    : 0;
+    : null;
 };
 
 const calculateApproximateInterest = (debt: Debt) => {
@@ -388,11 +398,13 @@ export const DebtChart = ({
       0,
     );
     const avgCET = calculateWeightedAnnualCET(filteredDebts);
+    const cetStatus = getAggregateCetStatus(filteredDebts);
 
     return {
       principalAmount,
       financedInterest,
       avgCET,
+      cetStatus,
       bankCount: bankComparisonDataWithCET.length,
       contractCount: filteredDebts.length,
     };
@@ -556,7 +568,24 @@ export const DebtChart = ({
           />
           <KpiBlock
             label="CET médio"
-            value={comparisonTotals.avgCET > 0 ? formatPercent(comparisonTotals.avgCET) : "Sem CET"}
+            value={
+              comparisonTotals.cetStatus === "nao_convergiu" ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help text-muted-foreground">—</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{CET_NOT_CONVERGED_TOOLTIP}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : comparisonTotals.cetStatus === "pendente" ? (
+                <span className="text-muted-foreground">calculando...</span>
+              ) : comparisonTotals.avgCET != null && comparisonTotals.avgCET > 0 ? (
+                formatPercent(comparisonTotals.avgCET)
+              ) : (
+                "Sem CET"
+              )
+            }
             detail={`${comparisonTotals.bankCount} banco${
               comparisonTotals.bankCount !== 1 ? "s" : ""
             } no comparativo`}
@@ -919,7 +948,7 @@ export const DebtChart = ({
 
 interface KpiBlockProps {
   label: string;
-  value: string;
+  value: ReactNode;
   detail: string;
 }
 

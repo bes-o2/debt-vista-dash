@@ -1,5 +1,6 @@
 import { type LegacyDebt } from "@/hooks/useDebts";
 import { resolveDebtBankName } from "@/lib/debtBank";
+import type { CetStatus } from "@/lib/cetStatus";
 
 type DebtSource = Partial<LegacyDebt> & {
   financed_amount?: number;
@@ -35,6 +36,7 @@ export interface NormalizedDebtForCalculation {
   contractNumber?: string;
   cet_monthly_rate?: number;
   cet_annual_rate?: number;
+  cet_status?: CetStatus;
 }
 
 export const parseLocalDate = (value: string): Date | null => {
@@ -129,6 +131,7 @@ export const normalizeDebtForCalculation = (debt: DebtSource): NormalizedDebtFor
     contractNumber: debt.contractNumber ?? debt.title ?? debt.description,
     cet_monthly_rate: debt.cet_monthly_rate,
     cet_annual_rate: debt.cet_annual_rate,
+    cet_status: debt.cet_status,
   };
 };
 
