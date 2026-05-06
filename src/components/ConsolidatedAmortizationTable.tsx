@@ -7,6 +7,7 @@ import { Loader2, Calculator, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useCompany } from '@/hooks/useCompany';
 import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
+import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from '@/lib/edgeFunctionErrors';
 
 interface Debt {
   id: string;
@@ -243,7 +244,22 @@ export function ConsolidatedAmortizationTable({
           }
         });
 
-        if (error) throw error;
+        if (error) {
+          throw new Error(await getEdgeFunctionErrorMessage(
+            error,
+            "Não foi possível recalcular a tabela consolidada. Atualize as projeções e tente novamente."
+          ));
+        }
+
+        const responseError = getEdgeFunctionResponseError(
+          data,
+          "Não foi possível recalcular a tabela consolidada. Atualize as projeções e tente novamente."
+        );
+
+        if (responseError) {
+          throw new Error(responseError);
+        }
+
         allInstallments[debt.id] = (data?.installments ?? []).map(toEdgeShape);
       }
 
@@ -252,7 +268,7 @@ export function ConsolidatedAmortizationTable({
       console.error('Error calculating consolidated amortization:', error);
       toast({
         title: "Erro ao recalcular tabela consolidada",
-        description: "Não foi possível recalcular a tabela de amortização consolidada.",
+        description: error instanceof Error ? error.message : "Não foi possível recalcular a tabela de amortização consolidada.",
         variant: "destructive"
       });
     } finally {

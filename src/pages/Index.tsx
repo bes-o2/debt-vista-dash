@@ -45,6 +45,7 @@ import { useDebtGuarantees, type DebtGuaranteeInput } from "@/hooks/useDebtGuara
 import { Logo } from "@/components/Logo";
 import { useDataInitialization } from "@/hooks/useDataInitialization";
 import { normalizeDebtForCalculation } from "@/lib/debtUtils";
+import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from "@/lib/edgeFunctionErrors";
 import { getLowConfidenceFields, parseContractImportJson, type ContractImportDraft } from "@/lib/contractImport";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardWidgetShell } from "@/components/dashboard/DashboardWidgetShell";
@@ -198,7 +199,7 @@ const Index = () => {
       ? (debtData.financed_amount * debtData.iof_rate) / 100
       : 0;
 
-    const { error } = await supabase.functions.invoke("calculate-amortization", {
+    const { data, error } = await supabase.functions.invoke("calculate-amortization", {
       body: {
         debtId,
         companyId,
@@ -218,7 +219,19 @@ const Index = () => {
     });
 
     if (error) {
-      throw error;
+      throw new Error(await getEdgeFunctionErrorMessage(
+        error,
+        "Não foi possível sincronizar as parcelas. Atualize as projeções e tente salvar novamente."
+      ));
+    }
+
+    const responseError = getEdgeFunctionResponseError(
+      data,
+      "Não foi possível sincronizar as parcelas. Atualize as projeções e tente salvar novamente."
+    );
+
+    if (responseError) {
+      throw new Error(responseError);
     }
   };
   const handleSaveDebt = async (debtData: DebtInput, guarantees: DebtGuaranteeInput[]) => {

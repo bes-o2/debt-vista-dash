@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
 import { type NormalizedDebtForCalculation } from "@/lib/debtUtils";
+import { getEdgeFunctionErrorMessage } from "@/lib/edgeFunctionErrors";
 import {
   buildSensitivityMatrix,
   type SensitivityMatrix,
@@ -168,7 +169,8 @@ export function useSensitivityAnalysis({
 
             if (fnError || responseError) {
               const indexer = normalizeIndexer(debt.indexer) || "indexador";
-              const message = responseError || fnError?.message || "erro desconhecido";
+              const message = responseError
+                || (fnError ? await getEdgeFunctionErrorMessage(fnError, "erro desconhecido") : "erro desconhecido");
               simulationErrors.push(`${indexer}: ${message}`);
               return {
                 debtId: debt.id,

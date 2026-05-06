@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { Debt, DebtInput } from "@/hooks/useDebts";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveDebtBankName } from "@/lib/debtBank";
+import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from "@/lib/edgeFunctionErrors";
 import { useEconomicIndices } from "@/hooks/useEconomicIndices";
 import { useCompany } from "@/hooks/useCompany";
 import { useBRLInput, BRL_INPUT_PROPS } from "@/hooks/useBRLInput";
@@ -385,6 +386,22 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         },
       });
 
+      if (calculationResponse.error) {
+        throw new Error(await getEdgeFunctionErrorMessage(
+          calculationResponse.error,
+          "Não foi possível calcular as parcelas. Atualize as projeções e tente novamente."
+        ));
+      }
+
+      const calculationError = getEdgeFunctionResponseError(
+        calculationResponse.data,
+        "Não foi possível calcular as parcelas. Atualize as projeções e tente novamente."
+      );
+
+      if (calculationError) {
+        throw new Error(calculationError);
+      }
+
       let cetMonthlyRate: number | undefined;
       let cetAnnualRate: number | undefined;
 
@@ -423,9 +440,10 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         )
       );
     } catch (error) {
+      const description = await getEdgeFunctionErrorMessage(error, "Tente novamente");
       toast({
         title: "Erro ao salvar",
-        description: error instanceof Error ? error.message : "Tente novamente",
+        description,
         variant: "destructive",
       });
       return;

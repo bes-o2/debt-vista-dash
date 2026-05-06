@@ -140,16 +140,6 @@ export function useDebts() {
   // Update debt mutation
   const updateDebtMutation = useMutation({
     mutationFn: async ({ id, ...debtData }: DebtInput & { id: string }) => {
-      // Delete existing installments when updating debt
-      const { error: deleteError } = await supabase
-        .from('debt_installments')
-        .delete()
-        .eq('debt_id', id);
-
-      if (deleteError) {
-        console.error('Error deleting installments:', deleteError);
-      }
-
       const { data, error } = await supabase
         .from('debts')
         .update(debtData)

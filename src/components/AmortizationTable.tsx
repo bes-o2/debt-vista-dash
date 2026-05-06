@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateIRRFromCashFlows } from '@/lib/irrCalculator';
 import { useCompany } from '@/hooks/useCompany';
 import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
+import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from '@/lib/edgeFunctionErrors';
 interface Debt {
   id: string;
   bank: string;
@@ -120,7 +121,19 @@ export function AmortizationTable({
         }
       });
       if (error) {
-        throw error;
+        throw new Error(await getEdgeFunctionErrorMessage(
+          error,
+          "Não foi possível calcular a tabela. Atualize as projeções e tente novamente."
+        ));
+      }
+
+      const responseError = getEdgeFunctionResponseError(
+        data,
+        "Não foi possível calcular a tabela. Atualize as projeções e tente novamente."
+      );
+
+      if (responseError) {
+        throw new Error(responseError);
       }
       const calculatedInstallments = data.installments;
       setInstallments(calculatedInstallments);
@@ -158,7 +171,7 @@ export function AmortizationTable({
       console.error('Error calculating amortization:', error);
       toast({
         title: "Erro ao calcular tabela",
-        description: "Não foi possível calcular a tabela de amortização.",
+        description: error instanceof Error ? error.message : "Não foi possível calcular a tabela de amortização.",
         variant: "destructive"
       });
     } finally {

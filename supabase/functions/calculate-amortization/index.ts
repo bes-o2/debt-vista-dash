@@ -129,51 +129,24 @@ serve(async (req) => {
     }, supabaseClient);
 
     if (shouldPersist) {
-      // Try to save installments and rate refs to database
-      try {
-        // First delete rate refs, then installments. The refs depend on the debt,
-        // but keeping this order avoids transient unique conflicts on recalculation.
-        await supabaseClient
-          .from('debt_installment_rate_refs')
-          .delete()
-          .eq('debt_id', debtId);
+      const installmentsToInsert = installments.map(inst => ({
+        installment_number: inst.installment_number,
+        due_date: inst.due_date,
+        principal_amount: inst.amortization,
+        interest_amount: inst.interest_amount,
+        total_amount: inst.installment_amount,
+        remaining_balance: inst.principal_balance
+      }));
 
-        await supabaseClient
-          .from('debt_installments')
-          .delete()
-          .eq('debt_id', debtId);
+      const { error: replaceError } = await supabaseClient
+        .rpc('replace_debt_installment_schedule', {
+          p_debt_id: debtId,
+          p_installments: installmentsToInsert,
+          p_rate_refs: rateRefs
+        });
 
-        // Insert new installments
-        const installmentsToInsert = installments.map(inst => ({
-          debt_id: debtId,
-          installment_number: inst.installment_number,
-          due_date: inst.due_date,
-          principal_amount: inst.amortization,
-          interest_amount: inst.interest_amount,
-          total_amount: inst.installment_amount,
-          remaining_balance: inst.principal_balance
-        }));
-
-        const { error: insertError } = await supabaseClient
-          .from('debt_installments')
-          .insert(installmentsToInsert);
-
-        if (insertError) {
-          console.error('Error saving installments:', insertError);
-        }
-
-        // Insert rate refs
-        if (rateRefs.length > 0) {
-          const { error: rateRefError } = await supabaseClient
-            .from('debt_installment_rate_refs')
-            .insert(rateRefs);
-
-          if (rateRefError) {
-            console.error('Error saving rate refs:', rateRefError);
-          }
-        }
-      } catch (dbError) {
-        console.error('Database operation failed:', dbError);
+      if (replaceError) {
+        throw new Error(`Erro ao substituir parcelas da divida: ${replaceError.message}`);
       }
     }
 
@@ -244,7 +217,7 @@ serve(async (req) => {
       success: false,
       error: message
     }), {
-      status: isMissingProjection ? 200 : 500,
+      status: isMissingProjection ? 422 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

@@ -590,6 +590,14 @@ export type Database = {
         Returns: number
       }
       is_company_owner: { Args: { _company_id: string }; Returns: boolean }
+      replace_debt_installment_schedule: {
+        Args: {
+          p_debt_id: string
+          p_installments: Json
+          p_rate_refs?: Json
+        }
+        Returns: undefined
+      }
       user_belongs_to_company: {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
