@@ -6,6 +6,7 @@ import { Filter, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { ProjectionRefreshControl } from "@/components/ProjectionRefreshControl";
 
 interface Debt {
   id: string;
@@ -81,6 +82,10 @@ export const GlobalFilters = ({
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm">
       <div className="px-5 py-4">
+        <div className="mb-4 flex justify-end">
+          <ProjectionRefreshControl />
+        </div>
+
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
 
           {/* Banco */}
