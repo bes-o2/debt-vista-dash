@@ -3,11 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calculator, Download, TrendingUp } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Loader2, Calculator, Download, TrendingUp, RefreshCw, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { calculateIRRFromCashFlows } from '@/lib/irrCalculator';
 import { useCompany } from '@/hooks/useCompany';
 import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
+import { useInstallmentRateRefs, formatRateRefSource } from '@/hooks/useInstallmentRateRefs';
 import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from '@/lib/edgeFunctionErrors';
 interface Debt {
   id: string;
@@ -62,6 +64,8 @@ export function AmortizationTable({
   } = useToast();
   const { selectedCompany } = useCompany();
   const { toOverrides } = useTemporaryScenario();
+  const rateRefs = useInstallmentRateRefs(debt.id);
+  const isPostFixed = !!debt.indexer;
   
   // Use stored CET values from database
   const cetMonthly = debt.cet_monthly_rate;
@@ -220,7 +224,11 @@ export function AmortizationTable({
               {formatCurrency(summary.currentInstallment)}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {debt.calculationTable === 'PRICE' ? 'Fixa (PRICE)' : 'Média (SAC)'}
+              {debt.calculationTable === 'PRICE' && debt.indexer
+                ? 'Recalculada por período (PRICE pós-fixado)'
+                : debt.calculationTable === 'PRICE'
+                ? 'Fixa (PRICE)'
+                : 'Média (SAC)'}
             </div>
           </CardContent>
         </Card>
@@ -285,6 +293,19 @@ export function AmortizationTable({
             <CardTitle className="flex items-center gap-2">
               <Calculator className="h-5 w-5" />
               Tabela de Amortização - {debt.calculationTable}
+              {debt.calculationTable === 'PRICE' && debt.indexer && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400 cursor-default">
+                      <RefreshCw className="h-3 w-3" />
+                      PMT variável
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-64">
+                    A parcela é recalculada a cada período com base no saldo devedor e na projeção do indexador vigente ({debt.indexer}).
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {debt.contractNumber && <span className="text-sm text-muted-foreground ml-2">
                   (Contrato #{debt.contractNumber})
                 </span>}
@@ -315,6 +336,7 @@ export function AmortizationTable({
                     <TableHead className="text-right font-bold">Amortização</TableHead>
                     <TableHead className="text-right font-bold">Juros</TableHead>
                     <TableHead className="text-right font-bold">Valor Parcela</TableHead>
+                    {isPostFixed && <TableHead className="w-8" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -337,6 +359,28 @@ export function AmortizationTable({
                       <TableCell className="text-right font-mono font-semibold">
                         {formatCurrency(installment.installment_amount)}
                       </TableCell>
+                      {isPostFixed && (
+                        <TableCell className="w-8 text-center">
+                          {rateRefs.get(installment.installment_number) ? (() => {
+                            const ref = rateRefs.get(installment.installment_number)!;
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-default mx-auto" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-56 space-y-1">
+                                  <p><span className="font-medium">Indexador:</span> {ref.index_type}</p>
+                                  <p><span className="font-medium">Taxa:</span> {(ref.rate * 100).toFixed(4)}% ({ref.rate_type})</p>
+                                  <p><span className="font-medium">Fonte:</span> {formatRateRefSource(ref.source)}</p>
+                                  {ref.source_reference_date && (
+                                    <p><span className="font-medium">Data-base:</span> {new Date(ref.source_reference_date + 'T00:00:00Z').toLocaleDateString('pt-BR')}</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })() : null}
+                        </TableCell>
+                      )}
                     </TableRow>)}
                 </TableBody>
               </Table>

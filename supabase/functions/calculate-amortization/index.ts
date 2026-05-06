@@ -21,7 +21,6 @@ interface DebtData {
   indexerRate?: number;
   spreadRate?: number;
   indexerStartDate?: string;
-  reprogrammingRules?: Record<string, unknown>;
   iofAmount?: number;
   tacAmount?: number;
   temporaryOverrides?: TemporaryOverride[];
@@ -83,7 +82,6 @@ serve(async (req) => {
       indexer,
       spreadRate = 0,
       indexerStartDate,
-      reprogrammingRules = {},
       iofAmount = 0,
       tacAmount = 0,
       temporaryOverrides = [],
@@ -104,7 +102,6 @@ serve(async (req) => {
       indexerStartDate,
       temporaryOverrides: temporaryOverrides.length,
       shouldPersist,
-      hasReprogrammingRules: Object.keys(reprogrammingRules).length > 0
     });
 
     // Calculate installments
@@ -119,7 +116,6 @@ serve(async (req) => {
       indexer,
       spreadRate,
       indexerStartDate,
-      reprogrammingRules,
       iofAmount,
       tacAmount,
       companyId,
@@ -251,7 +247,6 @@ interface CalculationParams {
   indexer?: string;
   spreadRate: number;
   indexerStartDate?: string;
-  reprogrammingRules?: Record<string, unknown>;
   iofAmount: number;
   tacAmount: number;
   companyId: string;
