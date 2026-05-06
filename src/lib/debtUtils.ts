@@ -41,9 +41,18 @@ export interface NormalizedDebtForCalculation {
 
 export const parseLocalDate = (value: string): Date | null => {
   if (!value) return null;
-  const iso = value.includes("T") ? value : `${value}T00:00:00`;
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? null : d;
+  const parsed = new Date(value.includes("T") ? value : `${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  if (value.includes("T")) {
+    return parsed;
+  }
+
+  return new Date(
+    parsed.getUTCFullYear(),
+    parsed.getUTCMonth(),
+    parsed.getUTCDate(),
+  );
 };
 
 type DateRangeDebt = {
@@ -86,8 +95,8 @@ const formatLocalDate = (date: Date) => {
 };
 
 const addMonthsLocal = (dateString: string, months: number) => {
-  const date = new Date(dateString.includes('T') ? dateString : `${dateString}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return '';
+  const date = parseLocalDate(dateString);
+  if (!date || Number.isNaN(date.getTime())) return '';
   date.setMonth(date.getMonth() + months);
   return formatLocalDate(date);
 };

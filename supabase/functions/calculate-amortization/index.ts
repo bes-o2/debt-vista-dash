@@ -236,6 +236,10 @@ function shiftMonthISO(dateString: string, months: number): string {
   return target.toISOString().split('T')[0];
 }
 
+function parseISODateUTC(dateString: string): Date {
+  return new Date(`${dateString}T00:00:00Z`);
+}
+
 interface CalculationParams {
   debtId: string;
   financedAmount: number;
@@ -296,11 +300,11 @@ async function calculateAmortizationJS(
     staticRate
   });
 
-  const firstDueDateObj = new Date(firstDueDate);
-  const lastDueDateObj = new Date(lastDueDate);
+  const firstDueDateObj = parseISODateUTC(firstDueDate);
+  const lastDueDateObj = parseISODateUTC(lastDueDate);
 
-  const totalMonths = (lastDueDateObj.getFullYear() - firstDueDateObj.getFullYear()) * 12 +
-                     (lastDueDateObj.getMonth() - firstDueDateObj.getMonth()) + 1;
+  const totalMonths = (lastDueDateObj.getUTCFullYear() - firstDueDateObj.getUTCFullYear()) * 12 +
+                     (lastDueDateObj.getUTCMonth() - firstDueDateObj.getUTCMonth()) + 1;
 
   console.log('Period calculation:', {
     firstDueDate,
@@ -340,7 +344,7 @@ async function calculateAmortizationJS(
 
   for (let i = 1; i <= totalMonths; i++) {
     const installmentDate = new Date(firstDueDateObj);
-    installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+    installmentDate.setUTCMonth(installmentDate.getUTCMonth() + (i - 1));
     const dueDateStr = installmentDate.toISOString().split('T')[0];
 
     // Determine period for rate resolution
@@ -483,9 +487,9 @@ function calculateCET(params: {
   const netAmount = initialAmount - iofAmount - tacAmount;
 
   const cashFlows = [
-    { date: new Date(startDate), amount: -netAmount },
+    { date: parseISODateUTC(startDate), amount: -netAmount },
     ...installments.map(inst => ({
-      date: new Date(inst.due_date),
+      date: parseISODateUTC(inst.due_date),
       amount: inst.installment_amount
     }))
   ];
@@ -499,7 +503,7 @@ function calculateCET(params: {
     installmentsCount: installments.length
   });
 
-  const start = new Date(startDate);
+  const start = parseISODateUTC(startDate);
   let annualRate = 0.10;
   const tolerance = 0.000001;
   const maxIterations = 1000;

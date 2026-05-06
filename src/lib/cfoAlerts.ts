@@ -95,9 +95,9 @@ const formatRatio = (value: number): string => `${value.toFixed(2)}x`;
 
 const formatMonthLabel = (month?: string): string => {
   if (!month) return "n/d";
-  const date = new Date(`${month}-01T00:00:00`);
+  const date = new Date(`${month}-01T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return month;
-  return date.toLocaleDateString("pt-BR", { month: "long", year: "2-digit" });
+  return date.toLocaleDateString("pt-BR", { month: "long", year: "2-digit", timeZone: "UTC" });
 };
 
 const safeNumber = (value: number | undefined | null): number => (Number.isFinite(value ?? NaN) ? Number(value) : 0);

@@ -232,8 +232,9 @@ export const OutstandingBalanceChart = ({
     // encerra entre lastMonth e today, o delta captura a "saída" daquela parcela.
     const pmtAt = (when: Date) =>
       filteredDebts.reduce((s, d) => {
-        const release = new Date(d.releaseDate);
-        const due = new Date(d.dueDate);
+        const release = parseLocalDate(d.releaseDate);
+        const due = parseLocalDate(d.dueDate);
+        if (!release || !due) return s;
         if (when < release || when > due) return s;
         return s + getAnalyticalCurrentPMT(d, when);
       }, 0);
