@@ -169,6 +169,7 @@ export const DashboardStats = ({
   const totalCurrentPMT = metrics?.currentPMT ?? 0;
   const averageMonthlyCET = metrics?.averageMonthlyCET ?? 0;
   const averageCetStatus = metrics?.averageCetStatus ?? "calculado";
+  const isCetEstimated = metrics?.isCetEstimated ?? false;
   const averageRemainingTerm = metrics?.averageRemainingTerm ?? 0;
   const cdiSpread = metrics?.cdiSpread ?? 0;
   const cdiForDisplay = metrics?.cdiSpread != null ? (metrics.averageAnnualCET - cdiSpread) : null;
@@ -309,6 +310,13 @@ export const DashboardStats = ({
               <p>{CET_NOT_CONVERGED_TOOLTIP}</p>
             </TooltipContent>
           </Tooltip>
+        ) : isCetEstimated ? (
+          <div className={valueClass}>
+            ~{averageMonthlyCET.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.
+            <span className="ml-2 align-middle text-xs font-medium text-muted-foreground">
+              estimado
+            </span>
+          </div>
         ) : averageCetStatus === "pendente" ? (
           <div className={`${valueClass} text-muted-foreground`}>calculando...</div>
         ) : undefined,

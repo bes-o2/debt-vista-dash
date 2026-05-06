@@ -4,11 +4,7 @@ import {
   getAnalyticalOutstanding,
 } from "@/lib/balanceCalculator";
 import { getEffectiveMonthlyRate } from "@/lib/rateUtils";
-import {
-  calculateBatchCET,
-  calculateWeightedAverageCET,
-} from "@/lib/cetCalculator";
-import { getAggregateCetStatus, type CetStatus } from "@/lib/cetStatus";
+import { resolveCetStatus, type CetStatus } from "@/lib/cetStatus";
 
 // ─── Tipos públicos ──────────────────────────────────────────────────────────
 
@@ -30,6 +26,7 @@ export interface DashboardMetrics {
   averageMonthlyCET: number;
   averageAnnualCET: number;
   averageCetStatus: CetStatus;
+  isCetEstimated: boolean;
   cdiSpread: number | null;
   // Estrutura
   averageRemainingTerm: number;
@@ -136,11 +133,14 @@ function toYearMonth(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function getMonthlyCET(debt: NormalizedDebtForCalculation): number {
-  if (debt.cet_monthly_rate != null) return debt.cet_monthly_rate;
-  if (debt.cet_annual_rate != null)
-    return (Math.pow(1 + debt.cet_annual_rate / 100, 1 / 12) - 1) * 100;
-  return getMonthlyRate(debt) * 100;
+function getPersistedOrEstimatedMonthlyCET(
+  debt: NormalizedDebtForCalculation,
+): { monthlyRate: number; estimated: boolean } {
+  if (resolveCetStatus(debt) === "calculado" && debt.cet_monthly_rate != null) {
+    return { monthlyRate: debt.cet_monthly_rate, estimated: false };
+  }
+
+  return { monthlyRate: getMonthlyRate(debt) * 100, estimated: true };
 }
 
 function buildShareArray(
@@ -266,52 +266,39 @@ export function computeDashboardMetrics(
     };
   });
 
-  // ── CET via batch (installments reais); fallback para taxa cadastro ────────
-  const cetMap = calculateBatchCET(
-    debts.map((d) => ({
-      id: d.id,
-      financedAmount: d.financedAmount,
-      iofAmount: d.iofAmount,
-      tacAmount: d.tacAmount,
-    })),
-    Object.fromEntries(
-      debts.map((d) => [
-        d.id,
-        (installmentsByDebtId[d.id] ?? []).map((inst) => ({
-          installment_amount: inst.total_amount ?? inst.installment_amount ?? 0,
-          due_date: inst.due_date,
-        })),
-      ]),
-    ),
-    Object.fromEntries(debts.map((d) => [d.id, d.releaseDate])),
-  );
-
   const debtsWithCetWeight = debts.filter((debt) => (balanceByDebtId[debt.id] ?? 0) > 0);
-  const averageCetStatus = getAggregateCetStatus(debtsWithCetWeight);
+  const averageCetStatus = debtsWithCetWeight.some(
+    (debt) => resolveCetStatus(debt) === "nao_convergiu",
+  )
+    ? "nao_convergiu"
+    : debtsWithCetWeight.some((debt) => resolveCetStatus(debt) === "pendente")
+      ? "pendente"
+      : "calculado";
 
-  // Weighted average using saldo as weight; fallback cadastro se batch não calculou
+  // Weighted average using saldo as weight; persisted CET is the source of truth.
   let totalWeightedMonthly = 0;
   let totalCetWeight = 0;
+  let isCetEstimated = false;
   for (const debt of debts) {
     const weight = balanceByDebtId[debt.id] ?? 0;
     if (weight <= 0) continue;
-    if (averageCetStatus !== "calculado") continue;
-    const cetResult = cetMap[debt.id];
-    const monthlyRate = cetResult ? cetResult.monthlyRate : getMonthlyCET(debt);
+    if (averageCetStatus === "nao_convergiu") continue;
+    const { monthlyRate, estimated } = getPersistedOrEstimatedMonthlyCET(debt);
+    isCetEstimated = isCetEstimated || estimated;
     totalWeightedMonthly += monthlyRate * weight;
     totalCetWeight += weight;
   }
 
   const averageMonthlyCET =
-    averageCetStatus === "calculado" && totalCetWeight > 0
+    averageCetStatus !== "nao_convergiu" && totalCetWeight > 0
       ? totalWeightedMonthly / totalCetWeight
       : 0;
   const averageAnnualCET =
-    averageCetStatus === "calculado"
+    averageCetStatus !== "nao_convergiu"
       ? (Math.pow(1 + averageMonthlyCET / 100, 12) - 1) * 100
       : 0;
   const cdiSpread =
-    averageCetStatus === "calculado" && cdiAnnualRate != null
+    averageCetStatus !== "nao_convergiu" && cdiAnnualRate != null
       ? averageAnnualCET - cdiAnnualRate
       : null;
 
@@ -381,6 +368,7 @@ export function computeDashboardMetrics(
     averageMonthlyCET,
     averageAnnualCET,
     averageCetStatus,
+    isCetEstimated,
     cdiSpread,
     averageRemainingTerm,
     sacVsPriceCount,
