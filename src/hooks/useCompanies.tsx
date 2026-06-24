@@ -251,7 +251,11 @@ export const useCompanies = () => {
 
   useEffect(() => {
     fetchCompanies();
-  }, [user]);
+    // Depende do id (estável) e não do objeto `user`: o Supabase re-emite um novo
+    // objeto User ao focar a aba, o que recarregava as empresas e causava flicker
+    // no seletor (estado "Carregando..." piscando).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return {
     companies,
