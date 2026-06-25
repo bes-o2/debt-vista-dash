@@ -18,3 +18,12 @@ Colorado de ases celeiro
 Teus astros cintilam num céu sempre azul
 Vibra o Brasil inteiro
 Com o clube do povo do Rio Grande do Sul
+
+
+██████╗ ██████╗ ██╗
+  ██╔════╝██╔════╝██║
+  ███████╗██║     ██║
+  ╚════██║██║     ██║
+  ███████║╚██████╗██║
+  ╚══════╝ ╚═════╝╚═╝
+  S . C . I N T E R N A C I O N A L
