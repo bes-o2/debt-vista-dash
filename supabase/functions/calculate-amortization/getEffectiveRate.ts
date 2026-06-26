@@ -21,11 +21,16 @@ export interface TemporaryOverride {
 function mapIndexerName(indexer?: string): string | null {
   if (!indexer) return null;
   const normalized = indexer.toUpperCase().trim();
-  if (normalized.includes('CDI') || normalized.includes('DI')) return 'CDI';
   if (normalized.includes('IPCA')) return 'IPCA';
+  if (normalized.includes('IGP')) return 'IGPM';
   if (normalized.includes('SELIC')) return 'SELIC';
+  if (normalized.includes('CDI') || normalized.includes('DI')) return 'CDI';
   return null;
 }
+
+// Indexers published as a monthly variation (resolved via getMonthlyRate),
+// as opposed to CDI/SELIC which are accumulated from daily series.
+const MONTHLY_INDEXERS = ['IPCA', 'IGPM'];
 
 /**
  * Resolve the effective rate for a given period.
@@ -56,10 +61,14 @@ export async function resolveIndexerRate(params: {
 
   const mappedIndexer = mapIndexerName(indexer);
   if (!mappedIndexer) {
+    // Unknown indexer: no index component, only the (annual) spread.
+    // Convert it to a monthly effective rate so the caller never treats an
+    // annual rate as monthly.
+    const spreadMonthly = (Math.pow(1 + spreadRate / 100, 1 / 12) - 1) * 100;
     return {
-      effectiveMonthlyRate: spreadRate,
+      effectiveMonthlyRate: spreadMonthly,
       indexerRate: 0,
-      spreadRate,
+      spreadRate: spreadMonthly,
       source: "projecao_base",
       rateType: "projected",
       sourceReferenceDate: null,
@@ -72,7 +81,7 @@ export async function resolveIndexerRate(params: {
 
   let indexerRate = 0;
   let source: RateResolution["source"] = "bcb_realizado";
-  let rateType: RateResolution["rateType"] = mappedIndexer === 'IPCA' ? 'monthly' : 'daily_accumulated';
+  let rateType: RateResolution["rateType"] = MONTHLY_INDEXERS.includes(mappedIndexer) ? 'monthly' : 'daily_accumulated';
   let sourceReferenceDate: string | null = null;
 
   if (isFuturePeriod || isMixedPeriod) {
@@ -88,7 +97,7 @@ export async function resolveIndexerRate(params: {
     sourceReferenceDate = projection.referenceDate;
   } else {
     // Historical period: use BCB realized data
-    if (mappedIndexer === 'IPCA') {
+    if (MONTHLY_INDEXERS.includes(mappedIndexer)) {
       const monthlyRate = await getMonthlyRate(supabaseClient, mappedIndexer, periodStart, periodEnd);
       indexerRate = monthlyRate.rate;
       sourceReferenceDate = monthlyRate.referenceDate;
@@ -118,11 +127,16 @@ export async function resolveIndexerRate(params: {
   // Convert spread from annual to monthly
   const spreadMonthly = (Math.pow(1 + spreadRate / 100, 1 / 12) - 1) * 100;
 
-  // Effective monthly rate = indexer effective monthly + spread monthly
-  // For CDI/SELIC, the accumulated rate is already an effective monthly rate
-  // For IPCA, the rate is monthly
-  // For projections, we assume the projected_rate is already a monthly equivalent
-  const effectiveMonthlyRate = indexerRate + spreadMonthly;
+  // Effective monthly rate = compound the indexer rate with the spread.
+  // Brazilian "indexador + spread" contracts compound the two factors
+  // (B3/CETIP convention), so the effective rate is multiplicative, not the
+  // sum of the two monthly rates — the sum drops the cross term and
+  // systematically understates interest/CET.
+  // - CDI/SELIC: accumulated rate is already an effective monthly rate
+  // - IPCA/IGPM: the rate is the monthly variation
+  // - projections: projected_rate is assumed to be a monthly equivalent
+  const effectiveMonthlyRate =
+    ((1 + indexerRate / 100) * (1 + spreadMonthly / 100) - 1) * 100;
 
   return {
     effectiveMonthlyRate,

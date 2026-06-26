@@ -38,7 +38,7 @@ export function useCompanyIndexProjections() {
       const { data, error } = await supabase
         .from('economic_indices')
         .select('index_type, rate, reference_date, rate_type')
-        .in('index_type', ['CDI', 'SELIC', 'IPCA'])
+        .in('index_type', ['CDI', 'SELIC', 'IPCA', 'IGPM'])
         .order('reference_date', { ascending: false });
 
       if (error) throw error;

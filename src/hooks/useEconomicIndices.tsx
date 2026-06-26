@@ -5,7 +5,7 @@ import { toast } from '@/hooks/use-toast';
 
 export interface EconomicIndex {
   id: string;
-  index_type: 'CDI' | 'SELIC' | 'IPCA';
+  index_type: 'CDI' | 'SELIC' | 'IPCA' | 'IGPM';
   date: string;
   value: number;
   created_at: string;
@@ -14,7 +14,7 @@ export interface EconomicIndex {
 
 export interface IndexProjection {
   id: string;
-  index_type: 'CDI' | 'SELIC' | 'IPCA';
+  index_type: 'CDI' | 'SELIC' | 'IPCA' | 'IGPM';
   projected_rate: number;
   projection_date: string;
   horizon_months: number;
@@ -27,6 +27,7 @@ export interface LatestRates {
   CDI?: { value: number; date: string };
   SELIC?: { value: number; date: string };
   IPCA?: { value: number; date: string };
+  IGPM?: { value: number; date: string };
 }
 
 export function useEconomicIndices() {
@@ -40,7 +41,7 @@ export function useEconomicIndices() {
       const { data, error } = await supabase
         .from('economic_indices')
         .select('*')
-        .in('index_type', ['CDI', 'SELIC', 'IPCA'])
+        .in('index_type', ['CDI', 'SELIC', 'IPCA', 'IGPM'])
         .order('reference_date', { ascending: false });
 
       if (error) throw error;

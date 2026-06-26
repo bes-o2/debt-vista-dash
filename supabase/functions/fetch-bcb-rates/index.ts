@@ -23,7 +23,10 @@ interface EconomicIndex {
 const RATE_MAPPINGS = {
   'SELIC': { code: '11', name: 'SELIC' },
   'CDI': { code: '12', name: 'CDI' },
-  'IPCA': { code: '433', name: 'IPCA' }
+  'IPCA': { code: '433', name: 'IPCA' },
+  // IGP-M: SGS series 189 (monthly variation %). Confirm the code with a live
+  // BCB call when deploying — see Phase 1 verification notes.
+  'IGPM': { code: '189', name: 'IGPM' }
 };
 
 serve(async (req) => {
@@ -75,7 +78,7 @@ serve(async (req) => {
         console.error('Error checking recent data:', checkError);
       } else {
         // Check if we have at least one record for each index type
-        const hasAllIndices = ['SELIC', 'CDI', 'IPCA'].every(
+        const hasAllIndices = ['SELIC', 'CDI', 'IPCA', 'IGPM'].every(
           idx => recentData?.some(r => r.index_type === idx)
         );
 
@@ -231,7 +234,7 @@ async function getLatestRatesByIndex(
   const { data: currentRates, error } = await supabase
     .from('economic_indices')
     .select('index_type, rate, reference_date')
-    .in('index_type', ['SELIC', 'CDI', 'IPCA'])
+    .in('index_type', ['SELIC', 'CDI', 'IPCA', 'IGPM'])
     .order('reference_date', { ascending: false });
 
   if (error) {

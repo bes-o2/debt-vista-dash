@@ -4,6 +4,14 @@ import { type NormalizedDebtForCalculation } from '@/lib/debtUtils';
 import { getEdgeFunctionErrorMessage, getEdgeFunctionResponseError } from '@/lib/edgeFunctionErrors';
 import { useCompany } from '@/hooks/useCompany';
 import { useTemporaryScenario } from '@/hooks/useTemporaryScenario';
+import { toast } from '@/hooks/use-toast';
+
+const PRE_FIXED_INDEXERS = ['Pré-fixado', 'PRE_FIXADO', 'prefixado'];
+
+const formatBRDate = (isoDate: string): string => {
+  const [year, month, day] = isoDate.split('-');
+  return day && month && year ? `${day}/${month}/${year}` : isoDate;
+};
 
 interface Installment {
   installment_number: number;
@@ -85,6 +93,54 @@ export const useDebtInstallments = (debts: Debt[]) => {
     });
     return map;
   }, [debts]);
+
+  // A post-fixed debt is stale when a period that has ALREADY ENDED is still
+  // priced with a projected rate (source 'projecao_base'). That happens when
+  // new realized BCB data arrived or simply because time passed — either way
+  // the installment must be repriced with the now-realized index.
+  // Returns the debt ids to reprice and the most recent realized data date
+  // (for an auditable "reprecificado com dados de DD/MM" message).
+  const detectStaleDebtIds = async (
+    storedDebtIds: string[],
+  ): Promise<{ ids: string[]; latestDataDate: string | null }> => {
+    if (storedDebtIds.length === 0 || !selectedCompany?.id) {
+      return { ids: [], latestDataDate: null };
+    }
+
+    const postFixedIds = storedDebtIds.filter((id) => {
+      const indexer = debtMap[id]?.indexer;
+      return indexer && !PRE_FIXED_INDEXERS.includes(indexer);
+    });
+    if (postFixedIds.length === 0) return { ids: [], latestDataDate: null };
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data: staleRefs, error: staleError } = await supabase
+      .from('debt_installment_rate_refs')
+      .select('debt_id, index_type')
+      .eq('source', 'projecao_base')
+      .lte('period_end', today)
+      .in('debt_id', postFixedIds);
+
+    if (staleError || !staleRefs || staleRefs.length === 0) {
+      return { ids: [], latestDataDate: null };
+    }
+
+    const ids = Array.from(new Set(staleRefs.map((r) => r.debt_id)));
+    const indexTypes = Array.from(new Set(staleRefs.map((r) => r.index_type)));
+
+    let latestDataDate: string | null = null;
+    const { data: latestIndex } = await supabase
+      .from('economic_indices')
+      .select('reference_date')
+      .in('index_type', indexTypes)
+      .order('reference_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latestIndex?.reference_date) latestDataDate = latestIndex.reference_date;
+
+    return { ids, latestDataDate };
+  };
 
   const calculateMissingInstallments = async (
     missingDebtIds: string[],
@@ -193,8 +249,14 @@ export const useDebtInstallments = (debts: Debt[]) => {
       }, {});
 
       const missingDebtIds = debtIds.filter((debtId) => !groupedInstallments[debtId]?.length);
-      const recalculatedInstallments = missingDebtIds.length > 0
-        ? await calculateMissingInstallments(missingDebtIds)
+
+      // Auto-reprice post-fixed debts whose past periods are still projected.
+      const storedDebtIds = debtIds.filter((debtId) => groupedInstallments[debtId]?.length);
+      const { ids: staleDebtIds, latestDataDate } = await detectStaleDebtIds(storedDebtIds);
+
+      const recalcDebtIds = Array.from(new Set([...missingDebtIds, ...staleDebtIds]));
+      const recalculatedInstallments = recalcDebtIds.length > 0
+        ? await calculateMissingInstallments(recalcDebtIds)
         : {};
       const hasAnyInstallments =
         Object.keys(groupedInstallments).length > 0 || Object.keys(recalculatedInstallments).length > 0;
@@ -207,6 +269,16 @@ export const useDebtInstallments = (debts: Debt[]) => {
         ...groupedInstallments,
         ...recalculatedInstallments,
       });
+
+      // Notify the CFO that figures were refreshed (only when stale debts were
+      // actually repriced, not for the first-time calculation of new debts).
+      const repricedCount = staleDebtIds.filter((id) => recalculatedInstallments[id]?.length).length;
+      if (repricedCount > 0) {
+        toast({
+          title: 'Dívidas reprecificadas',
+          description: `${repricedCount} dívida(s) pós-fixada(s) atualizada(s) com os dados do BCB${latestDataDate ? ` de ${formatBRDate(latestDataDate)}` : ''}.`,
+        });
+      }
     } catch (err) {
       console.error('Error fetching installments:', err);
       setError(err instanceof Error ? err.message : 'Erro ao buscar parcelas');

@@ -110,9 +110,12 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
   const bankOptions = formData.bank && !banks.some((bank) => bank.name.toLowerCase() === formData.bank.toLowerCase())
     ? [{ id: "imported-bank", name: formData.bank, created_at: "", updated_at: "" }, ...banks]
     : banks;
-  const indexerOptions = formData.indexer && !["CDI", "SELIC", "IPCA"].includes(formData.indexer)
-    ? [formData.indexer, "CDI", "SELIC", "IPCA"]
-    : ["CDI", "SELIC", "IPCA"];
+  // Offered indexers: CDI, IPCA, IGP-M. A debt saved with a legacy indexer
+  // (e.g. SELIC) keeps showing its value as the first option so editing it
+  // doesn't silently change the indexer.
+  const indexerOptions = formData.indexer && !["CDI", "IPCA", "IGPM"].includes(formData.indexer)
+    ? [formData.indexer, "CDI", "IPCA", "IGPM"]
+    : ["CDI", "IPCA", "IGPM"];
 
   const hasErrors =
     !formData.bank?.trim() ||
