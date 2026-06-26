@@ -125,10 +125,24 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     (formData.rateType === "post" && formData.spreadRate < 0) ||
     formData.dueDate < formData.releaseDate;
 
+  // Converts a stored index value to an effective ANNUAL rate for display.
+  // CDI/SELIC are stored daily (base 252), IPCA/IGP-M monthly.
+  const annualizeRate = (value?: number, rateType?: string): number => {
+    if (!value) return 0;
+    if (rateType === "daily") return (Math.pow(1 + value / 100, 252) - 1) * 100;
+    if (rateType === "monthly") return (Math.pow(1 + value / 100, 12) - 1) * 100;
+    return value;
+  };
+
+  const currentIndexEntry = formData.indexer
+    ? latestRates?.[formData.indexer as keyof typeof latestRates]
+    : undefined;
+  const currentIndexAnnualRate = annualizeRate(currentIndexEntry?.value, currentIndexEntry?.rate_type);
+
   const calculateTotalRate = () => {
     if (formData.rateType !== "post" || !formData.indexer) return null;
 
-    const indexRate = latestRates?.[formData.indexer as keyof typeof latestRates]?.value || 0;
+    const indexRate = currentIndexAnnualRate;
     const annualSpread =
       formData.spreadType === "monthly"
         ? (Math.pow(1 + formData.spreadRate / 100, 12) - 1) * 100
@@ -695,7 +709,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                     ) : (
                       <div className="text-sm space-y-1">
                         <div className="font-medium">
-                          Taxa Atual {formData.indexer} (a.a.): {latestRates?.[formData.indexer as keyof typeof latestRates]?.value?.toFixed(2) ?? "0.00"}%
+                          Taxa Atual {formData.indexer} (a.a.): {currentIndexEntry ? currentIndexAnnualRate.toFixed(2) : "0.00"}%
                         </div>
                         <div className="flex items-center gap-2">
                           <span>Spread ({formData.spreadType === "annual" ? "a.a." : "a.m."}): {formData.spreadRate.toFixed(4)}%</span>

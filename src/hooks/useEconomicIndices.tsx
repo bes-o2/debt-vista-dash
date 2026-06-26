@@ -23,11 +23,19 @@ export interface IndexProjection {
   updated_at: string;
 }
 
+export interface LatestRateEntry {
+  value: number;
+  date: string;
+  // 'daily' (CDI/SELIC), 'monthly' (IPCA/IGPM) or 'annual' — needed to convert
+  // the stored value to an effective annual rate for display.
+  rate_type?: string;
+}
+
 export interface LatestRates {
-  CDI?: { value: number; date: string };
-  SELIC?: { value: number; date: string };
-  IPCA?: { value: number; date: string };
-  IGPM?: { value: number; date: string };
+  CDI?: LatestRateEntry;
+  SELIC?: LatestRateEntry;
+  IPCA?: LatestRateEntry;
+  IGPM?: LatestRateEntry;
 }
 
 export function useEconomicIndices() {
@@ -49,7 +57,7 @@ export function useEconomicIndices() {
       // Group by index_type and get the latest value for each
       const grouped = data.reduce((acc, item) => {
         if (!acc[item.index_type] || item.reference_date > acc[item.index_type].date) {
-          acc[item.index_type] = { value: item.rate, date: item.reference_date };
+          acc[item.index_type] = { value: item.rate, date: item.reference_date, rate_type: item.rate_type };
         }
         return acc;
       }, {} as LatestRates);
