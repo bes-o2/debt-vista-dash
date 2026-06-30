@@ -570,6 +570,29 @@ export type Database = {
     }
     Functions: {
       archive_company: { Args: { company_id: string }; Returns: undefined }
+      is_super_admin: { Args: never; Returns: boolean }
+      list_manageable_companies: {
+        Args: never
+        Returns: { id: string; name: string; cnpj: string | null; created_by: string }[]
+      }
+      list_company_members: {
+        Args: { _company_id: string }
+        Returns: {
+          user_id: string
+          email: string | null
+          display_name: string | null
+          role: string
+          is_owner: boolean
+        }[]
+      }
+      grant_company_access: {
+        Args: { _company_id: string; _email: string }
+        Returns: Json
+      }
+      revoke_company_access: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: undefined
+      }
       calculate_annual_from_monthly: {
         Args: { monthly_rate: number }
         Returns: number

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Database, TrendingUp, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { Database, TrendingUp, CheckCircle, AlertCircle, Clock, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { useEconomicIndices } from "@/hooks/useEconomicIndices";
 import { format, parseISO, differenceInHours } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { IndexProjectionsManager } from "@/components/IndexProjectionsManager";
+import { AccessManagement } from "@/components/AccessManagement";
 
 export function SettingsModal() {
   const { 
@@ -61,7 +62,7 @@ export function SettingsModal() {
 
   return (
     <Tabs defaultValue="rates" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
+      <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="rates" className="flex items-center gap-2">
           <Database className="h-4 w-4" />
           Taxas e Indexadores
@@ -69,6 +70,10 @@ export function SettingsModal() {
         <TabsTrigger value="projections" className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4" />
           Projeções
+        </TabsTrigger>
+        <TabsTrigger value="access" className="flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          Acessos
         </TabsTrigger>
       </TabsList>
 
@@ -164,6 +169,10 @@ export function SettingsModal() {
 
       <TabsContent value="projections" className="space-y-4">
         <IndexProjectionsManager />
+      </TabsContent>
+
+      <TabsContent value="access" className="space-y-4">
+        <AccessManagement />
       </TabsContent>
 
     </Tabs>

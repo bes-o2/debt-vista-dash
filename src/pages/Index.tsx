@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } f
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye, RotateCcw, Activity } from "lucide-react";
+import { Plus, PieChart, BarChart3, Calculator, LogOut, Filter, X, CalendarIcon, Upload, Eye, RotateCcw, Activity, ArrowLeftRight } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CashFlowAnalysis } from "@/components/CashFlowAnalysis";
 import { SensitivityDashboard } from "@/components/SensitivityDashboard";
+import { RefinanceSimulator } from "@/components/RefinanceSimulator";
 import { ConsolidatedAmortizationTable } from "@/components/ConsolidatedAmortizationTable";
 import { GlobalFilters } from "@/components/GlobalFilters";
 import { useToast } from "@/hooks/use-toast";
@@ -293,6 +294,26 @@ const Index = () => {
     }
 
     setIsFormOpen(false);
+  };
+  const handleSkipImport = () => {
+    setDraftDebtId(null);
+
+    if (currentImportIndex < importDrafts.length - 1) {
+      setCurrentImportIndex((index) => index + 1);
+      toast({
+        title: "Contrato pulado",
+        description: "O próximo contrato importado foi carregado para revisão.",
+      });
+      return;
+    }
+
+    setImportDrafts([]);
+    setCurrentImportIndex(0);
+    setIsFormOpen(false);
+    toast({
+      title: "Importação concluída",
+      description: "Não há mais contratos para revisar.",
+    });
   };
   const handleEditDebt = (legacyDebt: LegacyDebt) => {
     // Convert from legacy to database format
@@ -671,7 +692,7 @@ const Index = () => {
       <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-            <TabsList className="flex w-max min-w-full justify-start gap-1 sm:grid sm:w-full sm:grid-cols-5">
+            <TabsList className="flex w-max min-w-full justify-start gap-1 sm:grid sm:w-full sm:grid-cols-6">
               <TabsTrigger value="dashboard" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
                 <PieChart className="h-4 w-4" />
                 <span className="sr-only sm:not-sr-only">Dashboard</span>
@@ -691,6 +712,10 @@ const Index = () => {
               <TabsTrigger value="sensitivity" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
                 <Activity className="h-4 w-4" />
                 <span className="sr-only sm:not-sr-only">Sensibilidade</span>
+              </TabsTrigger>
+              <TabsTrigger value="simulator" className="h-8 min-w-12 flex-shrink-0 gap-1.5 px-2 sm:h-auto sm:min-w-0 sm:gap-2 sm:px-3">
+                <ArrowLeftRight className="h-4 w-4" />
+                <span className="sr-only sm:not-sr-only">Simulador</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -991,6 +1016,10 @@ const Index = () => {
           <TabsContent value="sensitivity" className="space-y-6">
             <SensitivityDashboard debts={debts} />
           </TabsContent>
+
+          <TabsContent value="simulator" className="space-y-6">
+            <RefinanceSimulator debts={debts} />
+          </TabsContent>
         </Tabs>
       </main>
 
@@ -1012,6 +1041,7 @@ const Index = () => {
               }
             : undefined
         }
+        onSkip={!editingDebt && currentImportDraft ? handleSkipImport : undefined}
       />
       <CardFeedbackMenu
         activeTab={activeTab}

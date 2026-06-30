@@ -565,16 +565,14 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
                   <Bar
                     yAxisId="payments"
                     dataKey="totalAmortization"
-                    fill="hsl(var(--chart-2))"
+                    fill="hsl(221 83% 53%)"
                     name="Amortização"
-                    opacity={0.8}
                   />
                   <Bar
                     yAxisId="payments"
                     dataKey="totalInterest"
-                    fill="hsl(var(--chart-3))"
+                    fill="hsl(25 95% 53%)"
                     name="Juros"
-                    opacity={0.8}
                   />
                 </ComposedChart>
               </ResponsiveContainer>

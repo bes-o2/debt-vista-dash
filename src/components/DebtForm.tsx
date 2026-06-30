@@ -39,6 +39,7 @@ interface DebtFormProps {
     notes?: string;
     sourceName?: string;
   };
+  onSkip?: () => void;
 }
 
 const formatDateForSave = (date: Date): string => {
@@ -74,7 +75,7 @@ const createEmptyGuarantee = (): DebtGuaranteeInput => ({
   description: "",
 });
 
-export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGuarantees, importReview }: DebtFormProps) => {
+export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGuarantees, importReview, onSkip }: DebtFormProps) => {
   const { banks, addBank } = useBanks();
   const { selectedCompany } = useCompany();
   const { latestRates, isLoading: isLoadingRates } = useEconomicIndices();
@@ -1018,12 +1019,30 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
           </div>
 
           <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className={
+                importReview
+                  ? "flex-1 border-red-500 bg-red-500 text-white hover:bg-red-600 hover:text-white"
+                  : "flex-1"
+              }
+            >
               Cancelar
             </Button>
+            {importReview && onSkip && (
+              <Button
+                type="button"
+                onClick={onSkip}
+                className="flex-1 bg-amber-400 text-amber-950 hover:bg-amber-500"
+              >
+                Pular
+              </Button>
+            )}
             <Button
               type="submit"
-              className="flex-1 bg-gradient-primary hover:opacity-90"
+              className="flex-1 bg-emerald-500 text-white hover:bg-emerald-600"
               disabled={isSubmitting || hasErrors}
               aria-disabled={isSubmitting || hasErrors}
             >
