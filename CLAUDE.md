@@ -185,3 +185,7 @@ Componentes antigos consomem `LegacyDebt`; componentes novos podem consumir o fo
 
 Para o plano executivo, checklist e criterios de aceite da evolucao CFO V2, consulte `docs/CFO_DASHBOARD_V2_TASKS.md`.
 
+## Carência (Fases 3A e 3B)
+
+Documentação sobre a implementação de carência capitalizada (Fase 3A) e planejamento de carência com juros pagos (Fase 3B): `docs/CARENCIA_FASE_3B.md`.
+

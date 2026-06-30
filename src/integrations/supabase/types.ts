@@ -355,6 +355,7 @@ export type Database = {
           description: string | null
           financed_amount: number
           first_due_date: string
+          grace_period_type: string
           id: string
           indexer: string | null
           indexer_start_date: string | null
@@ -381,6 +382,7 @@ export type Database = {
           description?: string | null
           financed_amount: number
           first_due_date: string
+          grace_period_type?: string
           id?: string
           indexer?: string | null
           indexer_start_date?: string | null
@@ -407,6 +409,7 @@ export type Database = {
           description?: string | null
           financed_amount?: number
           first_due_date?: string
+          grace_period_type?: string
           id?: string
           indexer?: string | null
           indexer_start_date?: string | null

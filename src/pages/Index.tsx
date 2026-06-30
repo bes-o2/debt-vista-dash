@@ -212,6 +212,7 @@ const Index = () => {
         indexer: debtData.interest_base,
         spreadRate: debtData.spread_rate,
         indexerStartDate: debtData.indexer_start_date,
+        gracePeriodType: debtData.grace_period_type,
         iofAmount,
         tacAmount: debtData.additional_fees || 0,
         persist: true,

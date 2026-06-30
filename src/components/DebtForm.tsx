@@ -98,6 +98,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     bank: banks.length > 0 ? banks[0].name : "Banco do Brasil",
     contractNumber: "",
     indexerStartDate: undefined as Date | undefined,
+    gracePeriodType: "none" as "none" | "capitalized",
   });
 
   const financedBRL = useBRLInput("");
@@ -117,13 +118,23 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
     ? [formData.indexer, "CDI", "IPCA", "IGPM"]
     : ["CDI", "IPCA", "IGPM"];
 
+  // O 1º vencimento é derivado como liberação + 1 mês (ver handleSubmit). A
+  // carência capitalizada vai do desembolso até esse 1º vencimento.
+  const firstDueDateForValidation = new Date(
+    formData.releaseDate.getFullYear(),
+    formData.releaseDate.getMonth() + 1,
+    formData.releaseDate.getDate(),
+  );
+
   const hasErrors =
     !formData.bank?.trim() ||
     formData.financedAmount <= 0 ||
     (formData.rateType === "pre" && formData.interestRate <= 0) ||
     (formData.rateType === "post" && !formData.indexer.trim()) ||
     (formData.rateType === "post" && formData.spreadRate < 0) ||
-    formData.dueDate < formData.releaseDate;
+    formData.dueDate < formData.releaseDate ||
+    (formData.rateType === "post" && formData.gracePeriodType === "capitalized" &&
+     (!formData.indexerStartDate || formData.indexerStartDate >= firstDueDateForValidation));
 
   // Converts a stored index value to an effective ANNUAL rate for display.
   // CDI/SELIC are stored daily (base 252), IPCA/IGP-M monthly.
@@ -172,6 +183,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
       bank: banks.length > 0 ? banks[0].name : "Banco do Brasil",
       contractNumber: "",
       indexerStartDate: undefined,
+      gracePeriodType: "none",
     });
     financedBRL.setValue("");
     iofBRL.setValue("");
@@ -206,6 +218,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
       bank: debtInput.bank || banks[0]?.name || "Banco do Brasil",
       contractNumber: debtInput.description || debtInput.title || "",
       indexerStartDate: debtInput.indexer_start_date ? parseLocalDate(debtInput.indexer_start_date) : undefined,
+      gracePeriodType: (debtInput.grace_period_type as "none" | "capitalized") || "none",
     });
     financedBRL.setValue(
       debtInput.financed_amount > 0
@@ -252,6 +265,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
         bank: resolveDebtBankName(debt),
         contractNumber: debt.description || "",
         indexerStartDate: debt.indexer_start_date ? new Date(debt.indexer_start_date) : undefined,
+        gracePeriodType: (debt.grace_period_type as "none" | "capitalized") || "none",
       });
       financedBRL.setValue(
         debt.financed_amount > 0
@@ -397,6 +411,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
             formData.rateType === "post" && formData.indexerStartDate
               ? formatDateForSave(formData.indexerStartDate)
               : undefined,
+          gracePeriodType: formData.rateType === "post" ? formData.gracePeriodType : "none",
           iofAmount: formData.iofAmount || 0,
           tacAmount: formData.tacAmount || 0,
           persist: false,
@@ -450,6 +465,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
               formData.rateType === "post" && formData.indexerStartDate
                 ? formatDateForSave(formData.indexerStartDate)
                 : undefined,
+            grace_period_type: formData.rateType === "post" ? formData.gracePeriodType : "none",
             cet_monthly_rate: cetMonthlyRate,
             cet_annual_rate: cetAnnualRate,
           },
@@ -775,6 +791,51 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
                   {debt ? " (valor salvo em a.a.)" : ""}
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Carência
+                </Label>
+                <RadioGroup
+                  value={formData.gracePeriodType}
+                  onValueChange={(value: "none" | "capitalized") =>
+                    setFormData((prev) => ({ ...prev, gracePeriodType: value }))
+                  }
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="none" id="grace-none" />
+                    <Label htmlFor="grace-none">Nenhuma</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="capitalized" id="grace-capitalized" />
+                    <Label htmlFor="grace-capitalized">Capitalizada</Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground">
+                  Capitalizada: juros acumulam no principal entre data de desembolso e primeiro vencimento
+                </p>
+              </div>
+
+              {formData.gracePeriodType === "capitalized" && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Data de Desembolso (Início da Carência) <span className="text-red-500">*</span>
+                  </Label>
+                  <DateInput
+                    value={formData.indexerStartDate || new Date()}
+                    onChange={(date) => {
+                      if (date) {
+                        setFormData((prev) => ({ ...prev, indexerStartDate: date }));
+                      }
+                    }}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Data de desembolso (deve ser anterior ao primeiro vencimento)
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

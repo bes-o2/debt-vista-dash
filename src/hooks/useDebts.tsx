@@ -23,6 +23,7 @@ export interface Debt {
   interest_type: 'monthly' | 'annual';
   spread_rate?: number;
   indexer_start_date?: string;
+  grace_period_type?: string;
   iof_rate?: number;
   additional_fees?: number;
   cet_monthly_rate?: number;
@@ -45,6 +46,7 @@ export interface DebtInput {
   interest_type: 'monthly' | 'annual';
   spread_rate?: number;
   indexer_start_date?: string;
+  grace_period_type?: string;
   iof_rate?: number;
   additional_fees?: number;
   cet_monthly_rate?: number;
@@ -72,6 +74,7 @@ export interface LegacyDebt {
   cet_annual_rate?: number;
   cet_status?: CetStatus;
   spread_rate?: number;
+  gracePeriodType?: string;
 }
 
 export function useDebts() {
@@ -207,6 +210,7 @@ export function useDebts() {
       interest_type: legacyDebt.interestType,
       iof_rate: legacyDebt.iofAmount || 0,
       additional_fees: legacyDebt.tacAmount || 0,
+      grace_period_type: legacyDebt.gracePeriodType || 'none',
     };
   };
 
@@ -235,6 +239,7 @@ export function useDebts() {
       cet_annual_rate: debt.cet_annual_rate,
       cet_status: debt.cet_status,
       spread_rate: debt.spread_rate,
+      gracePeriodType: debt.grace_period_type || 'none',
     };
   };
 

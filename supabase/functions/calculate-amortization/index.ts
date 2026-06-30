@@ -21,6 +21,7 @@ interface DebtData {
   indexerRate?: number;
   spreadRate?: number;
   indexerStartDate?: string;
+  gracePeriodType?: string;
   iofAmount?: number;
   tacAmount?: number;
   temporaryOverrides?: TemporaryOverride[];
@@ -82,6 +83,7 @@ serve(async (req) => {
       indexer,
       spreadRate = 0,
       indexerStartDate,
+      gracePeriodType = 'none',
       iofAmount = 0,
       tacAmount = 0,
       temporaryOverrides = [],
@@ -116,6 +118,7 @@ serve(async (req) => {
       indexer,
       spreadRate,
       indexerStartDate,
+      gracePeriodType,
       iofAmount,
       tacAmount,
       companyId,
@@ -164,12 +167,13 @@ serve(async (req) => {
     }
 
     // Calculate CET
+    const cetStartDate = (gracePeriodType === 'capitalized' && indexerStartDate) ? indexerStartDate : releaseDate;
     const cet = calculateCET({
       initialAmount: financedAmount,
       iofAmount,
       tacAmount,
       installments,
-      startDate: releaseDate
+      startDate: cetStartDate
     });
     const cetForResponse = cet.converged
       ? cet
@@ -247,6 +251,7 @@ interface CalculationParams {
   indexer?: string;
   spreadRate: number;
   indexerStartDate?: string;
+  gracePeriodType?: string;
   iofAmount: number;
   tacAmount: number;
   companyId: string;
@@ -270,6 +275,8 @@ async function calculateAmortizationJS(
     interestType,
     indexer,
     spreadRate = 0,
+    indexerStartDate,
+    gracePeriodType = 'none',
     companyId,
     temporaryOverrides = [],
     applyOverridesOnlyToFuture = false,
@@ -317,7 +324,35 @@ async function calculateAmortizationJS(
 
   console.log('Static monthly rate:', staticMonthlyRate * 100 + '%');
 
-  let remainingBalance = financedAmount;
+  // Carência capitalizada: acumula indexador + spread no principal antes de amortizar.
+  let openingBalance = financedAmount;
+  const isCapitalizedGrace =
+    gracePeriodType === 'capitalized' && !!indexerStartDate && isPostFixed;
+
+  if (isCapitalizedGrace && indexerStartDate! < firstDueDate) {
+    let cursor = indexerStartDate!;
+    let guard = 0;
+    while (cursor < firstDueDate && guard < 600) {
+      guard++;
+      let next = shiftMonthISO(cursor, 1);
+      if (next > firstDueDate) next = firstDueDate;
+      const graceRate = await resolveIndexerRate({
+        supabaseClient, companyId, indexer: indexer!,
+        periodStart: cursor, periodEnd: next,
+        spreadRate: spreadRate || 0,
+        temporaryOverrides, applyOverridesOnlyToFuture, allowProjectionUpsert,
+      });
+      openingBalance = openingBalance * (1 + graceRate.effectiveMonthlyRate / 100);
+      cursor = next;
+    }
+    console.log('Capitalized grace period applied:', {
+      originalBalance: financedAmount,
+      balanceAfterGrace: openingBalance.toFixed(2),
+      gracePeriodMonths: Math.ceil((new Date(firstDueDate).getTime() - new Date(indexerStartDate).getTime()) / (30 * 24 * 60 * 60 * 1000))
+    });
+  }
+
+  let remainingBalance = openingBalance;
   const installments: Installment[] = [];
   const rateRefs: RateRefRecord[] = [];
 
@@ -325,13 +360,13 @@ async function calculateAmortizationJS(
   let fixedInstallment = 0;
 
   if (calculationTable === 'SAC') {
-    fixedAmortization = financedAmount / totalMonths;
+    fixedAmortization = openingBalance / totalMonths;
   } else if (calculationTable === 'PRICE' && !isPostFixed) {
     if (staticMonthlyRate > 0) {
-      fixedInstallment = financedAmount * (staticMonthlyRate * Math.pow(1 + staticMonthlyRate, totalMonths)) /
+      fixedInstallment = openingBalance * (staticMonthlyRate * Math.pow(1 + staticMonthlyRate, totalMonths)) /
                         (Math.pow(1 + staticMonthlyRate, totalMonths) - 1);
     } else {
-      fixedInstallment = financedAmount / totalMonths;
+      fixedInstallment = openingBalance / totalMonths;
     }
   }
 
