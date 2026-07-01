@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { AmortizationTable } from "@/components/AmortizationTable";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -862,16 +863,35 @@ const Index = () => {
               </div>
             </div>
 
-            {isLoadingDebts ? <div className="text-center py-12">
-                <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
-                  <Calculator className="h-12 w-12 text-muted-foreground animate-pulse" />
-                </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  Carregando dívidas...
-                </h3>
-                <p className="text-muted-foreground">
-                  Aguarde enquanto buscamos suas dívidas cadastradas
-                </p>
+            {isLoadingDebts ? <div className="space-y-6">
+                {Array.from({ length: 2 }).map((_, groupIndex) => <div key={groupIndex} className="space-y-3">
+                    <div className="pb-2 border-b border-border/50">
+                      <Skeleton className="h-5 w-40" />
+                    </div>
+                    <div className="grid gap-3">
+                      {Array.from({ length: groupIndex === 0 ? 2 : 1 }).map((_, cardIndex) => <Card key={cardIndex} className="bg-gradient-card border-border/50">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <Skeleton className="h-6 w-16 rounded-md" />
+                                <Skeleton className="h-4 w-28" />
+                              </div>
+                              <div className="flex gap-1">
+                                <Skeleton className="h-8 w-8 rounded-md" />
+                                <Skeleton className="h-8 w-8 rounded-md" />
+                                <Skeleton className="h-8 w-8 rounded-md" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-5 gap-4">
+                              {Array.from({ length: 5 }).map((_, colIndex) => <div key={colIndex} className="flex flex-col gap-1.5">
+                                  <Skeleton className="h-3 w-12" />
+                                  <Skeleton className="h-4 w-16" />
+                                </div>)}
+                            </div>
+                          </CardContent>
+                        </Card>)}
+                    </div>
+                  </div>)}
               </div> : debts.length === 0 ? <div className="text-center py-12">
                 <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
                   <Calculator className="h-12 w-12 text-muted-foreground" />

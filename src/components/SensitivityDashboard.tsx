@@ -387,11 +387,11 @@ export const SensitivityDashboard = ({ debts }: SensitivityDashboardProps) => {
 
       {isResultStale && !isLoading && !aggregatedError && (
         <div
-          className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+          className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm"
           aria-live="polite"
         >
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <p className="text-amber-900 dark:text-amber-100">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p className="text-warning">
             Parâmetros alterados - clique em Calcular novamente para atualizar a matriz.
           </p>
         </div>
@@ -464,8 +464,8 @@ const ResultPanel = ({
           <span>{shockCount} cenários</span>
         </div>
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          <LegendSwatch className="bg-emerald-500/[0.18] dark:bg-emerald-400/[0.26]" label="Redução de PMT" />
-          <LegendSwatch className="bg-red-500/[0.18] dark:bg-red-400/[0.26]" label="Aumento de PMT" />
+          <LegendSwatch className="bg-success/[0.18] dark:bg-success/[0.26]" label="Redução de PMT" />
+          <LegendSwatch className="bg-destructive/[0.18] dark:bg-destructive/[0.26]" label="Aumento de PMT" />
         </div>
       </div>
 

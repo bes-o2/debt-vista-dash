@@ -961,24 +961,24 @@ const VerdictPanel = ({
     { tone: string; icon: React.ReactNode; headline: string }
   > = {
     economia: {
-      tone: "border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100",
-      icon: <TrendingDown className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
+      tone: "border-success/40 bg-success/10 text-success",
+      icon: <TrendingDown className="h-5 w-5 text-success" />,
       headline:
         cetDeltaAnnual != null
           ? `Economia real: o refinanciamento reduz o CET em ${formatPp(Math.abs(cetDeltaAnnual))} a.a.`
           : "Economia real: o refinanciamento reduz o CET.",
     },
     alivio_fluxo: {
-      tone: "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100",
-      icon: <Info className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+      tone: "border-warning/40 bg-warning/10 text-warning",
+      icon: <Info className="h-5 w-5 text-warning" />,
       headline:
         cetDeltaAnnual != null
           ? `Não há economia de juros (o CET sobe ${formatPp(cetDeltaAnnual)} a.a.), mas a parcela fica menor — alívio de caixa.`
           : "A parcela fica menor, mas sem economia de juros — alívio de caixa.",
     },
     mais_caro: {
-      tone: "border-red-500/40 bg-red-500/10 text-red-900 dark:text-red-100",
-      icon: <TrendingUp className="h-5 w-5 text-red-600 dark:text-red-400" />,
+      tone: "border-destructive/40 bg-destructive/10 text-destructive",
+      icon: <TrendingUp className="h-5 w-5 text-destructive" />,
       headline:
         cetDeltaAnnual != null
           ? `Refinanciar encarece: o CET sobe ${formatPp(cetDeltaAnnual)} a.a. e a parcela não diminui.`

@@ -504,8 +504,8 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {importReview && (
-            <Alert className="border-amber-500/30 bg-amber-500/10">
-              <Info className="h-4 w-4" />
+            <Alert className="border-warning/30 bg-warning/10">
+              <Info className="h-4 w-4 text-warning" />
               <AlertTitle>
                 Contrato {importReview.current} de {importReview.total}
                 {importReview.sourceName ? ` · ${importReview.sourceName}` : ""}
@@ -522,7 +522,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              Banco <span className="text-red-500">*</span>
+              Banco <span className="text-destructive">*</span>
             </Label>
             <div className="space-y-2">
               <Select
@@ -594,7 +594,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
           <div className="space-y-2">
             <Label htmlFor="financedAmount" className="text-sm font-medium">
-              Valor Financiado <span className="text-red-500">*</span>
+              Valor Financiado <span className="text-destructive">*</span>
             </Label>
             <Input
               id="financedAmount"
@@ -613,7 +613,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                Data Liberação <span className="text-red-500">*</span>
+                Data Liberação <span className="text-destructive">*</span>
               </Label>
               <DateInput
                 value={formData.releaseDate}
@@ -628,7 +628,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                Vencimento <span className="text-red-500">*</span>
+                Vencimento <span className="text-destructive">*</span>
               </Label>
               <DateInput
                 value={formData.dueDate}
@@ -645,7 +645,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              Tabela de Cálculo <span className="text-red-500">*</span>
+              Tabela de Cálculo <span className="text-destructive">*</span>
             </Label>
             <Select
               value={formData.calculationTable}
@@ -669,7 +669,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              Tipo de Taxa <span className="text-red-500">*</span>
+              Tipo de Taxa <span className="text-destructive">*</span>
             </Label>
             <RadioGroup
               value={formData.rateType}
@@ -697,7 +697,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  Indexador <span className="text-red-500">*</span>
+                  Indexador <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={formData.indexer}
@@ -743,7 +743,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  Tipo de Spread <span className="text-red-500">*</span>
+                  Tipo de Spread <span className="text-destructive">*</span>
                 </Label>
                 <RadioGroup
                   value={formData.spreadType}
@@ -765,7 +765,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
               <div className="space-y-2">
                 <Label htmlFor="spreadRate" className="text-sm font-medium">
-                  Spread ({formData.spreadType === "annual" ? "% a.a." : "% a.m."}) <span className="text-red-500">*</span>
+                  Spread ({formData.spreadType === "annual" ? "% a.a." : "% a.m."}) <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="spreadRate"
@@ -821,7 +821,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
               {formData.gracePeriodType === "capitalized" && (
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">
-                    Data de Desembolso (Início da Carência) <span className="text-red-500">*</span>
+                    Data de Desembolso (Início da Carência) <span className="text-destructive">*</span>
                   </Label>
                   <DateInput
                     value={formData.indexerStartDate || new Date()}
@@ -844,7 +844,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  Tipo de Taxa <span className="text-red-500">*</span>
+                  Tipo de Taxa <span className="text-destructive">*</span>
                 </Label>
                 <RadioGroup
                   value={formData.interestType}
@@ -866,7 +866,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
 
               <div className="space-y-2">
                 <Label htmlFor="interestRate" className="text-sm font-medium">
-                  {formData.interestType === "monthly" ? "Taxa a.m (%)" : "Taxa a.a (%)"} <span className="text-red-500">*</span>
+                  {formData.interestType === "monthly" ? "Taxa a.m (%)" : "Taxa a.a (%)"} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="interestRate"
@@ -1025,7 +1025,7 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
               onClick={onClose}
               className={
                 importReview
-                  ? "flex-1 border-red-500 bg-red-500 text-white hover:bg-red-600 hover:text-white"
+                  ? "flex-1 border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:text-destructive-foreground"
                   : "flex-1"
               }
             >
@@ -1035,14 +1035,14 @@ export const DebtForm = ({ isOpen, onClose, onSave, debt, initialDebt, initialGu
               <Button
                 type="button"
                 onClick={onSkip}
-                className="flex-1 bg-amber-400 text-amber-950 hover:bg-amber-500"
+                className="flex-1 bg-warning text-warning-foreground hover:bg-warning/90"
               >
                 Pular
               </Button>
             )}
             <Button
               type="submit"
-              className="flex-1 bg-emerald-500 text-white hover:bg-emerald-600"
+              className="flex-1 bg-success text-success-foreground hover:bg-success/90"
               disabled={isSubmitting || hasErrors}
               aria-disabled={isSubmitting || hasErrors}
             >

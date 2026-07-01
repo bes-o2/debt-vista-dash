@@ -18,9 +18,9 @@ export function SettingsModal() {
 
   // Status do serviço de importação
   const getServiceStatus = () => {
-    if (isLoading) return { status: 'loading', label: 'Verificando...', color: 'bg-yellow-500' };
-    if (error) return { status: 'error', label: 'Erro no serviço', color: 'bg-red-500' };
-    
+    if (isLoading) return { status: 'loading', label: 'Verificando...', color: 'bg-muted-foreground' };
+    if (error) return { status: 'error', label: 'Erro no serviço', color: 'bg-destructive' };
+
     // Verificar se temos dados recentes (últimas 48 horas)
     const hasRecentData = Object.values(latestRates).some(rate => {
       if (!rate?.date) return false;
@@ -30,9 +30,9 @@ export function SettingsModal() {
     });
 
     if (hasRecentData) {
-      return { status: 'ok', label: 'Serviço ativo', color: 'bg-green-500' };
+      return { status: 'ok', label: 'Serviço ativo', color: 'bg-success' };
     } else {
-      return { status: 'warning', label: 'Dados desatualizados', color: 'bg-orange-500' };
+      return { status: 'warning', label: 'Dados desatualizados', color: 'bg-warning' };
     }
   };
 
@@ -40,11 +40,11 @@ export function SettingsModal() {
 
   const getStatusIcon = () => {
     switch (serviceStatus.status) {
-      case 'ok': return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'error': return <AlertCircle className="h-4 w-4 text-red-500" />;
-      case 'warning': return <AlertCircle className="h-4 w-4 text-orange-500" />;
-      case 'loading': return <Clock className="h-4 w-4 text-yellow-500" />;
-      default: return <AlertCircle className="h-4 w-4 text-gray-500" />;
+      case 'ok': return <CheckCircle className="h-4 w-4 text-success" />;
+      case 'error': return <AlertCircle className="h-4 w-4 text-destructive" />;
+      case 'warning': return <AlertCircle className="h-4 w-4 text-warning" />;
+      case 'loading': return <Clock className="h-4 w-4 text-muted-foreground" />;
+      default: return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
     }
   };
 

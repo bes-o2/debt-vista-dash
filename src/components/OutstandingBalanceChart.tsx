@@ -324,7 +324,7 @@ export const OutstandingBalanceChart = ({
                     contrato traz conforme seus pagamentos avançam.
                   </p>
                   {horizon === "total" && (
-                    <p className="mt-1.5 text-amber-500">
+                    <p className="mt-1.5 text-warning">
                       Disponível apenas nos horizontes 12m e 24m.
                     </p>
                   )}
@@ -573,7 +573,7 @@ const KpiBlock = ({ label, value, delta }: KpiBlockProps) => {
   const DeltaIcon = tone === "positive" ? TrendingUp : tone === "negative" ? TrendingDown : Minus;
   const toneClass =
     tone === "positive"
-      ? "text-emerald-500"
+      ? "text-success"
       : tone === "negative"
         ? "text-destructive"
         : "text-muted-foreground";

@@ -462,20 +462,20 @@ export function CashFlowAnalysis({ debts, preSelectedDebt, onClearPreSelection, 
           <Card className="border border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="h-4 w-4 text-emerald-600" />
+                <DollarSign className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium text-muted-foreground">Parcelas Remanescentes</span>
               </div>
-              <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.installmentAmount)}</p>
+              <p className="text-xl font-bold text-success">{formatCurrency(stats.installmentAmount)}</p>
             </CardContent>
           </Card>
 
           <Card className="border border-border bg-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="h-4 w-4 text-orange-600" />
+                <TrendingUp className="h-4 w-4 text-warning" />
                 <span className="text-sm font-medium text-muted-foreground">Juros Remanescentes</span>
               </div>
-              <p className="text-xl font-bold text-orange-600">{formatCurrency(stats.interestAmount)}</p>
+              <p className="text-xl font-bold text-warning">{formatCurrency(stats.interestAmount)}</p>
             </CardContent>
           </Card>
 

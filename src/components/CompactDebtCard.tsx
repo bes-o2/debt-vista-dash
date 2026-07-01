@@ -119,7 +119,7 @@ export const CompactDebtCard = ({ debt, onEdit, onDelete, onViewTable, onViewAna
   const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
 
   return (
-    <Card className="group hover:shadow-md transition-all duration-200 bg-gradient-card border-border/50 relative">
+    <Card className="group hover:shadow-md transition-shadow duration-200 bg-gradient-card border-border/50 relative">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">

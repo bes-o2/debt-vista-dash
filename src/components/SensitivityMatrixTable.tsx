@@ -24,16 +24,16 @@ function getHeatmapClass(deltaRatio: number): string {
   if (abs < 0.001) return "";
 
   if (deltaRatio > 0) {
-    if (abs >= 0.05) return "bg-red-500/[0.18] dark:bg-red-400/[0.26]";
-    if (abs >= 0.025) return "bg-red-500/[0.12] dark:bg-red-400/[0.20]";
-    if (abs >= 0.01) return "bg-red-500/[0.08] dark:bg-red-400/[0.14]";
-    return "bg-red-500/[0.04] dark:bg-red-400/[0.08]";
+    if (abs >= 0.05) return "bg-destructive/[0.18] dark:bg-destructive/[0.26]";
+    if (abs >= 0.025) return "bg-destructive/[0.12] dark:bg-destructive/[0.20]";
+    if (abs >= 0.01) return "bg-destructive/[0.08] dark:bg-destructive/[0.14]";
+    return "bg-destructive/[0.04] dark:bg-destructive/[0.08]";
   }
 
-  if (abs >= 0.05) return "bg-emerald-500/[0.18] dark:bg-emerald-400/[0.26]";
-  if (abs >= 0.025) return "bg-emerald-500/[0.12] dark:bg-emerald-400/[0.20]";
-  if (abs >= 0.01) return "bg-emerald-500/[0.08] dark:bg-emerald-400/[0.14]";
-  return "bg-emerald-500/[0.04] dark:bg-emerald-400/[0.08]";
+  if (abs >= 0.05) return "bg-success/[0.18] dark:bg-success/[0.26]";
+  if (abs >= 0.025) return "bg-success/[0.12] dark:bg-success/[0.20]";
+  if (abs >= 0.01) return "bg-success/[0.08] dark:bg-success/[0.14]";
+  return "bg-success/[0.04] dark:bg-success/[0.08]";
 }
 
 const STICKY_LEFT_SHADOW =
@@ -142,8 +142,8 @@ export const SensitivityMatrixTable = ({ matrix }: SensitivityMatrixTableProps) 
                             className={cn(
                               "text-[10px] font-medium tabular-nums",
                               delta > 0
-                                ? "text-red-700/80 dark:text-red-400/90"
-                                : "text-emerald-700/80 dark:text-emerald-400/90",
+                                ? "text-destructive/80"
+                                : "text-success/80",
                               )}
                           >
                             {deltaFormatter.format(delta)}

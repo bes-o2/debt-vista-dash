@@ -81,9 +81,9 @@ const alertSeverityMeta: Record<
   },
   warning: {
     label: "Atenção",
-    badgeClass: "border-amber-400/50 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-    itemClass: "border-amber-500/25 bg-amber-500/5",
-    iconClass: "text-amber-500",
+    badgeClass: "border-warning/40 bg-warning/10 text-warning",
+    itemClass: "border-warning/25 bg-warning/5",
+    iconClass: "text-warning",
   },
   info: {
     label: "Informativo",
@@ -255,8 +255,8 @@ export const DashboardStats = ({
       icon: HelpCircle,
       trend: null,
       bgColor: "bg-card",
-      iconColor: "text-amber-500",
-      borderColor: "border-amber-500/30",
+      iconColor: "text-warning",
+      borderColor: "border-warning/30",
       tooltipKey: TooltipKeys.CURRENT_PAYMENT,
       calculationRuleKey: CalculationRuleKeys.CURRENT_PAYMENT,
     },
@@ -273,14 +273,14 @@ export const DashboardStats = ({
         averageRemainingTerm > 36
           ? "text-destructive"
           : averageRemainingTerm > 12
-          ? "text-amber-500"
-          : "text-emerald-500",
+          ? "text-warning"
+          : "text-success",
       borderColor:
         averageRemainingTerm > 36
           ? "border-destructive/20"
           : averageRemainingTerm > 12
-          ? "border-amber-500/30"
-          : "border-emerald-500/30",
+          ? "border-warning/30"
+          : "border-success/30",
       tooltipKey: TooltipKeys.AVERAGE_REMAINING_TERM,
       calculationRuleKey: CalculationRuleKeys.AVERAGE_REMAINING_TERM,
     },
@@ -293,11 +293,11 @@ export const DashboardStats = ({
       iconColor:
         averageCetStatus === "calculado" && averageMonthlyCET > 1.5
           ? "text-destructive"
-          : "text-emerald-500",
+          : "text-success",
       borderColor:
         averageCetStatus === "calculado" && averageMonthlyCET > 1.5
           ? "border-destructive/20"
-          : "border-emerald-500/30",
+          : "border-success/30",
       tooltipKey: TooltipKeys.AVERAGE_RATE,
       calculationRuleKey: CalculationRuleKeys.AVERAGE_MONTHLY_CET,
       customValue:
@@ -343,14 +343,14 @@ export const DashboardStats = ({
       {metrics != null && (
         <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${netDebt < 0 ? "bg-emerald-500/10" : "bg-primary/10"}`}>
-              <DollarSign className={`h-4 w-4 ${netDebt < 0 ? "text-emerald-500" : "text-primary"}`} />
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${netDebt < 0 ? "bg-success/10" : "bg-primary/10"}`}>
+              <DollarSign className={`h-4 w-4 ${netDebt < 0 ? "text-success" : "text-primary"}`} />
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-eyebrow text-muted-foreground">
                 Dívida Líquida
               </p>
-              <p className={`text-xl font-bold tabular-nums ${netDebt < 0 ? "text-emerald-500" : "text-foreground"}`}>
+              <p className={`text-xl font-bold tabular-nums ${netDebt < 0 ? "text-success" : "text-foreground"}`}>
                 {formatCurrency(netDebt)}
               </p>
             </div>
@@ -406,8 +406,8 @@ export const DashboardStats = ({
         <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
           <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <div className="p-1.5 rounded-md bg-amber-500/10">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <div className="p-1.5 rounded-md bg-warning/10">
+                <AlertTriangle className="h-4 w-4 text-warning" />
               </div>
               Pontos de atenção
             </CardTitle>
@@ -501,8 +501,8 @@ export const DashboardStats = ({
           <Card className="bg-card border border-border hover:shadow-card transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-amber-500/10">
-                  <DollarSign className="h-4 w-4 text-amber-500" />
+                <div className="p-1.5 rounded-md bg-warning/10">
+                  <DollarSign className="h-4 w-4 text-warning" />
                 </div>
                 Resumo Financeiro
               </CardTitle>
@@ -514,7 +514,7 @@ export const DashboardStats = ({
               </div>
               <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
                 <span className="text-sm font-medium text-foreground">PMT mensal total</span>
-                <span className="font-bold text-amber-500 tabular-nums">
+                <span className="font-bold text-warning tabular-nums">
                   {formatCurrency(totalCurrentPMT)}
                 </span>
               </div>
@@ -572,7 +572,7 @@ export const DashboardStats = ({
             </CardContent>
           </Card>
 
-          <Card className={`bg-card border ${peakMonthlyPmt12m && peakMonthlyPmt12m.total > totalCurrentPMT * 1.5 ? "border-amber-500/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
+          <Card className={`bg-card border ${peakMonthlyPmt12m && peakMonthlyPmt12m.total > totalCurrentPMT * 1.5 ? "border-warning/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center gap-1.5">
                 <CardTitle className="text-xs uppercase tracking-eyebrow font-semibold text-muted-foreground">
@@ -603,7 +603,7 @@ export const DashboardStats = ({
       {metrics != null && (topConcentrationBank != null || guaranteeMetrics != null) && (
         <div id="dashboard-garantias" className={`grid ${gridGapClass} ${topConcentrationBank != null && guaranteeMetrics != null ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
           {topConcentrationBank != null && (
-            <Card className={`bg-card border ${topConcentrationBank.share > 0.55 ? "border-destructive/20" : topConcentrationBank.share > 0.35 ? "border-amber-500/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
+            <Card className={`bg-card border ${topConcentrationBank.share > 0.55 ? "border-destructive/20" : topConcentrationBank.share > 0.35 ? "border-warning/30" : "border-border"} hover:shadow-card transition-shadow duration-300`}>
               <CardHeader>
                 <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
                   <div className="p-1.5 rounded-md bg-primary/10">
@@ -627,11 +627,11 @@ export const DashboardStats = ({
             </Card>
           )}
           {guaranteeMetrics != null && (
-            <Card className={`bg-card border ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "border-amber-500/30" : "border-emerald-500/30"} hover:shadow-card transition-shadow duration-300`}>
+            <Card className={`bg-card border ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "border-warning/30" : "border-success/30"} hover:shadow-card transition-shadow duration-300`}>
               <CardHeader>
                 <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <div className={`p-1.5 rounded-md ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "bg-amber-500/10" : "bg-emerald-500/10"}`}>
-                    <ShieldAlert className={`h-4 w-4 ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "text-amber-500" : "text-emerald-500"}`} />
+                  <div className={`p-1.5 rounded-md ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "bg-warning/10" : "bg-success/10"}`}>
+                    <ShieldAlert className={`h-4 w-4 ${guaranteeMetrics.insufficientGuaranteeAlert || (contractsWithoutGuaranteeCount ?? 0) > 0 ? "text-warning" : "text-success"}`} />
                   </div>
                   <span>Garantias</span>
                   <CalculationInfoPopover ruleKey={CalculationRuleKeys.GUARANTEE_COVERAGE} />
@@ -653,7 +653,7 @@ export const DashboardStats = ({
                       </span>
                       <Badge
                         variant={guaranteeMetrics.coverageRatio >= 1 ? "secondary" : "outline"}
-                        className={guaranteeMetrics.coverageRatio < 1 ? "text-amber-600 border-amber-400/50" : ""}
+                        className={guaranteeMetrics.coverageRatio < 1 ? "text-warning border-warning/50" : ""}
                       >
                         {guaranteeMetrics.coverageRatio >= 1 ? "Coberto" : "Gap"}
                       </Badge>
@@ -665,7 +665,7 @@ export const DashboardStats = ({
                   <span className="text-sm font-medium text-foreground">Contratos sem garantia</span>
                   <Badge
                     variant={(contractsWithoutGuaranteeCount ?? 0) > 0 ? "outline" : "secondary"}
-                    className={(contractsWithoutGuaranteeCount ?? 0) > 0 ? "text-amber-600 border-amber-400/50" : ""}
+                    className={(contractsWithoutGuaranteeCount ?? 0) > 0 ? "text-warning border-warning/50" : ""}
                   >
                     {contractsWithoutGuaranteeCount ?? 0} contrato{(contractsWithoutGuaranteeCount ?? 0) !== 1 ? "s" : ""}
                   </Badge>
@@ -681,19 +681,19 @@ export const DashboardStats = ({
                       {guaranteeGapsByBank.map((item) => (
                         <div key={item.bank} className="flex items-center justify-between gap-3 text-sm">
                           <span className="truncate text-muted-foreground">{item.bank}</span>
-                          <span className="font-semibold text-amber-600 tabular-nums">
+                          <span className="font-semibold text-warning tabular-nums">
                             {formatCurrency(item.gap)}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-emerald-600">Sem gap de garantia por banco</p>
+                    <p className="text-xs text-success">Sem gap de garantia por banco</p>
                   )}
                 </div>
 
                 {(contractsWithoutGuaranteeCount ?? 0) === 0 && (
-                  <p className="text-xs text-emerald-600">Todos os contratos têm garantia cadastrada</p>
+                  <p className="text-xs text-success">Todos os contratos têm garantia cadastrada</p>
                 )}
               </CardContent>
             </Card>

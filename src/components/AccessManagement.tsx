@@ -128,7 +128,7 @@ export function AccessManagement() {
             <Button
               type="submit"
               disabled={granting || !email.trim()}
-              className="shrink-0 bg-emerald-500 text-white hover:bg-emerald-600"
+              className="shrink-0 bg-success text-success-foreground hover:bg-success/90"
             >
               {granting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
               <span className="ml-2 hidden sm:inline">Dar acesso</span>
@@ -161,7 +161,7 @@ export function AccessManagement() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => handleRevoke(member.user_id, label)}
                             aria-label="Remover acesso"
                           >
