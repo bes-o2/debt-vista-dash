@@ -736,7 +736,7 @@ const Index = () => {
                   <CurrencyInput
                     key={selectedCompany?.id ?? "cash-position-empty"}
                     id="cash-position"
-                    className="mt-1 h-9 font-mono tabular-nums"
+                    className="mt-1 h-9 tabular-nums"
                     value={cashPositionInputValue}
                     onValueChange={(value) => {
                       const nextCashPosition = parseBRLInputValue(value);

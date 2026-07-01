@@ -593,7 +593,7 @@ export const DebtProfileChart = ({
                 onChange={handleMonthInputChange}
                 onBlur={handleMonthInputBlur}
                 disabled={dateType === "today"}
-                className="h-10 w-[118px] text-center font-mono text-sm tabular-nums"
+                className="h-10 w-[118px] text-center text-sm tabular-nums"
               />
             </div>
           </div>
@@ -746,7 +746,7 @@ export const DebtProfileChart = ({
                                   {series.label}
                                 </span>
                               </div>
-                              <span className="font-mono font-medium tabular-nums text-foreground">
+                              <span className="font-medium tabular-nums text-foreground">
                                 {Number(value).toFixed(0)}% - {formatCurrency(Number(amount ?? 0))}
                               </span>
                             </div>

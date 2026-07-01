@@ -1005,7 +1005,7 @@ const TooltipRow = ({ color, label, value, detail }: TooltipRowProps) => (
       <span className="text-muted-foreground">{label}</span>
     </div>
     <div className="text-right">
-      <span className="font-mono font-medium tabular-nums text-foreground">
+      <span className="font-medium tabular-nums text-foreground">
         {value}
       </span>
       {detail && (

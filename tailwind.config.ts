@@ -16,7 +16,6 @@ export default {
     extend: {
       fontFamily: {
         sans: ["DM Sans", ...defaultTheme.fontFamily.sans],
-        display: ["Oswald", "Arial Narrow", ...defaultTheme.fontFamily.sans],
       },
       letterSpacing: {
         eyebrow: "0.08em",

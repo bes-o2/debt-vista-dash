@@ -347,16 +347,16 @@ export function AmortizationTable({
                       <TableCell>
                         {formatDate(installment.due_date)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(installment.principal_balance)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(installment.amortization)}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-destructive">
+                      <TableCell className="text-right tabular-nums text-destructive">
                         {formatCurrency(installment.interest_amount)}
                       </TableCell>
-                      <TableCell className="text-right font-mono font-semibold">
+                      <TableCell className="text-right tabular-nums font-semibold">
                         {formatCurrency(installment.installment_amount)}
                       </TableCell>
                       {isPostFixed && (

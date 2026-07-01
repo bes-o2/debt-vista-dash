@@ -473,7 +473,7 @@ export const OutstandingBalanceChart = ({
                               />
                               <span className="text-muted-foreground">{name}</span>
                             </div>
-                            <span className="font-mono font-medium tabular-nums text-foreground">
+                            <span className="font-medium tabular-nums text-foreground">
                               {formatBRL(Number(value))}
                             </span>
                           </div>

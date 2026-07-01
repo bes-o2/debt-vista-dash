@@ -424,7 +424,7 @@ export const DashboardStats = ({
                 return (
                   <div
                     key={alert.id}
-                    className={`rounded-lg border p-3 ${meta.itemClass}`}
+                    className={`rounded-md border p-3 ${meta.itemClass}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -483,13 +483,13 @@ export const DashboardStats = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                 <span className="text-sm font-medium text-foreground">SAC</span>
                 <Badge variant={sacCount > 0 ? "default" : "secondary"}>
                   {sacCount} contrato{sacCount !== 1 ? "s" : ""}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                 <span className="text-sm font-medium text-foreground">PRICE</span>
                 <Badge variant={priceCount > 0 ? "default" : "secondary"}>
                   {priceCount} contrato{priceCount !== 1 ? "s" : ""}
@@ -508,11 +508,11 @@ export const DashboardStats = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                 <span className="text-sm font-medium text-foreground">Contratos ativos</span>
                 <Badge variant="outline">{sacCount + priceCount}</Badge>
               </div>
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                 <span className="text-sm font-medium text-foreground">PMT mensal total</span>
                 <span className="font-bold text-warning tabular-nums">
                   {formatCurrency(totalCurrentPMT)}
@@ -614,7 +614,7 @@ export const DashboardStats = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                   <span className="text-sm font-medium text-foreground">{topConcentrationBank.bank}</span>
                   <Badge variant={topConcentrationBank.share > 0.55 ? "destructive" : topConcentrationBank.share > 0.35 ? "outline" : "secondary"}>
                     {(topConcentrationBank.share * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
@@ -639,13 +639,13 @@ export const DashboardStats = ({
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-lg bg-muted/30 p-2.5">
+                  <div className="rounded-md bg-muted/30 p-2.5">
                     <span className="text-xs text-muted-foreground">Valor total</span>
                     <div className="mt-1 font-bold text-foreground tabular-nums">
                       {formatCurrency(guaranteeMetrics.totalGuaranteeValue)}
                     </div>
                   </div>
-                  <div className="rounded-lg bg-muted/30 p-2.5">
+                  <div className="rounded-md bg-muted/30 p-2.5">
                     <span className="text-xs text-muted-foreground">Cobertura sobre saldo</span>
                     <div className="mt-1 flex items-center gap-2">
                       <span className="font-bold text-foreground tabular-nums">
@@ -661,7 +661,7 @@ export const DashboardStats = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30">
+                <div className="flex items-center justify-between p-2.5 rounded-md bg-muted/30">
                   <span className="text-sm font-medium text-foreground">Contratos sem garantia</span>
                   <Badge
                     variant={(contractsWithoutGuaranteeCount ?? 0) > 0 ? "outline" : "secondary"}
@@ -671,7 +671,7 @@ export const DashboardStats = ({
                   </Badge>
                 </div>
 
-                <div className="rounded-lg bg-muted/30 p-2.5">
+                <div className="rounded-md bg-muted/30 p-2.5">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-sm font-medium text-foreground">Gap por banco</span>
                     <Badge variant="outline">{guaranteeGapsByBank.length}</Badge>

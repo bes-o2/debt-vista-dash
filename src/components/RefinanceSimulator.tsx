@@ -511,7 +511,7 @@ export const RefinanceSimulator = ({ debts }: RefinanceSimulatorProps) => {
                     <span className="text-muted-foreground"> · {debt.contractNumber}</span>
                   ) : null}
                 </span>
-                <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                   {formatCurrency(debt.financedAmount)}
                 </span>
               </label>
@@ -588,7 +588,7 @@ export const RefinanceSimulator = ({ debts }: RefinanceSimulatorProps) => {
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   CET {isBundle ? "combinado" : ""}
                 </dt>
-                <dd className="font-mono text-lg font-semibold tabular-nums text-foreground">
+                <dd className="text-lg font-semibold tabular-nums text-foreground">
                   <CetValue annual={keepSummary.cetAnnual} converged={keepSummary.cetConverged} />
                 </dd>
               </div>
@@ -608,7 +608,7 @@ export const RefinanceSimulator = ({ debts }: RefinanceSimulatorProps) => {
                           {debt.bank}
                           {debt.contractNumber ? ` · ${debt.contractNumber}` : ""}
                         </span>
-                        <span className="flex shrink-0 items-baseline gap-3 font-mono tabular-nums">
+                        <span className="flex shrink-0 items-baseline gap-3 tabular-nums">
                           <span className="text-foreground">
                             {formatCurrency(summary.outstandingBalance)}
                           </span>
@@ -640,7 +640,7 @@ export const RefinanceSimulator = ({ debts }: RefinanceSimulatorProps) => {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Valor refinanciado">
                   <CurrencyInput
-                    className="h-9 font-mono tabular-nums"
+                    className="h-9 tabular-nums"
                     value={amountValue}
                     onValueChange={(formatted) => setAmountValue(formatted)}
                     showCurrencySymbol
@@ -759,7 +759,7 @@ export const RefinanceSimulator = ({ debts }: RefinanceSimulatorProps) => {
 
                 <Field label="IOF (novo)">
                   <CurrencyInput
-                    className="h-9 font-mono tabular-nums"
+                    className="h-9 tabular-nums"
                     value={iofValue}
                     onValueChange={(formatted) => setIofValue(formatted)}
                     showCurrencySymbol
@@ -769,7 +769,7 @@ export const RefinanceSimulator = ({ debts }: RefinanceSimulatorProps) => {
 
                 <Field label="TAC (nova)">
                   <CurrencyInput
-                    className="h-9 font-mono tabular-nums"
+                    className="h-9 tabular-nums"
                     value={tacValue}
                     onValueChange={(formatted) => setTacValue(formatted)}
                     showCurrencySymbol
@@ -871,7 +871,7 @@ const Field = ({
 const Row = ({ label, value }: { label: string; value: string }) => (
   <div className="flex items-baseline justify-between gap-3">
     <dt className="text-xs text-muted-foreground">{label}</dt>
-    <dd className="font-mono text-sm tabular-nums text-foreground">{value}</dd>
+    <dd className="text-sm tabular-nums text-foreground">{value}</dd>
   </div>
 );
 
@@ -932,7 +932,7 @@ const ScenarioCard = ({
       <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         CET
       </dt>
-      <dd className="font-mono text-lg font-semibold tabular-nums text-foreground">
+      <dd className="text-lg font-semibold tabular-nums text-foreground">
         <CetValue annual={cetAnnual} converged={cetConverged} />
       </dd>
     </div>
@@ -1061,7 +1061,7 @@ const Metric = ({
 }) => (
   <div className="rounded-md border border-border/40 bg-background/40 px-3 py-2">
     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-    <p className="font-mono text-sm font-semibold tabular-nums">{value}</p>
+    <p className="text-sm font-semibold tabular-nums">{value}</p>
     {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
   </div>
 );

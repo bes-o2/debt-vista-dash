@@ -421,16 +421,16 @@ export function ConsolidatedAmortizationTable({
                       <TableCell>
                         {formatDate(period.due_date)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(period.principal_balance)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(period.amortization)}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(period.interest_amount)}
                       </TableCell>
-                      <TableCell className="text-right font-mono font-bold text-primary">
+                      <TableCell className="text-right tabular-nums font-bold text-primary">
                         {formatCurrency(period.installment_amount)}
                       </TableCell>
                     </TableRow>
