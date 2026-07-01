@@ -13,7 +13,16 @@ import Docs from "./pages/Docs";
 import DecisionLog from "./pages/DecisionLog";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 min — evita refetch imediato/duplicado no reload
+      gcTime: 1000 * 60 * 30,
+      refetchOnWindowFocus: false, // não recarregar números ao trocar de aba/janela
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

@@ -25,7 +25,7 @@ export function useDashboardMetrics(opts: UseDashboardMetricsOptions): {
 } {
   const { selectedCompany } = useCompany();
   const { debts: dbDebts, isLoading: debtsLoading } = useDebts();
-  const { latestRates } = useEconomicIndices();
+  const { latestRates, isLoading: ratesLoading } = useEconomicIndices();
 
   // Normaliza todos os contratos
   const allNormalized = useMemo(
@@ -85,14 +85,28 @@ export function useDashboardMetrics(opts: UseDashboardMetricsOptions): {
     });
   }, [preFilteredDebts, installmentsData, opts.periodMode, opts.startDate, opts.endDate]);
 
-  const { guaranteeMetrics } = useDebtGuarantees({
+  const {
+    guaranteeMetrics,
+    isLoading: guaranteesLoading,
+    isLoadingMetrics: guaranteesMetricsLoading,
+  } = useDebtGuarantees({
     companyId: selectedCompany?.id,
     includeMetrics: true,
   });
 
   const cdiAnnualRate = latestRates?.CDI?.value ?? null;
 
+  // Espera TODAS as fontes assíncronas antes de expor métricas, para o dashboard
+  // renderizar de uma vez só (sem números "pulando" conforme cada fonte chega).
+  const isLoading =
+    debtsLoading ||
+    installsLoading ||
+    ratesLoading ||
+    guaranteesLoading ||
+    guaranteesMetricsLoading;
+
   const metrics = useMemo<DashboardMetrics | null>(() => {
+    if (isLoading) return null;
     if (filteredDebts.length === 0) return null;
 
     return computeDashboardMetrics({
@@ -107,9 +121,7 @@ export function useDashboardMetrics(opts: UseDashboardMetricsOptions): {
         mode: opts.periodMode,
       },
     });
-  }, [filteredDebts, installmentsData, guaranteeMetrics, cdiAnnualRate, opts.startDate, opts.endDate, opts.periodMode]);
-
-  const isLoading = debtsLoading || installsLoading;
+  }, [isLoading, filteredDebts, installmentsData, guaranteeMetrics, cdiAnnualRate, opts.startDate, opts.endDate, opts.periodMode]);
 
   return {
     metrics,

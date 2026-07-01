@@ -60,7 +60,11 @@ const mapCalculatedInstallment = (row: CalculatedInstallment): Installment => ({
 
 export const useDebtInstallments = (debts: Debt[]) => {
   const [installmentsData, setInstallmentsData] = useState<{ [debtId: string]: Installment[] }>({});
-  const [loading, setLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  // Assinatura do conjunto de dívidas já refletido em installmentsData. Enquanto
+  // não bater com debtsSignature, consideramos "loading" — evita a janela em que
+  // loading=false mas os dados ainda são do conjunto anterior (números "pulando").
+  const [reconciledSignature, setReconciledSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { selectedCompany } = useCompany();
   const { scenarioSignature, toOverrides } = useTemporaryScenario();
@@ -208,6 +212,7 @@ export const useDebtInstallments = (debts: Debt[]) => {
   const fetchInstallments = async () => {
     if (debtIds.length === 0) {
       setInstallmentsData({});
+      setReconciledSignature(debtsSignature);
       return;
     }
 
@@ -215,9 +220,9 @@ export const useDebtInstallments = (debts: Debt[]) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession?.access_token) return;
     
-    setLoading(true);
+    setIsFetching(true);
     setError(null);
-    
+
     try {
       const { data, error: fetchError } = await supabase
         .from('debt_installments')
@@ -283,13 +288,18 @@ export const useDebtInstallments = (debts: Debt[]) => {
       console.error('Error fetching installments:', err);
       setError(err instanceof Error ? err.message : 'Erro ao buscar parcelas');
     } finally {
-      setLoading(false);
+      setIsFetching(false);
+      setReconciledSignature(debtsSignature);
     }
   };
 
   useEffect(() => {
     fetchInstallments();
   }, [debtsSignature, selectedCompany?.id, scenarioSignature]);  // Refetch when debt parameters, company, or scenario changes
+
+  // "loading" verdadeiro: buscando OU o conjunto atual de dívidas ainda não foi
+  // reconciliado em installmentsData (sem a janela falsa de loading=false).
+  const loading = isFetching || reconciledSignature !== debtsSignature;
 
   return {
     installmentsData,
